@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <stack>
 #include <cmath>
+#include <math.h>
 
 using VariableName = std::string;
 using FunctionName = std::string;
