@@ -32,7 +32,33 @@ namespace Clot {
         std::string currentToken;
         bool insideQuotes = false;
 
-        for (size_t i = 0; i < line.size(); ++i) {
+        for (char currentChar : line) {
+            if (currentChar == '"') {
+                insideQuotes = !insideQuotes;
+                currentToken += currentChar;
+            }
+            else if (insideQuotes) {
+                currentToken += currentChar;
+            }
+            else if (isSpecialChar(currentChar)) {
+                if (!currentToken.empty()) {
+                    tokens.push_back(createToken(currentToken));
+                    currentToken.clear();
+                }
+                tokens.push_back(createToken(std::string(1, currentChar)));
+            }
+            else if (std::isspace(currentChar)) {
+                if (!currentToken.empty()) {
+                    tokens.push_back(createToken(currentToken));
+                    currentToken.clear();
+                }
+            }
+            else {
+                currentToken += currentChar;
+            }
+        }
+
+        /*for (size_t i = 0; i < line.size(); ++i) {
             char currentChar = line[i];
             if (currentChar == '"') {
                 insideQuotes = !insideQuotes;
@@ -65,7 +91,7 @@ namespace Clot {
             else {
                 currentToken += currentChar;
             }
-        }
+        }*/
 
         if (!currentToken.empty()) {
             tokens.push_back(createToken(currentToken));

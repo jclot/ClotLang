@@ -1,10 +1,15 @@
-import math
-
 a = 5
 b = 6
 
 result = a + b
 print(result)
+
+func miFuncion(x, y):
+	l = x + y
+endfunc
+
+
+miFuncion(a, b)
 
 
 

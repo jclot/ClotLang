@@ -63,11 +63,11 @@ namespace Clot {
                     // Ignorar endfunc en el nivel superior
                     continue;
                 }
-                else if (tokens[0].type == TokenType::Import) {
-                    ModuleImporter::import(tokens);
-                }
                 else if (functions.count(tokens[0].value)) {
                     FunctionExecution::execute(tokens);
+                }
+                else if (tokens[0].type == TokenType::Import) {
+                    ModuleImporter::import(tokens);
                 }
                 else {
                     throw std::runtime_error("Instrucción no reconocida: " + line);
@@ -83,7 +83,7 @@ namespace Clot {
 
 int main() {
     try {
-        Clot::Interpret("Test.clot");
+        Clot::Interpret("test.clot");
     }
     catch (const std::exception& e) {
         std::cerr << "Error fatal: " << e.what() << std::endl;
