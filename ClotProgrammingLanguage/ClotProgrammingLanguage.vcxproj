@@ -141,7 +141,7 @@
     <ClCompile Include="VariableAssignment.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="Test.clot" />
+    <None Include="test.clot" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Clot.h" />
