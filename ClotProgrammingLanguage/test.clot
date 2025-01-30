@@ -1,7 +1,10 @@
-import Math
+import math
 
-a = factorial(5)
+a = 5
+b = 6
 
-print(factorial(5))
+result = a + b
+print(result)
+
 
 

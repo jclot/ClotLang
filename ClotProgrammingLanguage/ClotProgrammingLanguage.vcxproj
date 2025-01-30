@@ -132,9 +132,26 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="ClotProgrammingLanguage.cpp" />
+    <ClCompile Include="ExpressionEvaluator.cpp" />
+    <ClCompile Include="FunctionDeclaration.cpp" />
+    <ClCompile Include="FunctionExecution.cpp" />
+    <ClCompile Include="ModuleImporter.cpp" />
+    <ClCompile Include="PrintStatement.cpp" />
+    <ClCompile Include="Tokenizer.cpp" />
+    <ClCompile Include="VariableAssignment.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="test.clot" />
+    <None Include="Test.clot" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Clot.h" />
+    <ClInclude Include="ExpressionEvaluator.h" />
+    <ClInclude Include="FunctionDeclaration.h" />
+    <ClInclude Include="FunctionExecution.h" />
+    <ClInclude Include="ModuleImporter.h" />
+    <ClInclude Include="PrintStatement.h" />
+    <ClInclude Include="Tokenizer.h" />
+    <ClInclude Include="VariableAssignment.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
