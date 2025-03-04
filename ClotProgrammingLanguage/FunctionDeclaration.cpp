@@ -34,15 +34,26 @@ namespace Clot {
 
         FunctionName functionName = tokens[1].value;
         std::vector<VariableName> parameters;
+		std::vector<bool> isReference;
+        
         size_t i = 3;
+        bool ref = false; 
         for (; i < tokens.size(); ++i) {
             if (tokens[i].type == TokenType::RightParen) {
                 ++i;
                 break;
             }
-            if (tokens[i].type != TokenType::Comma) {
-                parameters.push_back(tokens[i].value);
+            if (tokens[i].type == TokenType::Comma) {
+                continue;
             }
+            if (tokens[i].type == TokenType::Ampersand) {
+                ref = true;
+                continue;
+            }
+
+			parameters.push_back(tokens[i].value);
+			isReference.push_back(ref);
+            ref = false;
         }
 
         if (i >= tokens.size() || tokens[i].type != TokenType::Colon) {
@@ -68,7 +79,7 @@ namespace Clot {
             throw std::runtime_error("Error en la declaración de función: falta 'endfunc'");
         }
 
-        functions[functionName] = { parameters, body };
+        functions[functionName] = { parameters, body, isReference };
         std::cout << "Función '" << functionName << "' declarada con " << parameters.size() << " parámetro(s)." << std::endl;
     }
 

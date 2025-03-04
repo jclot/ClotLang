@@ -36,40 +36,65 @@ namespace Clot {
             throw std::runtime_error("Error: nombre de función vacío.");
         }
 
+		if (tokens.back().type != TokenType::SemiColon) {
+			throw std::runtime_error("Error: falta ';' al final de la linea de la funcion.");
+		}
+
         const FunctionName& functionName = tokens[0].value;
         if (!functions.count(functionName)) {
             throw std::runtime_error("Función no encontrada: " + functionName);
         }
 
         Function& function = functions[functionName];
-        std::vector<double> arguments;
+        
+        std::vector<Tokens> argsTokens;
+        Tokens currentArg;
 
         for (size_t i = 2; i < tokens.size(); ++i) {
-            if (tokens[i].type == TokenType::Comma || tokens[i].type == TokenType::LeftParen || tokens[i].type == TokenType::RightParen) continue;
-
-            try {
-                if (tokens[i].type == TokenType::Identifier && DOUBLE.count(tokens[i].value)) {
-                    arguments.push_back(DOUBLE[tokens[i].value]);
+            if (tokens[i].type == TokenType::RightParen) {
+                if (!currentArg.empty()) {
+                    argsTokens.push_back(currentArg);
                 }
-                else {
-                    arguments.push_back(std::stod(tokens[i].value));
+                break;
+            }
+            if (tokens[i].type == TokenType::Comma) {
+                if (!currentArg.empty()) {
+                    argsTokens.push_back(currentArg);
+                    currentArg.clear();
                 }
+                continue;
             }
-            catch (const std::exception& e) {
-                throw std::runtime_error("Error al convertir argumento '" + tokens[i].value + "': " + e.what());
-            }
+			currentArg.push_back(tokens[i]);
         }
 
-        if (arguments.size() != function.parameters.size()) {
+        if (argsTokens.size() != function.parameters.size()) {
             throw std::runtime_error("Número incorrecto de argumentos para la función " + functionName +
                 ". Esperados: " + std::to_string(function.parameters.size()) +
-                ", Recibidos: " + std::to_string(arguments.size()));
+                ", Recibidos: " + std::to_string(argsTokens.size()));
         }
 
         std::map<VariableName, double> previousContext = DOUBLE;
+        std::vector<std::pair<VariableName, VariableName>> refMapping;
 
         for (size_t i = 0; i < function.parameters.size(); ++i) {
-            DOUBLE[function.parameters[i]] = arguments[i];
+            if (function.isReference[i]) {
+                // El argumento debe ser un identificador único
+                if (argsTokens[i].size() != 1 || argsTokens[i][0].type != TokenType::Identifier) {
+                    throw std::runtime_error("El parámetro de referencia '" + function.parameters[i] + "' requiere un identificador.");
+                }
+                VariableName callerVar = argsTokens[i][0].value;
+                if (!DOUBLE.count(callerVar)) {
+                    throw std::runtime_error("Variable no encontrada en el contexto actual: " + callerVar);
+                }
+                // Inicialmente se copia el valor de la variable del llamador al parámetro local
+                DOUBLE[function.parameters[i]] = DOUBLE[callerVar];
+                refMapping.push_back({ callerVar, function.parameters[i] });
+            }
+            else {
+                // Parámetro por valor: evaluar la expresión
+                double value = ExpressionEvaluator::evaluate(argsTokens[i]);
+                DOUBLE[function.parameters[i]] = value;
+            }
         }
 
         for (const Line& line : function.body) {
@@ -89,6 +114,10 @@ namespace Clot {
                 double result = ExpressionEvaluator::evaluate(lineTokens);
                 std::cout << "Resultado de la expresión: " << result << std::endl;
             }
+        }
+
+        for (auto& mapping : refMapping) {
+			previousContext[mapping.first] = DOUBLE[mapping.second];
         }
 
         DOUBLE = previousContext;
