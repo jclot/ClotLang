@@ -101,7 +101,7 @@ namespace Clot {
     }
 
     bool Tokenizer::isSpecialChar(char c) {
-        return c == '(' || c == ')' || c == ',' || c == '+' || c == '-' || c == '*' || c == '/' || c == '%' || c == '=' || c == '!' || c == '<' || c == '>' || c == ':' || c == '&' || c == '|';
+        return c == '(' || c == ')' || c == ',' || c == '+' || c == '-' || c == '*' || c == '/' || c == '%' || c == '=' || c == '!' || c == '<' || c == '>' || c == ':' || c == '&' || c == '|' || c == ';';
     }
 
     Token Tokenizer::createToken(const std::string& str) {
@@ -120,15 +120,19 @@ namespace Clot {
         if (str == "<=") return { TokenType::LessEqual, str };
         if (str == ">") return { TokenType::Greater, str };
         if (str == ">=") return { TokenType::GreaterEqual, str };
+		if (str == "+=") return { TokenType::PlusEqual, str };
+		if (str == "-=") return { TokenType::MinusEqual, str };
         if (str == ",") return { TokenType::Comma, str };
         if (str == "(") return { TokenType::LeftParen, str };
         if (str == ")") return { TokenType::RightParen, str };
         if (str == ":") return { TokenType::Colon, str };
+		if (str == ";") return { TokenType::SemiColon, str };
         if (str == "func") return { TokenType::Func, str };
         if (str == "endfunc") return { TokenType::EndFunc, str };
         if (str == "print") return { TokenType::Print, str };
         if (str == "import") return { TokenType::Import, str };
         if (str == "//") return { TokenType::Comment, str };
+        if (str == "&") return { TokenType::Ampersand, str };
         if (isNumber(str)) return { TokenType::Number, str };
         if (isString(str)) return { TokenType::String, str };
         return { TokenType::Identifier, str };

@@ -94,6 +94,8 @@ namespace Clot {
         case TokenType::LessEqual: return val1 <= val2;
         case TokenType::Greater: return val1 > val2;
         case TokenType::GreaterEqual: return val1 >= val2;
+		case TokenType::PlusEqual: return val1 += val2;
+		case TokenType::MinusEqual: return val1 -= val2;
         default: throw std::runtime_error("Operador no soportado.");
         }
     }

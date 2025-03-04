@@ -29,21 +29,42 @@
 namespace Clot {
 
     void VariableAssignment::assign(const Tokens& tokens) {
-        if (tokens.size() < 3 || tokens[1].type != TokenType::Assignment) {
-            throw std::runtime_error("Error en asignación: formato inválido.");
+        if (tokens.size() < 4 || tokens.back().type != TokenType::SemiColon) {
+            throw std::runtime_error("Error en asignación: formato inválido o falta ';'.");
         }
 
         const VariableName& variableName = tokens[0].value;
-        Tokens expressionTokens(tokens.begin() + 2, tokens.end());
+        TokenType opType = tokens[1].type;
+        Tokens expressionTokens(tokens.begin() + 2, tokens.end() - 1);
 
-        try {
+        // Asignación simple: x = expr
+        if (opType == TokenType::Assignment) {
             double value = ExpressionEvaluator::evaluate(expressionTokens);
             DOUBLE[variableName] = value;
             std::cout << "Variable '" << variableName << "' asignada con valor: " << value << std::endl;
         }
-        catch (const std::exception& e) {
-            throw std::runtime_error("Error al evaluar expresión en asignación: " + std::string(e.what()));
+        // Operador +=: x += expr
+        else if (opType == TokenType::PlusEqual) {
+            if (!DOUBLE.count(variableName)) {
+                throw std::runtime_error("Variable no definida: " + variableName);
+            }
+            double addition = ExpressionEvaluator::evaluate(expressionTokens);
+            DOUBLE[variableName] += addition;
+            std::cout << "Variable '" << variableName << "' incrementada a: " << DOUBLE[variableName] << std::endl;
+        }
+        // Operador -=: x -= expr
+        else if (opType == TokenType::MinusEqual) {
+            if (!DOUBLE.count(variableName)) {
+                throw std::runtime_error("Variable no definida: " + variableName);
+            }
+            double subtraction = ExpressionEvaluator::evaluate(expressionTokens);
+            DOUBLE[variableName] -= subtraction;
+            std::cout << "Variable '" << variableName << "' decrementada a: " << DOUBLE[variableName] << std::endl;
+        }
+        else {
+            throw std::runtime_error("Operador de asignación no reconocido.");
         }
     }
+
 
 } // namespace Clot

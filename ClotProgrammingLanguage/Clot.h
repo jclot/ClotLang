@@ -47,6 +47,7 @@ namespace Clot {
     struct Function {
         std::vector<VariableName> parameters;
         std::vector<Line> body;
+        std::vector<bool> isReference;
     };
 
     extern std::map<FunctionName, Function> functions;
@@ -70,15 +71,19 @@ namespace Clot {
         LessEqual,
         Greater,
         GreaterEqual,
+        PlusEqual,
+        MinusEqual,
         Comma,
         LeftParen,
         RightParen,
         Colon,
+        SemiColon,
         Func,
         EndFunc,
         Print,
         Import,
         Comment,
+        Ampersand,
         Unknown
     };
 
