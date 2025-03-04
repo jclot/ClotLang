@@ -28,12 +28,13 @@
 namespace Clot {
 
     void PrintStatement::print(const Tokens& tokens) {
-        if (tokens.size() < 4 || tokens[1].type != TokenType::LeftParen || tokens.back().type != TokenType::RightParen) {
-            throw std::runtime_error("Error en print: formato inválido.");
+        if (tokens.size() < 5 || tokens[1].type != TokenType::LeftParen ||
+            tokens.back().type != TokenType::SemiColon || tokens[tokens.size() - 2].type != TokenType::RightParen) {
+            throw std::runtime_error("Error en print: formato invalido. Falta ';' al final.");
         }
 
         std::string message;
-        for (size_t i = 2; i < tokens.size() - 1; ++i) {
+        for (size_t i = 2; i < tokens.size() - 2; ++i) {
             if (tokens[i].type == TokenType::Plus) {
                 continue;
             }
@@ -46,7 +47,7 @@ namespace Clot {
         }
 
         message.erase(std::remove(message.begin(), message.end(), '\"'), message.end());
-        std::cout << message << std::endl;
+        std::cout << "Funcion 'Print': " << message << std::endl;
     }
 
 } // namespace Clot

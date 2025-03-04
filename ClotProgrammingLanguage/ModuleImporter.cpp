@@ -28,8 +28,8 @@
 namespace Clot {
 
     void ModuleImporter::import(const Tokens& tokens) {
-        if (tokens.size() < 2 || tokens[0].type != TokenType::Import) {
-            throw std::runtime_error("Error en import: formato inválido.");
+        if (tokens.size() < 3 || tokens[0].type != TokenType::Import || tokens.back().type != TokenType::SemiColon) {
+            throw std::runtime_error("Error en import: formato inválido o falta un ';'.");
         }
         const std::string& moduleName = tokens[1].value;
         if (moduleName == "math") {
