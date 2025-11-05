@@ -28,7 +28,6 @@
 #include "VariableAssignment.h"
 #include "PrintStatement.h"
 #include "ExpressionEvaluator.h"
-#include "ConditionalStatement.h"
 
 namespace Clot {
 
@@ -98,8 +97,8 @@ namespace Clot {
             }
         }
 
-        for (size_t i = 0; i < function.body.size(); ++i) {
-            Tokens lineTokens = Tokenizer::tokenize(function.body[i]);
+        for (const Line& line : function.body) {
+            Tokens lineTokens = Tokenizer::tokenize(line);
             if (lineTokens.empty()) continue;
 
             if (lineTokens.size() > 1 && lineTokens[1].type == TokenType::Assignment) {
@@ -111,9 +110,6 @@ namespace Clot {
             else if (functions.count(lineTokens[0].value)) {
                 execute(lineTokens);
             }
-            else if(lineTokens[0].type == TokenType::If) {
-				i = ConditionalStatement::execute(function.body, i, lineTokens);
-			}
             else {
                 double result = ExpressionEvaluator::evaluate(lineTokens);
                 std::cout << "Resultado de la expresión: " << result << std::endl;

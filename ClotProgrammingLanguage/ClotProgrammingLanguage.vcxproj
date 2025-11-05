@@ -132,7 +132,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="ClotProgrammingLanguage.cpp" />
-    <ClCompile Include="ConditionalStatement.cpp" />
     <ClCompile Include="ExpressionEvaluator.cpp" />
     <ClCompile Include="FunctionDeclaration.cpp" />
     <ClCompile Include="FunctionExecution.cpp" />
@@ -146,7 +145,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Clot.h" />
-    <ClInclude Include="ConditionalStatement.h" />
     <ClInclude Include="ExpressionEvaluator.h" />
     <ClInclude Include="FunctionDeclaration.h" />
     <ClInclude Include="FunctionExecution.h" />

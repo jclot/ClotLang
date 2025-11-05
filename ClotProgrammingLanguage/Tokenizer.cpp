@@ -28,21 +28,11 @@
 namespace Clot {
 
     Tokens Tokenizer::tokenize(const Line& line) {
-
         Tokens tokens;
-
-        std::string trimmed = line;
-        trimmed.erase(0, trimmed.find_first_not_of(" \t"));
-        if(trimmed.substr(0, 2) == "//") {
-            tokens.push_back({ TokenType::Comment, trimmed });
-            return tokens;
-        }
-
         std::string currentToken;
         bool insideQuotes = false;
 
         for (char currentChar : line) {
-
             if (currentChar == '"') {
                 insideQuotes = !insideQuotes;
                 currentToken += currentChar;
@@ -139,12 +129,8 @@ namespace Clot {
 		if (str == ";") return { TokenType::SemiColon, str };
         if (str == "func") return { TokenType::Func, str };
         if (str == "endfunc") return { TokenType::EndFunc, str };
-        if (str == "return") return { TokenType::Return, str };
         if (str == "print") return { TokenType::Print, str };
         if (str == "import") return { TokenType::Import, str };
-        if (str == "if") return { TokenType::If, str };
-        if (str == "else") return { TokenType::Else, str };
-        if (str == "endif") return { TokenType::EndIf, str };
         if (str == "//") return { TokenType::Comment, str };
         if (str == "&") return { TokenType::Ampersand, str };
         if (isNumber(str)) return { TokenType::Number, str };

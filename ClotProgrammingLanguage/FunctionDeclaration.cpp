@@ -37,8 +37,7 @@ namespace Clot {
 		std::vector<bool> isReference;
         
         size_t i = 3;
-        bool ref = false;
-        int canRef = 0; 
+        bool ref = false; 
         for (; i < tokens.size(); ++i) {
             if (tokens[i].type == TokenType::RightParen) {
                 ++i;
@@ -49,7 +48,6 @@ namespace Clot {
             }
             if (tokens[i].type == TokenType::Ampersand) {
                 ref = true;
-                canRef += 1; 
                 continue;
             }
 
@@ -82,7 +80,7 @@ namespace Clot {
         }
 
         functions[functionName] = { parameters, body, isReference };
-        std::cout << "Función '" << functionName << "' declarada con " << parameters.size() << " parámetro(s)" << " y con " << canRef << " parametros de referencia." << std::endl;
+        std::cout << "Función '" << functionName << "' declarada con " << parameters.size() << " parámetro(s)." << std::endl;
     }
 
 } // namespace Clot
