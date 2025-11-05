@@ -80,8 +80,12 @@ namespace Clot {
         SemiColon,
         Func,
         EndFunc,
+        Return,
         Print,
         Import,
+        If,
+        Else,
+        EndIf,
         Comment,
         Ampersand,
         Unknown

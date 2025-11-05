@@ -1,15 +1,10 @@
-import math;
 
-x = 5;
-c = 6 + (8 * 9);
-
-func incrementar(a, &b):
-	b = b + a;
+func factorial(n):
+	if n <= 1:
+		print(1);
+	else:
+		print(n * factorial(n - 1));
+	endif
 endfunc
 
-incrementar(x, c);
-print(x);
-print(c);
-
-
-
+factorial(5);
