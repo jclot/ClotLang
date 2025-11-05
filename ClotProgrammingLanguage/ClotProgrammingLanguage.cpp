@@ -31,6 +31,7 @@
 #include "FunctionDeclaration.h"
 #include "FunctionExecution.h"
 #include "ModuleImporter.h"
+#include "ConditionalStatement.h"
 
 namespace Clot {
 
@@ -68,6 +69,9 @@ namespace Clot {
                 }
                 else if (tokens[0].type == TokenType::Import) {
                     ModuleImporter::import(tokens);
+                }
+                else if (tokens[0].type == TokenType::If) {
+                    ConditionalStatement::execute(file, tokens);
                 }
                 else {
                     throw std::runtime_error("Instrucción no reconocida: " + line);

@@ -73,10 +73,12 @@ namespace Clot {
     }
 
     int ExpressionEvaluator::precedence(TokenType type) {
-        if (type == TokenType::Multiply || type == TokenType::Divide || type == TokenType::Modulo) return 2;
-        if (type == TokenType::Plus || type == TokenType::Minus) return 1;
-        if (type == TokenType::And || type == TokenType::Or) return 0;
-        return -1;
+        if (type == TokenType::Multiply || type == TokenType::Divide || type == TokenType::Modulo) return 3;
+        if (type == TokenType::Plus || type == TokenType::Minus) return 2;
+        if (type == TokenType::Equal || type == TokenType::NotEqual || type == TokenType::Less || type == TokenType::LessEqual || type == TokenType::Greater || type == TokenType::GreaterEqual) return 1;
+        if (type == TokenType::And) return 0;
+        if (type == TokenType::Or) return -1;
+        return -2;
     }
 
     double ExpressionEvaluator::applyOperator(double val1, double val2, TokenType op) {
