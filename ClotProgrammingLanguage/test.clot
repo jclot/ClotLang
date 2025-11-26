@@ -1,10 +1,20 @@
 
-func factorial(n):
-	if n <= 1:
-		print(1);
-	else:
-		print(n * factorial(n - 1));
-	endif
+print(2 ^ 3);
+print(5 ^ 2);
+print(10 ^ 0);
+print(2 ^ 10);
+
+pi = 3.141592653589793;
+e = 2.718281828459045;
+
+func factorial(n): 
+	A = 2*pi*n;
+	B = n/e;
+
+	AP = A^0.5;
+	BP = B^n;
+	return AP * BP;
 endfunc
 
 factorial(5);
+print("El resultado es: ", 5);
