@@ -62,6 +62,7 @@ namespace Clot {
         Multiply,
         Divide,
         Modulo,
+        Power,
         And,
         Or,
         Not,

@@ -111,7 +111,7 @@ namespace Clot {
     }
 
     bool Tokenizer::isSpecialChar(char c) {
-        return c == '(' || c == ')' || c == ',' || c == '+' || c == '-' || c == '*' || c == '/' || c == '%' || c == '=' || c == '!' || c == '<' || c == '>' || c == ':' || c == '&' || c == '|' || c == ';';
+        return c == '(' || c == ')' || c == ',' || c == '+' || c == '-' || c == '*' || c == '/' || c == '%' || c == '^' || c == '=' || c == '!' || c == '<' || c == '>' || c == ':' || c == '&' || c == '|' || c == ';';
     }
 
     Token Tokenizer::createToken(const std::string& str) {
@@ -121,6 +121,7 @@ namespace Clot {
         if (str == "*") return { TokenType::Multiply, str };
         if (str == "/") return { TokenType::Divide, str };
         if (str == "%") return { TokenType::Modulo, str };
+        if (str == "^") return { TokenType::Power, str };
         if (str == "&&") return { TokenType::And, str };
         if (str == "||") return { TokenType::Or, str };
         if (str == "!") return { TokenType::Not, str };

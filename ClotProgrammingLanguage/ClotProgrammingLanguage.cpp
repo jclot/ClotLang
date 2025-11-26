@@ -74,7 +74,7 @@ namespace Clot {
                     ConditionalStatement::execute(file, tokens);
                 }
                 else {
-                    throw std::runtime_error("Instrucción no reconocida: " + line);
+                    throw std::runtime_error("InstrucciÃ³n no reconocida: " + line);
                 }
             }
             catch (const std::exception& e) {

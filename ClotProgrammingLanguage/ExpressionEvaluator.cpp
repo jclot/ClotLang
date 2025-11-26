@@ -66,13 +66,14 @@ namespace Clot {
 
     bool ExpressionEvaluator::isOperator(TokenType type) {
         return type == TokenType::Plus || type == TokenType::Minus || type == TokenType::Multiply ||
-            type == TokenType::Divide || type == TokenType::Modulo || type == TokenType::And ||
-            type == TokenType::Or || type == TokenType::Not || type == TokenType::Equal ||
-            type == TokenType::NotEqual || type == TokenType::Less || type == TokenType::LessEqual ||
-            type == TokenType::Greater || type == TokenType::GreaterEqual;
+            type == TokenType::Divide || type == TokenType::Modulo || type == TokenType::Power ||
+            type == TokenType::And || type == TokenType::Or || type == TokenType::Not ||
+            type == TokenType::Equal || type == TokenType::NotEqual || type == TokenType::Less ||
+            type == TokenType::LessEqual || type == TokenType::Greater || type == TokenType::GreaterEqual;
     }
 
     int ExpressionEvaluator::precedence(TokenType type) {
+        if (type == TokenType::Power) return 4;
         if (type == TokenType::Multiply || type == TokenType::Divide || type == TokenType::Modulo) return 3;
         if (type == TokenType::Plus || type == TokenType::Minus) return 2;
         if (type == TokenType::Equal || type == TokenType::NotEqual || type == TokenType::Less || type == TokenType::LessEqual || type == TokenType::Greater || type == TokenType::GreaterEqual) return 1;
@@ -88,6 +89,7 @@ namespace Clot {
         case TokenType::Multiply: return val1 * val2;
         case TokenType::Divide: return val1 / val2;
         case TokenType::Modulo: return std::fmod(val1, val2);
+        case TokenType::Power: return std::pow(val1, val2);
         case TokenType::And: return val1 && val2;
         case TokenType::Or: return val1 || val2;
         case TokenType::Equal: return val1 == val2;

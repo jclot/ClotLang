@@ -24,6 +24,7 @@
  */
 
 #include "PrintStatement.h"
+#include "ExpressionEvaluator.h"
 
 namespace Clot {
 
@@ -33,21 +34,20 @@ namespace Clot {
             throw std::runtime_error("Error en print: formato invalido. Falta ';' al final.");
         }
 
-        std::string message;
-        for (size_t i = 2; i < tokens.size() - 2; ++i) {
-            if (tokens[i].type == TokenType::Plus) {
-                continue;
-            }
-            if (tokens[i].type == TokenType::Identifier && DOUBLE.count(tokens[i].value)) {
-                message += std::to_string(DOUBLE[tokens[i].value]);
-            }
-            else {
-                message += tokens[i].value;
-            }
+        // Extract tokens between parentheses
+        Tokens contentTokens(tokens.begin() + 2, tokens.end() - 2);
+        
+        // Check if it's a string literal (starts with a string token)
+        if (contentTokens.size() == 1 && contentTokens[0].type == TokenType::String) {
+            std::string message = contentTokens[0].value;
+            message.erase(std::remove(message.begin(), message.end(), '\"'), message.end());
+            std::cout << "Funcion 'Print': " << message << std::endl;
         }
-
-        message.erase(std::remove(message.begin(), message.end(), '\"'), message.end());
-        std::cout << "Funcion 'Print': " << message << std::endl;
+        // Otherwise, evaluate as an expression
+        else {
+            double result = ExpressionEvaluator::evaluate(contentTokens);
+            std::cout << "Funcion 'Print': " << result << std::endl;
+        }
     }
 
 } // namespace Clot
