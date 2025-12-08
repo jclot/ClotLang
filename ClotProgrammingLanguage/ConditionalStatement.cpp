@@ -22,7 +22,7 @@
  * OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
- 
+
 #include "ConditionalStatement.h"
 #include "Tokenizer.h"
 #include "VariableAssignment.h"
@@ -35,198 +35,198 @@
 
 namespace Clot {
 
-    namespace {
+	namespace {
 
-        bool isControlToken(const Tokens& tokens, TokenType type) {
-            return !tokens.empty() && tokens[0].type == type;
-        }
+		bool isControlToken(const Tokens& tokens, TokenType type) {
+			return !tokens.empty() && tokens[0].type == type;
+		}
 
-    } // anonymous namespace
+	} // anonymous namespace
 
-    void ConditionalStatement::execute(std::ifstream& file, const Tokens& tokens) {
-        if (tokens.empty() || tokens[0].type != TokenType::If) {
-            throw std::runtime_error("Error en condicional: instruccin 'if' no vlida.");
-        }
-        if (tokens.back().type != TokenType::Colon) {
-            throw std::runtime_error("Error en condicional: falta ':' al final de la condicin.");
-        }
+	void ConditionalStatement::execute(std::ifstream& file, const Tokens& tokens) {
+		if (tokens.empty() || tokens[0].type != TokenType::If) {
+			throw std::runtime_error("Error en condicional: instruccin 'if' no vlida.");
+		}
+		if (tokens.back().type != TokenType::Colon) {
+			throw std::runtime_error("Error en condicional: falta ':' al final de la condicin.");
+		}
 
-        Tokens conditionTokens(tokens.begin() + 1, tokens.end() - 1);
+		Tokens conditionTokens(tokens.begin() + 1, tokens.end() - 1);
 
-        std::vector<Line> ifLines;
-        std::vector<Line> elseLines;
-        bool parsingElse = false;
-        int nestedLevel = 0;
-        Line blockLine;
+		std::vector<Line> ifLines;
+		std::vector<Line> elseLines;
+		bool parsingElse = false;
+		int nestedLevel = 0;
+		Line blockLine;
 
-        bool endifFound = false;
+		bool endifFound = false;
 
-        while (std::getline(file, blockLine)) {
-            Tokens blockTokens = Tokenizer::tokenize(blockLine);
+		while (std::getline(file, blockLine)) {
+			Tokens blockTokens = Tokenizer::tokenize(blockLine);
 
-            if (isControlToken(blockTokens, TokenType::Else) && nestedLevel == 0) {
-                if (blockTokens.back().type != TokenType::Colon) {
-                    throw std::runtime_error("Error en condicional: falta ':' en 'else'.");
-                }
-                parsingElse = true;
-                continue;
-            }
+			if (isControlToken(blockTokens, TokenType::Else) && nestedLevel == 0) {
+				if (blockTokens.back().type != TokenType::Colon) {
+					throw std::runtime_error("Error en condicional: falta ':' en 'else'.");
+				}
+				parsingElse = true;
+				continue;
+			}
 
-            if (isControlToken(blockTokens, TokenType::EndIf)) {
-                if (nestedLevel == 0) {
-                    endifFound = true;
-                    break;
-                }
-                else {
-                    if (parsingElse) {
-                        elseLines.push_back(blockLine);
-                    }
-                    else {
-                        ifLines.push_back(blockLine);
-                    }
-                    --nestedLevel;
-                    continue;
-                }
-            }
+			if (isControlToken(blockTokens, TokenType::EndIf)) {
+				if (nestedLevel == 0) {
+					endifFound = true;
+					break;
+				}
+				else {
+					if (parsingElse) {
+						elseLines.push_back(blockLine);
+					}
+					else {
+						ifLines.push_back(blockLine);
+					}
+					--nestedLevel;
+					continue;
+				}
+			}
 
-            if (isControlToken(blockTokens, TokenType::If)) {
-                ++nestedLevel;
-            }
+			if (isControlToken(blockTokens, TokenType::If)) {
+				++nestedLevel;
+			}
 
-            if (parsingElse) {
-                elseLines.push_back(blockLine);
-            }
-            else {
-                ifLines.push_back(blockLine);
-            }
-        }
+			if (parsingElse) {
+				elseLines.push_back(blockLine);
+			}
+			else {
+				ifLines.push_back(blockLine);
+			}
+		}
 
-        if (nestedLevel != 0 || !endifFound) {
-            throw std::runtime_error("Error en condicional: falta 'endif'.");
-        }
+		if (nestedLevel != 0 || !endifFound) {
+			throw std::runtime_error("Error en condicional: falta 'endif'.");
+		}
 
-        bool conditionResult = evaluateCondition(conditionTokens);
+		bool conditionResult = evaluateCondition(conditionTokens);
 
-        if (conditionResult) {
-            executeBlock(ifLines);
-        }
-        else {
-            executeBlock(elseLines);
-        }
-    }
+		if (conditionResult) {
+			executeBlock(ifLines);
+		}
+		else {
+			executeBlock(elseLines);
+		}
+	}
 
-    size_t ConditionalStatement::execute(const std::vector<Line>& body, size_t currentIndex, const Tokens& tokens) {
-        if (tokens.empty() || tokens[0].type != TokenType::If) {
-            throw std::runtime_error("Error en condicional: instruccin 'if' no vlida.");
-        }
-        if (tokens.back().type != TokenType::Colon) {
-            throw std::runtime_error("Error en condicional: falta ':' al final de la condicin.");
-        }
+	size_t ConditionalStatement::execute(const std::vector<Line>& body, size_t currentIndex, const Tokens& tokens) {
+		if (tokens.empty() || tokens[0].type != TokenType::If) {
+			throw std::runtime_error("Error en condicional: instruccin 'if' no vlida.");
+		}
+		if (tokens.back().type != TokenType::Colon) {
+			throw std::runtime_error("Error en condicional: falta ':' al final de la condicin.");
+		}
 
-        Tokens conditionTokens(tokens.begin() + 1, tokens.end() - 1);
+		Tokens conditionTokens(tokens.begin() + 1, tokens.end() - 1);
 
-        std::vector<Line> ifLines;
-        std::vector<Line> elseLines;
-        bool parsingElse = false;
-        int nestedLevel = 0;
+		std::vector<Line> ifLines;
+		std::vector<Line> elseLines;
+		bool parsingElse = false;
+		int nestedLevel = 0;
 
-        size_t index = currentIndex + 1;
-        for (; index < body.size(); ++index) {
-            Tokens lineTokens = Tokenizer::tokenize(body[index]);
+		size_t index = currentIndex + 1;
+		for (; index < body.size(); ++index) {
+			Tokens lineTokens = Tokenizer::tokenize(body[index]);
 
-            if (isControlToken(lineTokens, TokenType::Else) && nestedLevel == 0) {
-                if (lineTokens.back().type != TokenType::Colon) {
-                    throw std::runtime_error("Error en condicional: falta ':' en 'else'.");
-                }
-                parsingElse = true;
-                continue;
-            }
+			if (isControlToken(lineTokens, TokenType::Else) && nestedLevel == 0) {
+				if (lineTokens.back().type != TokenType::Colon) {
+					throw std::runtime_error("Error en condicional: falta ':' en 'else'.");
+				}
+				parsingElse = true;
+				continue;
+			}
 
-            if (isControlToken(lineTokens, TokenType::EndIf)) {
-                if (nestedLevel == 0) {
-                    break;
-                }
-                else {
-                    if (parsingElse) {
-                        elseLines.push_back(body[index]);
-                    }
-                    else {
-                        ifLines.push_back(body[index]);
-                    }
-                    --nestedLevel;
-                    continue;
-                }
-            }
+			if (isControlToken(lineTokens, TokenType::EndIf)) {
+				if (nestedLevel == 0) {
+					break;
+				}
+				else {
+					if (parsingElse) {
+						elseLines.push_back(body[index]);
+					}
+					else {
+						ifLines.push_back(body[index]);
+					}
+					--nestedLevel;
+					continue;
+				}
+			}
 
-            if (isControlToken(lineTokens, TokenType::If)) {
-                ++nestedLevel;
-            }
+			if (isControlToken(lineTokens, TokenType::If)) {
+				++nestedLevel;
+			}
 
-            if (parsingElse) {
-                elseLines.push_back(body[index]);
-            }
-            else {
-                ifLines.push_back(body[index]);
-            }
-        }
+			if (parsingElse) {
+				elseLines.push_back(body[index]);
+			}
+			else {
+				ifLines.push_back(body[index]);
+			}
+		}
 
-        if (index >= body.size()) {
-            throw std::runtime_error("Error en condicional: falta 'endif'.");
-        }
+		if (index >= body.size()) {
+			throw std::runtime_error("Error en condicional: falta 'endif'.");
+		}
 
-        bool conditionResult = evaluateCondition(conditionTokens);
+		bool conditionResult = evaluateCondition(conditionTokens);
 
-        if (conditionResult) {
-            executeBlock(ifLines);
-        }
-        else {
-            executeBlock(elseLines);
-        }
+		if (conditionResult) {
+			executeBlock(ifLines);
+		}
+		else {
+			executeBlock(elseLines);
+		}
 
-        return index;
-    }
+		return index;
+	}
 
-    bool ConditionalStatement::evaluateCondition(const Tokens& conditionTokens) {
-        if (conditionTokens.empty()) {
-            throw std::runtime_error("Error en condicional: condicin vaca.");
-        }
+	bool ConditionalStatement::evaluateCondition(const Tokens& conditionTokens) {
+		if (conditionTokens.empty()) {
+			throw std::runtime_error("Error en condicional: condicin vaca.");
+		}
 
-        double result = ExpressionEvaluator::evaluate(conditionTokens);
-        return result != 0.0;
-    }
+		double result = ExpressionEvaluator::evaluate(conditionTokens);
+		return result != 0.0;
+	}
 
-    void ConditionalStatement::executeBlock(const std::vector<Line>& lines) {
-        for (size_t i = 0; i < lines.size(); ++i) {
-            Tokens tokens = Tokenizer::tokenize(lines[i]);
-            if (tokens.empty() || tokens[0].type == TokenType::Comment) {
-                continue;
-            }
+	void ConditionalStatement::executeBlock(const std::vector<Line>& lines) {
+		for (size_t i = 0; i < lines.size(); ++i) {
+			Tokens tokens = Tokenizer::tokenize(lines[i]);
+			if (tokens.empty() || tokens[0].type == TokenType::Comment) {
+				continue;
+			}
 
-            try {
-                if (tokens.size() > 1 && tokens[1].type == TokenType::Assignment) {
-                    VariableAssignment::assign(tokens);
-                }
-                else if (tokens[0].type == TokenType::Print) {
-                    PrintStatement::print(tokens);
-                }
-                else if (tokens[0].type == TokenType::If) {
-                    i = execute(lines, i, tokens);
-                }
-                else if (tokens[0].type == TokenType::Import) {
-                    ModuleImporter::import(tokens);
-                }
-                else if (functions.count(tokens[0].value)) {
-                    FunctionExecution::execute(tokens);
-                }
-                else {
-                    double value = ExpressionEvaluator::evaluate(tokens);
-                    std::cout << "Resultado de la expresión: " << value << std::endl;
-                }
-            }
-            catch (const std::exception& e) {
-                std::cerr << "Error: " << e.what() << std::endl;
-            }
-        }
-    }
+			try {
+				if (tokens.size() > 1 && tokens[1].type == TokenType::Assignment) {
+					VariableAssignment::assign(tokens);
+				}
+				else if (tokens[0].type == TokenType::Print) {
+					PrintStatement::print(tokens);
+				}
+				else if (tokens[0].type == TokenType::If) {
+					i = execute(lines, i, tokens);
+				}
+				else if (tokens[0].type == TokenType::Import) {
+					ModuleImporter::import(tokens);
+				}
+				else if (functions.count(tokens[0].value)) {
+					FunctionExecution::execute(tokens);
+				}
+				else {
+					double value = ExpressionEvaluator::evaluate(tokens);
+					std::cout << "Resultado de la expresión: " << value << std::endl;
+				}
+			}
+			catch (const std::exception& e) {
+				std::cerr << "Error: " << e.what() << std::endl;
+			}
+		}
+	}
 
 } // namespace Clot
