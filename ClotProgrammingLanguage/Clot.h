@@ -34,72 +34,90 @@
 #include <algorithm>
 #include <stack>
 #include <cmath>
+#include <variant>
 
 using VariableName = std::string;
 using FunctionName = std::string;
 using Line = std::string;
+using List = std::vector<std::variant<double, std::string, bool>>;
+using Object = std::vector<std::pair<std::string, std::variant<double, std::string, bool, List>>>;
 
 namespace Clot {
 
-    extern std::map<VariableName, double> DOUBLE;
-    extern std::map<VariableName, std::string> STRING;
+	extern std::map<VariableName, double> DOUBLE;
+	extern std::map<VariableName, std::string> STRING;
+	extern std::map<VariableName, bool> BOOL;
+	extern std::map<VariableName, List> LIST;
+	extern std::map<VariableName, Object> OBJECT;
+	extern std::map<VariableName, int> INT;
+	extern std::map<VariableName, long long> LONG;
+	extern std::map<VariableName, unsigned char> BYTE;
 
-    struct Function {
-        std::vector<VariableName> parameters;
-        std::vector<Line> body;
-        std::vector<bool> isReference;
-    };
+	struct Function {
+		std::vector<VariableName> parameters;
+		std::vector<Line> body;
+		std::vector<bool> isReference;
+	};
 
-    extern std::map<FunctionName, Function> functions;
+	extern std::map<FunctionName, Function> functions;
 
-    enum class TokenType {
-        Identifier,
-        Number,
-        String,
-        Assignment,
-        Plus,
-        Minus,
-        Multiply,
-        Divide,
-        Modulo,
-        Power,
-        And,
-        Or,
-        Not,
-        Equal,
-        NotEqual,
-        Less,
-        LessEqual,
-        Greater,
-        GreaterEqual,
-        PlusEqual,
-        MinusEqual,
-        Comma,
-        LeftParen,
-        RightParen,
-        Colon,
-        SemiColon,
-        Func,
-        EndFunc,
-        Return,
-        Print,
-        Import,
-        If,
-        Else,
-        EndIf,
-        Comment,
-        Ampersand,
-        Unknown
-    };
+	enum class TokenType {
+		Identifier,
+		Number,
+		String,
+		Boolean,
+		List,
+		Object,
+		Long,
+		Byte,
+		Assignment,
+		Plus,
+		Minus,
+		Multiply,
+		Divide,
+		Modulo,
+		Power,
+		And,
+		Or,
+		Not,
+		Equal,
+		NotEqual,
+		Less,
+		LessEqual,
+		Greater,
+		GreaterEqual,
+		PlusEqual,
+		MinusEqual,
+		Comma,
+		LeftParen,
+		RightParen,
+		LeftBracket,
+		RightBracket,
+		LeftBrace,
+		RightBrace,
+		Colon,
+		SemiColon,
+		Func,
+		EndFunc,
+		Return,
+		Print,
+		Import,
+		If,
+		Else,
+		EndIf,
+		Comment,
+		Ampersand,
+		Unknown
+	};
 
-    struct Token {
-        TokenType type;
-        std::string value;
-    };
+	struct Token {
+		TokenType type;
+		std::string value;
+	};
 
-    using Tokens = std::vector<Token>;
+	using Tokens = std::vector<Token>;
 
-    void Interpret(const std::string& filename);
+	void Interpret(const std::string& filename);
 
 } // namespace Clot
 

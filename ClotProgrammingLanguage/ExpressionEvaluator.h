@@ -30,15 +30,16 @@
 
 namespace Clot {
 
-    class ExpressionEvaluator {
-    public:
-        static double evaluate(const Tokens& tokens);
+	class ExpressionEvaluator {
+	public:
+		static double evaluate(const Tokens& tokens);
+		static std::string evaluateStringExpression(const Tokens& tokens);
 
-    private:
-        static bool isOperator(TokenType type);
-        static int precedence(TokenType type);
-        static double applyOperator(double val1, double val2, TokenType op);
-    };
+	private:
+		static bool isOperator(TokenType type);
+		static int precedence(TokenType type);
+		static double applyOperator(double val1, double val2, TokenType op);
+	};
 
 } // namespace Clot
 

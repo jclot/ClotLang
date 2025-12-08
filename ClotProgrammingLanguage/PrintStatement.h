@@ -30,10 +30,13 @@
 
 namespace Clot {
 
-    class PrintStatement {
-    public:
-        static void print(const Tokens& tokens);
-    };
+	class PrintStatement {
+	public:
+		static void print(const Tokens& tokens);
+	};
+	extern std::map<VariableName, int> INT;
+	extern std::map<VariableName, long long> LONG;
+	extern std::map<VariableName, unsigned char> BYTE;
 
 } // namespace Clot
 
