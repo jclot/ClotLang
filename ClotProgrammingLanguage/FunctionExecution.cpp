@@ -79,7 +79,7 @@ namespace Clot {
 
         for (size_t i = 0; i < function.parameters.size(); ++i) {
             if (function.isReference[i]) {
-                // El argumento debe ser un identificador único
+                // El argumento debe ser un identificador unico
                 if (argsTokens[i].size() != 1 || argsTokens[i][0].type != TokenType::Identifier) {
                     throw std::runtime_error("El parámetro de referencia '" + function.parameters[i] + "' requiere un identificador.");
                 }
@@ -87,12 +87,11 @@ namespace Clot {
                 if (!DOUBLE.count(callerVar)) {
                     throw std::runtime_error("Variable no encontrada en el contexto actual: " + callerVar);
                 }
-                // Inicialmente se copia el valor de la variable del llamador al parámetro local
+                // Inicialmente se copia el valor de la variable del llamador al parametro local
                 DOUBLE[function.parameters[i]] = DOUBLE[callerVar];
                 refMapping.push_back({ callerVar, function.parameters[i] });
             }
             else {
-                // Parámetro por valor: evaluar la expresión
                 double value = ExpressionEvaluator::evaluate(argsTokens[i]);
                 DOUBLE[function.parameters[i]] = value;
             }
