@@ -1,137 +1,147 @@
 # The Clot Programming Language
 
-Clot es un lenguaje de programación imperativo y en pleno desarrollo pensado para experimentos de matemáticas, física e inteligencia artificial. El intérprete actual está escrito en C++20 y se distribuye bajo licencia MIT, con un conjunto compacto de características que priorizan la legibilidad tipo Python y un flujo de ejecución sencillo.
+Clot is an imperative, whitespace-aware programming language built for quick experiments in mathematics, physics, and artificial intelligence. The interpreter is implemented in modern **C++20**, prioritizes Python-like readability, and executes source files line by line for fast feedback.
 
-## Tabla de contenidos
-- [Estado del proyecto](#estado-del-proyecto)
-- [Compilación y ejecución](#compilación-y-ejecución)
-- [Sintaxis básica](#sintaxis-básica)
-- [Tipos de datos admitidos](#tipos-de-datos-admitidos)
-- [Expresiones y operadores](#expresiones-y-operadores)
-- [Asignaciones y mutación](#asignaciones-y-mutación)
-- [E/S: `print`](#es-print)
-- [Funciones](#funciones)
-- [Condicionales](#condicionales)
-- [Módulos](#módulos)
-- [Comentarios](#comentarios)
-- [Ejemplo completo](#ejemplo-completo)
-- [Estructura del repositorio](#estructura-del-repositorio)
+> **At a glance (ES)**: Clot es un lenguaje imperativo diseñado para prototipado rápido en matemáticas, física e IA. El intérprete en C++20 ejecuta archivos línea por línea, con sintaxis cercana a Python y reglas estrictas de tabulación en funciones y bloques condicionales.
 
-## Estado del proyecto
-El intérprete procesa archivos línea por línea y ejecuta las instrucciones de forma inmediata. Aún no hay soporte para bucles, pero ya se incluyen tipos numéricos, booleanos, listas, objetos, funciones con paso por referencia, condicionales anidados e importación básica de módulos. Las salidas de diagnóstico se imprimen en consola para ayudar a depurar.
+## Table of Contents
+- [Project Status](#project-status)
+- [Features](#features)
+- [Quick Start](#quick-start)
+- [Language Guide](#language-guide)
+  - [File Structure and Statements](#file-structure-and-statements)
+  - [Data Types](#data-types)
+  - [Expressions and Operators](#expressions-and-operators)
+  - [Assignments and Mutation](#assignments-and-mutation)
+  - [Standard Output: `print`](#standard-output-print)
+  - [Functions](#functions)
+  - [Conditionals](#conditionals)
+  - [Modules](#modules)
+  - [Comments](#comments)
+- [Example Program](#example-program)
+- [Repository Layout](#repository-layout)
+- [Development Notes](#development-notes)
+- [License](#license)
 
-## Compilación y ejecución
-1. **Requisitos:** `g++` con soporte C++20.
-2. **Compilar:**
+## Project Status
+- Executes source files sequentially, emitting diagnostic traces for each assignment and branch to aid debugging.
+- Supports numbers, booleans, strings, lists, objects, functions (with pass-by-reference), nested conditionals, and basic module import.
+- Loop constructs are **not yet implemented**; roadmap items include iteration, richer modules, and additional numeric types.
+
+## Features
+- **C++20 interpreter** with minimal external dependencies and portable Makefile/Visual Studio projects for Unix-like and Windows environments.【F:ClotProgrammingLanguage/ClotProgrammingLanguage.cpp†L1-L26】【F:Makefile†L3-L31】
+- **Immediate execution**: tokens are parsed and evaluated line by line, making it easy to trace program state.【F:ClotProgrammingLanguage/Tokenizer.cpp†L15-L58】【F:ClotProgrammingLanguage/ExpressionEvaluator.cpp†L18-L73】
+- **Strong debugging signals**: variable assignments print informative messages, including type validation for `long` and `byte`.【F:ClotProgrammingLanguage/VariableAssignment.cpp†L18-L145】
+- **Pass-by-reference semantics** in function parameters enable in-place updates from callee to caller.【F:ClotProgrammingLanguage/FunctionExecution.cpp†L28-L116】
+- **Extensible module importer** starting with a `math` helper that exposes `sum(a, b)`.【F:ClotProgrammingLanguage/ModuleImporter.cpp†L5-L35】
+
+## Quick Start
+1. **Prerequisites**: a C++20-capable compiler (e.g., `g++`).
+2. **Build the interpreter**:
    ```bash
    make
    ```
-   Genera `ClotProgrammingLanguage/clot.exe` a partir de los fuentes del intérprete.【F:Makefile†L3-L31】
-3. **Ejecutar el programa de ejemplo:**
+   This compiles the sources and produces `ClotProgrammingLanguage/clot.exe`. The target names match Visual Studio defaults while remaining compatible with Unix toolchains.【F:Makefile†L3-L31】
+3. **Run the bundled sample**:
    ```bash
    make run
    ```
-   Ejecuta el intérprete sobre `ClotProgrammingLanguage/test.clot`. Usa `make build-run` para compilar y correr en una sola orden.【F:Makefile†L17-L25】
+   Executes `ClotProgrammingLanguage/test.clot` with the freshly built interpreter. Use `make build-run` to compile and run in one step.【F:Makefile†L17-L25】
+4. **Execute a custom program**: pass your `.clot` file to the interpreter binary, for example `./ClotProgrammingLanguage/clot.exe path/to/program.clot`.
 
-> Nota: El `Makefile` mantiene compatibilidad con la convención de nombres de Visual Studio, pero funciona en entornos Unix/Antigravity con `g++`.
+## Language Guide
+### File Structure and Statements
+- Each instruction ends with `;`, including `print` and function calls.【F:ClotProgrammingLanguage/Tokenizer.cpp†L15-L58】
+- Empty lines are ignored. Indentation with tabs is significant inside function bodies and conditional blocks.
+- Execution proceeds from top to bottom; imported modules extend the available functions.
 
-## Sintaxis básica
-- Cada instrucción termina con `;` (incluidas las llamadas a funciones y `print`).
-- El intérprete ignora líneas vacías y comentarios que comienzan con `//`.
-- Las operaciones se evalúan de izquierda a derecha respetando precedencia matemática estándar.
+### Data Types
+- **Floating-point (`double`)**: default numeric representation.
+- **Integers (`int`)**: inferred when a numeric literal lacks a decimal point.
+- **Long integers (`long`)**: declared with `long name = value;` and validated against `long long` limits.【F:ClotProgrammingLanguage/VariableAssignment.cpp†L18-L47】
+- **Bytes (`byte`)**: values in the `[0, 255]` range via `byte name = value;`.【F:ClotProgrammingLanguage/VariableAssignment.cpp†L18-L47】
+- **Strings (`string`)**: double-quoted literals with `+` concatenation and implicit numeric-to-text conversion.【F:ClotProgrammingLanguage/ExpressionEvaluator.cpp†L105-L154】
+- **Booleans**: `true` or `false`, also produced by comparisons and logical operators; booleans coerce to `1.0` or `0.0` when used numerically.【F:ClotProgrammingLanguage/ExpressionEvaluator.cpp†L18-L73】
+- **Lists**: `[value1, value2, ...]` containing numbers, strings, or booleans.【F:ClotProgrammingLanguage/VariableAssignment.cpp†L51-L79】
+- **Objects**: `{key: value, ...}` holding numbers, strings, booleans, or lists.【F:ClotProgrammingLanguage/VariableAssignment.cpp†L80-L109】
 
-## Tipos de datos admitidos
-- **Números de punto flotante (`double`)**: valor por defecto para expresiones numéricas.
-- **Enteros (`int`)**: se almacenan automáticamente cuando una asignación numérica no contiene punto decimal.
-- **Enteros largos (`long`)**: declarados con el prefijo `long` (por ejemplo, `long big = 9000;`). Validan rango de `long long` al asignar.【F:ClotProgrammingLanguage/VariableAssignment.cpp†L18-L47】
-- **Bytes (`byte`)**: valores entre 0 y 255 declarados con `byte nombre = valor;`。【F:ClotProgrammingLanguage/VariableAssignment.cpp†L18-L47】
-- **Cadenas (`string`)**: literales entre comillas dobles o concatenaciones con `+`.
-- **Booleanos (`true`/`false`)**: también pueden resultar de expresiones lógicas y se tratan como `1.0` o `0.0` en evaluaciones numéricas.【F:ClotProgrammingLanguage/ExpressionEvaluator.cpp†L18-L73】
-- **Listas**: `[valor1, valor2, ...]` con números, strings o booleanos.【F:ClotProgrammingLanguage/VariableAssignment.cpp†L51-L79】
-- **Objetos**: `{clave: valor, ...}` con valores numéricos, strings, booleanos o listas.【F:ClotProgrammingLanguage/VariableAssignment.cpp†L80-L109】
+### Expressions and Operators
+Operators are evaluated with the following precedence (high to low):
+1. Exponentiation `^`
+2. Multiplication `*`, division `/`, modulus `%`
+3. Addition/subtraction `+`, `-`
+4. Comparisons `==`, `!=`, `<`, `<=`, `>`, `>=`
+5. Logical `&&`, `||`, `!`
 
-## Expresiones y operadores
-El evaluador soporta aritmética y comparaciones con la precedencia mostrada (de mayor a menor):
-1. Potencia `^`
-2. Multiplicación `*`, división `/`, módulo `%`
-3. Suma/resta `+`, `-`
-4. Comparaciones `==`, `!=`, `<`, `<=`, `>`, `>=`
-5. Lógico `&&`, `||`, `!`
+Expressions combine literals, variables, and operators. Boolean outcomes are represented internally as `1.0` (true) or `0.0` (false).【F:ClotProgrammingLanguage/ExpressionEvaluator.cpp†L18-L103】
 
-Las expresiones combinan literales numéricos/booleanos, variables definidas y los operadores anteriores. Los resultados booleanos se devuelven como `1.0` (verdadero) o `0.0` (falso).【F:ClotProgrammingLanguage/ExpressionEvaluator.cpp†L18-L64】【F:ClotProgrammingLanguage/ExpressionEvaluator.cpp†L66-L103】
+### Assignments and Mutation
+- **Simple assignment**: `x = 1 + 2;`
+- **Compound assignment**: `x += 3;` or `x -= 2;` for pre-declared numeric variables.【F:ClotProgrammingLanguage/VariableAssignment.cpp†L124-L145】
+- **Typed declarations**: `long` and `byte` require explicit type keywords and enforce range checks.【F:ClotProgrammingLanguage/VariableAssignment.cpp†L18-L47】
+- **Collections**: lists and objects are declared inline with `[]` or `{}` initializers.【F:ClotProgrammingLanguage/VariableAssignment.cpp†L51-L109】
+- Each assignment logs its computed value and resolved type to the console, which simplifies tracing program state.【F:ClotProgrammingLanguage/VariableAssignment.cpp†L18-L145】
 
-### Expresiones de strings
-Las cadenas solo admiten concatenación con `+`. Se pueden mezclar literales, variables string y valores numéricos, que se convierten a texto al vuelo.【F:ClotProgrammingLanguage/ExpressionEvaluator.cpp†L105-L154】
+### Standard Output: `print`
+Use `print(expression);` to display values:
+- Accepts strings, booleans, numbers, lists, objects, variables, and inline expressions.
+- Auto-detects whether to evaluate numerically or concatenate as text for mixed expressions.【F:ClotProgrammingLanguage/PrintStatement.cpp†L9-L138】
+- Collections render with delimiters: lists in `[ ]` and objects in `{ }` with their key/value pairs.【F:ClotProgrammingLanguage/PrintStatement.cpp†L37-L87】
 
-## Asignaciones y mutación
-- **Asignación simple:** `x = 1 + 2;`
-- **Asignación compuesta:** `x += 3;` o `x -= 2;` (solo sobre variables numéricas ya definidas).【F:ClotProgrammingLanguage/VariableAssignment.cpp†L124-L145】
-- **Listas y objetos:** se construyen directamente con `[]` o `{}` dentro de la asignación.【F:ClotProgrammingLanguage/VariableAssignment.cpp†L51-L109】
-- **Tipos explícitos:** `long` y `byte` requieren la forma `long nombre = 42;` o `byte flag = 1;` y validan el rango al asignar.【F:ClotProgrammingLanguage/VariableAssignment.cpp†L18-L47】
-
-El intérprete imprime trazas informativas tras cada asignación para facilitar la depuración.【F:ClotProgrammingLanguage/VariableAssignment.cpp†L18-L145】
-
-## E/S: `print`
-La función estándar `print(expr);` acepta:
-- Literales string o booleanos.
-- Cualquier variable numérica, string, booleana, lista u objeto.
-- Expresiones numéricas o de cadenas (detecta automáticamente si debe evaluar aritmética o concatenar texto).【F:ClotProgrammingLanguage/PrintStatement.cpp†L9-L116】【F:ClotProgrammingLanguage/PrintStatement.cpp†L117-L138】
-
-Las listas y objetos se formatean mostrando su contenido entre corchetes o llaves, respectivamente.【F:ClotProgrammingLanguage/PrintStatement.cpp†L37-L87】
-
-## Funciones
-### Declaración
+### Functions
+**Declaration**
 ```
-func nombre(par1, &par2):
-        // cuerpo indentado con tabuladores
+func name(param1, &param2):
+        // tab-indented body
 endfunc
 ```
-- Los parámetros marcados con `&` se pasan **por referencia**; el cuerpo puede modificar la variable del llamador.【F:ClotProgrammingLanguage/FunctionDeclaration.cpp†L5-L57】【F:ClotProgrammingLanguage/FunctionExecution.cpp†L28-L83】
-- El cuerpo se recopila hasta encontrar `endfunc`; las líneas deben comenzar con tabulación para indicar pertenencia.【F:ClotProgrammingLanguage/FunctionDeclaration.cpp†L33-L57】
+- Parameters prefixed with `&` are passed **by reference** and propagate modifications to the caller’s variable.【F:ClotProgrammingLanguage/FunctionExecution.cpp†L28-L116】
+- Bodies are captured until `endfunc`; each line inside must start with a tab to belong to the function.【F:ClotProgrammingLanguage/FunctionDeclaration.cpp†L33-L57】
 
-### Llamada
+**Invocation**
 ```
-nombre(arg1, arg2);
+name(arg1, arg2);
 ```
-- El número de argumentos debe coincidir con la definición.
-- Los parámetros por referencia exigen un identificador existente en el contexto de llamada; se reflejan los cambios al finalizar la función.【F:ClotProgrammingLanguage/FunctionExecution.cpp†L28-L116】
-- Dentro del cuerpo pueden usarse asignaciones, `print`, llamadas anidadas y condicionales; se restauran las variables numéricas locales al salir, excepto las pasadas por referencia.【F:ClotProgrammingLanguage/FunctionExecution.cpp†L85-L139】
+- Arity must match the declaration.
+- Reference parameters require an existing identifier at the call site; value parameters are evaluated and copied.
+- Local numeric variables are restored when the function exits, except those passed by reference, which reflect in-place changes.【F:ClotProgrammingLanguage/FunctionExecution.cpp†L85-L139】
 
-## Condicionales
+### Conditionals
 ```
-if condicion:
-        // bloque if
+if condition:
+        // if block (tab-indented)
 else:
-        // bloque else (opcional)
+        // else block (optional)
 endif
 ```
-- Las condiciones se evalúan como expresiones numéricas/booleanas; cualquier valor distinto de `0.0` se considera verdadero.【F:ClotProgrammingLanguage/ConditionalStatement.cpp†L1-L78】【F:ClotProgrammingLanguage/ConditionalStatement.cpp†L142-L168】
-- Soporta `if`/`else` anidados tanto en el archivo principal como dentro de funciones.
-- Cada rama se almacena y luego se ejecuta línea a línea, permitiendo asignaciones, `print`, importaciones, llamadas a funciones u otros condicionales.【F:ClotProgrammingLanguage/ConditionalStatement.cpp†L80-L140】【F:ClotProgrammingLanguage/ConditionalStatement.cpp†L170-L215】
+- Conditions evaluate using the numeric/boolean rules; any non-zero result is treated as truthy.【F:ClotProgrammingLanguage/ConditionalStatement.cpp†L1-L78】
+- Supports nested `if`/`else` blocks, both at top level and inside functions.
+- Branch bodies are stored and then executed line by line, allowing assignments, prints, imports, function calls, or further conditionals.【F:ClotProgrammingLanguage/ConditionalStatement.cpp†L80-L215】
 
-## Módulos
-La instrucción `import nombre;` carga funciones auxiliares.
-- **math:** agrega la función `sum(a, b)` que retorna la suma de dos números.【F:ClotProgrammingLanguage/ModuleImporter.cpp†L5-L35】
-- Las importaciones se validan y generan un error en caso de módulos desconocidos o falta del `;`.【F:ClotProgrammingLanguage/ModuleImporter.cpp†L5-L21】
+### Modules
+Import helper modules with `import name;`:
+- **math**: exposes `sum(a, b)`, returning the numeric sum of its two arguments.【F:ClotProgrammingLanguage/ModuleImporter.cpp†L5-L35】
+- Imports are validated; unknown modules or missing semicolons trigger runtime errors.【F:ClotProgrammingLanguage/ModuleImporter.cpp†L5-L21】
 
-## Comentarios
-Las líneas que comienzan con `//` se tokenizan como comentarios y se ignoran durante la ejecución.【F:ClotProgrammingLanguage/Tokenizer.cpp†L15-L26】
+### Comments
+Single-line comments start with `//` and are ignored by the interpreter.【F:ClotProgrammingLanguage/Tokenizer.cpp†L15-L26】
 
-## Ejemplo completo
+## Example Program
+The following sample demonstrates types, conditionals, references, and module usage:
 ```clot
-// Variables y tipos
+// Variables and types
 long max = 9000;
 byte level = 42;
 flag = true;
 nums = [1, 2, 3];
 user = {name: "Ada", active: true, scores: nums};
 
-// Función con referencia
+// Function with reference
 func inc(&value):
         value += 1;
 endfunc
 
-// Condicional
+// Conditional
 if(flag && max > 100):
         print("User: " + user.name + " level " + level);
         inc(max);
@@ -139,16 +149,23 @@ else:
         print("Disabled");
 endif
 
-// Uso de módulo
+// Module usage
 import math;
 print(sum(5, 7));
 ```
 
-## Estructura del repositorio
-- `ClotProgrammingLanguage/`: código fuente del intérprete y binario resultante `clot.exe`.
-- `ClotProgrammingLanguage/test.clot`: script de ejemplo ejecutado por defecto en `main()`.
-- `TokenizerTests/`: espacio reservado para pruebas unitarias de tokenización.
-- `Makefile`: reglas de compilación y ejecución con `g++`.
-- `LICENSE.txt`: licencia MIT.
+## Repository Layout
+- `ClotProgrammingLanguage/`: C++ source code for the interpreter and produced binary `clot.exe`.
+- `ClotProgrammingLanguage/test.clot`: default sample script executed by `main()`.
+- `TokenizerTests/`: placeholder for tokenizer unit tests.
+- `Makefile`: build and run targets for `g++` toolchains.
+- `ClotProgrammingLanguage/ClotProgrammingLanguage.vcxproj*`: Visual Studio project configuration for Windows developers.
+- `LICENSE.txt`: MIT license.
 
-Este README refleja el estado actual del lenguaje; las nuevas capacidades (bucles, más tipos, módulos adicionales) se incorporarán en futuras versiones.
+## Development Notes
+- The interpreter processes input line by line, so malformed statements surface immediately with clear diagnostics.
+- When adding features, keep indentation rules consistent: tab-indented blocks are significant inside functions and conditionals.
+- Module registration is centralized in `ModuleImporter.cpp`; new modules can be added by extending its validation and dispatch tables.
+
+## License
+This project is distributed under the MIT License. See [`LICENSE.txt`](LICENSE.txt) for details.
