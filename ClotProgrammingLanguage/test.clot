@@ -1,45 +1,8 @@
 
-print(2 ^ 3);
-print(5 ^ 2);
-print(10 ^ 0);
-print(2 ^ 10);
+isValid = true;
 
-test = "Hola";
-
-pi = 3.141592653589793;
-e = 2.718281828459045;
-
-func factorial(n): 
-	A = 2*pi*n;
-	B = n/e;
-
-	AP = A^0.5;
-	BP = B^n;
-	return AP * BP;
-endfunc
-
-factorial(5);
-print(test);
-
-nombre = "Juan";
-saludo = "Hola, " + nombre + "!";
-print(saludo);
-print("El resultado es:" + 5 + " unidades");
-
-activo = true;
-print(activo);
-print(false);
-
-miLista = [1, 2, "hola", true];
-miObjeto = {nombre: "Juan", edad: 20, activo: true};
-print(miLista);
-print(miObjeto);
-
-x = 42; 
-y = 3.14;  
-long miLong = 9223372036854775808;
-byte miByte = 253428;
-print(x);
-print(y);
-print(miLong);
-print(miByte);
+if(isValid):
+	print("The value is valid.");
+else:
+	print("The value is not valid.");
+endif

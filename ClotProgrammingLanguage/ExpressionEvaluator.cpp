@@ -31,13 +31,29 @@ namespace Clot {
 		std::stack<double> values;
 		std::stack<TokenType> ops;
 
-		for (const auto& token : tokens) {
+		for (size_t i = 0; i < tokens.size(); ++i) {
+			const auto& token = tokens[i];
 			if (token.type == TokenType::Number) {
 				values.push(std::stod(token.value));
+			}
+			else if (token.type == TokenType::Boolean) {
+				values.push(token.value == "true" ? 1.0 : 0.0);
 			}
 			else if (token.type == TokenType::Identifier) {
 				if (DOUBLE.count(token.value)) {
 					values.push(DOUBLE[token.value]);
+				}
+				else if (INT.count(token.value)) {
+					values.push(static_cast<double>(INT[token.value]));
+				}
+				else if (LONG.count(token.value)) {
+					values.push(static_cast<double>(LONG[token.value]));
+				}
+				else if (BYTE.count(token.value)) {
+					values.push(static_cast<double>(BYTE[token.value]));
+				}
+				else if (BOOL.count(token.value)) {
+					values.push(BOOL[token.value] ? 1.0 : 0.0);
 				}
 				else {
 					throw std::runtime_error("Variable no definida: " + token.value);
