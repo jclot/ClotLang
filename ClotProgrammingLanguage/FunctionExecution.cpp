@@ -86,12 +86,30 @@ namespace Clot {
                     throw std::runtime_error("El parámetro de referencia '" + function.parameters[i] + "' requiere un identificador.");
                 }
                 VariableName callerVar = argsTokens[i][0].value;
-                if (!DOUBLE.count(callerVar)) {
+                // Allow references to numeric types: DOUBLE, INT, LONG, BYTE
+                if (DOUBLE.count(callerVar)) {
+                    DOUBLE[function.parameters[i]] = DOUBLE[callerVar];
+                    refMapping.push_back({ callerVar, function.parameters[i], 0 });
+                }
+                else if (INT.count(callerVar)) {
+                    DOUBLE[function.parameters[i]] = static_cast<double>(INT[callerVar]);
+                    refMapping.push_back({ callerVar, function.parameters[i], 1 });
+                }
+                else if (LONG.count(callerVar)) {
+                    DOUBLE[function.parameters[i]] = static_cast<double>(LONG[callerVar]);
+                    refMapping.push_back({ callerVar, function.parameters[i], 2 });
+                }
+                else if (BYTE.count(callerVar)) {
+                    DOUBLE[function.parameters[i]] = static_cast<double>(BYTE[callerVar]);
+                    refMapping.push_back({ callerVar, function.parameters[i], 3 });
+                }
+                else {
+                    // Debug output to help identify why a caller variable isn't found
+                    std::cerr << "Debug: resolving reference parameter for '" << callerVar << "' - present in maps: DOUBLE=" << (DOUBLE.count(callerVar)?1:0)
+                              << ", INT=" << (INT.count(callerVar)?1:0) << ", LONG=" << (LONG.count(callerVar)?1:0)
+                              << ", BYTE=" << (BYTE.count(callerVar)?1:0) << std::endl;
                     throw std::runtime_error("Variable no encontrada en el contexto actual: " + callerVar);
                 }
-                // Inicialmente se copia el valor de la variable del llamador al parametro local
-                DOUBLE[function.parameters[i]] = DOUBLE[callerVar];
-                refMapping.push_back({ callerVar, function.parameters[i] });
             }
             else {
                 double value = ExpressionEvaluator::evaluate(argsTokens[i]);
