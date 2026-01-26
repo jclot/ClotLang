@@ -1,8 +1,2 @@
 
-isValid = true;
-
-if(isValid):
-	print("The value is valid.");
-else:
-	print("The value is not valid.");
-endif
+print("Hola me llamo Julian" + " y tengo 20 años.");

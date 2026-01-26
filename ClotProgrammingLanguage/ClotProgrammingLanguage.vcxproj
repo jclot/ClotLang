@@ -142,6 +142,7 @@
     <ClCompile Include="VariableAssignment.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="build.sh" />
     <None Include="test.clot" />
   </ItemGroup>
   <ItemGroup>

@@ -45,6 +45,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Test.clot" />
+    <None Include="build.sh" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Clot.h">

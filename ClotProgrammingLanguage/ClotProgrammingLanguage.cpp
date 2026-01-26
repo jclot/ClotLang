@@ -33,6 +33,9 @@
 #include "ModuleImporter.h"
 #include "ConditionalStatement.h"
 
+#include <filesystem>
+#include <iostream>
+
 namespace Clot {
 
 	std::map<VariableName, int> INT;
@@ -96,14 +99,43 @@ namespace Clot {
 
 } // namespace Clot
 
-int main() {
-	try {
-		Clot::Interpret("test.clot");
-	}
-	catch (const std::exception& e) {
-		std::cerr << "Error fatal: " << e.what() << std::endl;
-		return 1;
-	}
+int main(int argc, char* argv[]) {
+    try {
+        // Mostrar ayuda
+        if (argc >= 2) {
+            std::string arg = argv[1];
+            if (arg == "-h" || arg == "--help") {
+                std::cout << "Uso: clot [archivo.clot]\n"
+                          << "Si no se proporciona archivo, se buscará el primer\n"
+                          << "archivo con extensión .clot en el directorio actual.\n"
+                          << "También puede ejecutar: clot ruta/al/archivo.clot" << std::endl;
+                return 0;
+            }
+        }
 
-	return 0;
+        std::string filename;
+        if (argc >= 2) {
+            filename = argv[1];
+        }
+        else {
+            // Buscar cualquier .clot en el directorio actual
+            for (const auto& entry : std::filesystem::directory_iterator(std::filesystem::current_path())) {
+                if (!entry.is_regular_file()) continue;
+                if (entry.path().extension() == ".clot") {
+                    filename = entry.path().string();
+                    break;
+                }
+            }
+            // Fallback a test.clot si no se encuentra nada
+            if (filename.empty()) filename = "test.clot";
+        }
+
+        Clot::Interpret(filename);
+    }
+    catch (const std::exception& e) {
+        std::cerr << "Error fatal: " << e.what() << std::endl;
+        return 1;
+    }
+
+    return 0;
 }
