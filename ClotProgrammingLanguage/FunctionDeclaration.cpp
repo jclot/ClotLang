@@ -24,6 +24,7 @@
  */
 
 #include "FunctionDeclaration.h"
+#include <cctype>
 
 namespace Clot {
 
@@ -67,14 +68,25 @@ namespace Clot {
         bool endfuncFound = false;
 
         while (std::getline(file, line)) {
-            if (line == "endfunc") {
+            // Trim left and right whitespace for comparison and storage
+            std::string trimmed = line;
+            // remove leading spaces/tabs
+            trimmed.erase(0, trimmed.find_first_not_of(" \t"));
+            // remove trailing whitespace
+            while (!trimmed.empty() && (trimmed.back() == ' ' || trimmed.back() == '\t' || trimmed.back() == '\r' || trimmed.back() == '\n')) trimmed.pop_back();
+
+            if (trimmed == "endfunc") {
                 endfuncFound = true;
                 break;
             }
-            if (!line.empty() && line[0] != '\t') {
+
+            // Require that function body lines are indented (start with whitespace) or empty
+            if (!line.empty() && !std::isspace(static_cast<unsigned char>(line[0]))) {
                 throw std::runtime_error("Error en la declaración de función: 'endfunc'");
             }
-            body.push_back(line);
+
+            // store trimmed line (without leading indentation) so execution uses consistent tokens
+            body.push_back(trimmed);
         }
 
         if (!endfuncFound) {

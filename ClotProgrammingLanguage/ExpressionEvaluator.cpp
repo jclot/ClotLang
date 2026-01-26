@@ -40,7 +40,27 @@ namespace Clot {
 				values.push(token.value == "true" ? 1.0 : 0.0);
 			}
 			else if (token.type == TokenType::Identifier) {
-				if (DOUBLE.count(token.value)) {
+				// Support object property access like user.name in numeric expressions
+				auto dotPos = token.value.find('.');
+				if (dotPos != std::string::npos) {
+					auto objName = token.value.substr(0, dotPos);
+					auto propName = token.value.substr(dotPos + 1);
+					if (!OBJECT.count(objName)) throw std::runtime_error("Variable no definida: " + objName);
+					const auto& obj = OBJECT[objName];
+					bool found = false;
+					for (const auto& kv : obj) {
+						if (kv.first == propName) {
+							found = true;
+							if (std::holds_alternative<double>(kv.second)) values.push(std::get<double>(kv.second));
+							else if (std::holds_alternative<std::string>(kv.second)) values.push(std::stod(std::get<std::string>(kv.second)));
+							else if (std::holds_alternative<bool>(kv.second)) values.push(std::get<bool>(kv.second) ? 1.0 : 0.0);
+							else throw std::runtime_error("Propiedad no numerica: " + propName);
+							break;
+						}
+					}
+					if (!found) throw std::runtime_error("Variable no definida: " + token.value);
+				}
+				else if (DOUBLE.count(token.value)) {
 					values.push(DOUBLE[token.value]);
 				}
 				else if (INT.count(token.value)) {
@@ -132,7 +152,35 @@ namespace Clot {
 					result += str;
 				}
 				else if (token.type == TokenType::Identifier) {
-					if (STRING.count(token.value)) {
+					// Support object property access like user.name
+					auto dotPos = token.value.find('.');
+					if (dotPos != std::string::npos) {
+						auto objName = token.value.substr(0, dotPos);
+						auto propName = token.value.substr(dotPos + 1);
+						if (!OBJECT.count(objName)) throw std::runtime_error("Variable no definida: " + objName);
+						const auto& obj = OBJECT[objName];
+						bool found = false;
+						for (const auto& kv : obj) {
+							if (kv.first == propName) {
+								found = true;
+								if (std::holds_alternative<std::string>(kv.second)) {
+									result += std::get<std::string>(kv.second);
+								}
+								else if (std::holds_alternative<double>(kv.second)) {
+									result += std::to_string(std::get<double>(kv.second));
+								}
+								else if (std::holds_alternative<bool>(kv.second)) {
+									result += (std::get<bool>(kv.second) ? "true" : "false");
+								}
+								else {
+									throw std::runtime_error("Propiedad no soportada en objeto: " + propName);
+								}
+								break;
+							}
+						}
+						if (!found) throw std::runtime_error("Variable no definida: " + token.value);
+					}
+					else if (STRING.count(token.value)) {
 						result += STRING[token.value];
 					}
 					else if (DOUBLE.count(token.value)) {

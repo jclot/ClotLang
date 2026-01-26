@@ -1,2 +1,19 @@
+// Variables and types
+long max = 9000;
+byte level = 42;
+flag = true;
+nums = [1, 2, 3];
+user = {name: "Ada", active: true, scores: nums};
 
-print("Hola me llamo Julian" + " y tengo 20 años.");
+// Function with reference
+func inc(&value):
+    value += 1;
+endfunc
+
+// Conditional
+if(flag && max > 100):
+    print("User: " + user.name + " level " + level);
+    inc(max);
+else:
+    print("Disabled");
+endif
