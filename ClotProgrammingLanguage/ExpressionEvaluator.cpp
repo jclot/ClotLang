@@ -186,6 +186,18 @@ namespace Clot {
 					else if (DOUBLE.count(token.value)) {
 						result += std::to_string(DOUBLE[token.value]);
 					}
+					else if (INT.count(token.value)) {
+						result += std::to_string(INT[token.value]);
+					}
+					else if (LONG.count(token.value)) {
+						result += std::to_string(LONG[token.value]);
+					}
+					else if (BYTE.count(token.value)) {
+						result += std::to_string(static_cast<int>(BYTE[token.value]));
+					}
+					else if (BOOL.count(token.value)) {
+						result += (BOOL[token.value] ? "true" : "false");
+					}
 					else {
 						throw std::runtime_error("Variable no definida: " + token.value);
 					}
