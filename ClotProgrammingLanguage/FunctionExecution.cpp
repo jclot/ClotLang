@@ -75,7 +75,9 @@ namespace Clot {
         }
 
         std::map<VariableName, double> previousContext = DOUBLE;
-        std::vector<std::pair<VariableName, VariableName>> refMapping;
+        struct RefInfo { VariableName caller; VariableName param; int type; };
+        // type: 0=DOUBLE,1=INT,2=LONG,3=BYTE
+        std::vector<RefInfo> refMapping;
 
         for (size_t i = 0; i < function.parameters.size(); ++i) {
             if (function.isReference[i]) {
@@ -119,10 +121,23 @@ namespace Clot {
             }
         }
 
-        for (auto& mapping : refMapping) {
-			previousContext[mapping.first] = DOUBLE[mapping.second];
+        for (const auto& info : refMapping) {
+            // copy back to correct original type
+            if (info.type == 0) {
+                previousContext[info.caller] = DOUBLE[info.param];
+            }
+            else if (info.type == 1) {
+                INT[info.caller] = static_cast<int>(DOUBLE[info.param]);
+            }
+            else if (info.type == 2) {
+                LONG[info.caller] = static_cast<long long>(DOUBLE[info.param]);
+            }
+            else if (info.type == 3) {
+                BYTE[info.caller] = static_cast<unsigned char>(static_cast<int>(DOUBLE[info.param]));
+            }
         }
 
+        // restore DOUBLE context but keep any changes applied to other maps
         DOUBLE = previousContext;
     }
 
