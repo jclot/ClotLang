@@ -39,7 +39,7 @@
 using VariableName = std::string;
 using FunctionName = std::string;
 using Line = std::string;
-using List = std::vector<std::variant<double, std::string, bool>>;
+using List = std::vector<std::variant<long, double, std::string, bool>>;
 using Object = std::vector<std::pair<std::string, std::variant<double, std::string, bool, List>>>;
 
 namespace Clot {

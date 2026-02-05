@@ -69,13 +69,29 @@ namespace Clot {
 				List listValue;
 				for (size_t i = 1; i < expressionTokens.size() - 1; ++i) {
 					const auto& t = expressionTokens[i];
-					if (t.type == TokenType::Number) listValue.push_back(std::stod(t.value));
+					if (t.type == TokenType::Number) 
+					{ 
+						if(t.value.find('.') != std::string::npos)
+							listValue.push_back(std::stod(t.value)); 
+						else {
+							listValue.push_back(std::stod(t.value));
+						}
+					}
 					else if (t.type == TokenType::String) {
 						std::string str = t.value;
 						str.erase(std::remove(str.begin(), str.end(), '"'), str.end());
 						listValue.push_back(str);
 					}
 					else if (t.type == TokenType::Boolean) listValue.push_back(t.value == "true");
+					else if (t.type == TokenType::Identifier) {
+						if (LONG.count(t.value)) listValue.push_back((long)LONG[t.value]);
+						else if (INT.count(t.value)) listValue.push_back(INT[t.value]);
+						else if (DOUBLE.count(t.value)) listValue.push_back(DOUBLE[t.value]);
+						else if (BYTE.count(t.value)) listValue.push_back((double)BYTE[t.value]);
+						else if (BOOL.count(t.value)) listValue.push_back(BOOL[t.value]);
+						else if (STRING.count(t.value)) listValue.push_back(STRING[t.value]);
+						else throw std::runtime_error("Variable no definida en lista: " + t.value);
+					}
 					else if (t.type == TokenType::Comma) continue;
 				}
 				LIST[variableName] = listValue;

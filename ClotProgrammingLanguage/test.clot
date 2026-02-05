@@ -1,9 +1,11 @@
 // Variables and types
-long max = 9000;
+long max = 843509834;
 byte level = 42;
 flag = true;
-nums = [1, 2, 3];
-user = {name: "Ada", active: true, scores: nums};
+nums = [1, 2, max];
+user = {name: "Ada", active: max};
+
+print(nums[2]);
 
 // Function with reference
 func inc(&value):
@@ -12,7 +14,7 @@ endfunc
 
 // Conditional
 if(flag && max > 100):
-    print("User: " + user.name + " level " + level);
+    print("User: " + user.active + " level " + level);
     inc(max);
 else:
     print("Disabled");

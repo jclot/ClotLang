@@ -40,6 +40,39 @@ namespace Clot {
 				values.push(token.value == "true" ? 1.0 : 0.0);
 			}
 			else if (token.type == TokenType::Identifier) {
+
+				// List indexing nums[1]
+				if (i + 3 < tokens.size() &&
+					tokens[i + 1].type == TokenType::LeftBracket &&
+					tokens[i + 2].type == TokenType::Number &&
+					tokens[i + 3].type == TokenType::RightBracket) {
+
+					std::string listName = token.value;
+					int index = std::stoi(tokens[i + 2].value);
+
+					if (!LIST.count(listName))
+						throw std::runtime_error("Lista no definida: " + listName);
+
+					auto& list = LIST[listName];
+
+					if (index < 0 || index >= list.size())
+						throw std::runtime_error("Indice fuera de rango");
+
+					auto& v = list[index];
+
+					if (std::holds_alternative<double>(v))
+						values.push(std::get<double>(v));
+					else if (std::holds_alternative<long>(v))
+						values.push((double)std::get<long>(v));
+					else if (std::holds_alternative<bool>(v))
+						values.push(std::get<bool>(v) ? 1.0 : 0.0);
+					else
+						throw std::runtime_error("Elemento no numerico");
+
+					i += 3;
+					continue;
+				}
+
 				// Support object property access like user.name in numeric expressions
 				auto dotPos = token.value.find('.');
 				if (dotPos != std::string::npos) {
@@ -152,6 +185,43 @@ namespace Clot {
 					result += str;
 				}
 				else if (token.type == TokenType::Identifier) {
+
+					// List indexing: nums[1]
+					if (i + 3 < tokens.size() &&
+						tokens[i + 1].type == TokenType::LeftBracket &&
+						tokens[i + 2].type == TokenType::Number &&
+						tokens[i + 3].type == TokenType::RightBracket) {
+
+						std::string listName = token.value;
+						int index = std::stoi(tokens[i + 2].value);
+
+						if (!LIST.count(listName))
+							throw std::runtime_error("Lista no definida: " + listName);
+
+						auto& list = LIST[listName];
+
+						if (index < 0 || index >= list.size())
+							throw std::runtime_error("Indice fuera de rango");
+
+						auto& v = list[index];
+
+						if (std::holds_alternative<double>(v))
+							result += std::to_string(std::get<double>(v));
+						else if (std::holds_alternative<long>(v))
+							result += std::to_string(std::get<long>(v));
+						else if (std::holds_alternative<std::string>(v))
+							result += std::get<std::string>(v);
+						else if (std::holds_alternative<bool>(v))
+							result += (std::get<bool>(v) ? "true" : "false");
+						else
+							throw std::runtime_error("Elemento no soportado");
+
+
+						i += 3;
+						continue;
+					}
+
+
 					// Support object property access like user.name
 					auto dotPos = token.value.find('.');
 					if (dotPos != std::string::npos) {

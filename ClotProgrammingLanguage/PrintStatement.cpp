@@ -59,11 +59,13 @@ namespace Clot {
 			else if (BOOL.count(varName)) {
 				std::cout << "Funcion 'Print': " << (BOOL[varName] ? "true" : "false") << std::endl;
 			}
+
 			else if (LIST.count(varName)) {
 				std::cout << "Funcion 'Print': [";
 				for (size_t i = 0; i < LIST[varName].size(); ++i) {
 					const auto& v = LIST[varName][i];
-					if (std::holds_alternative<double>(v)) std::cout << std::get<double>(v);
+					if (std::holds_alternative<long>(v)) std::cout << std::get<long>(v);
+					else if (std::holds_alternative<double>(v)) std::cout << std::get<double>(v);
 					else if (std::holds_alternative<std::string>(v)) std::cout << '"' << std::get<std::string>(v) << '"';
 					else if (std::holds_alternative<bool>(v)) std::cout << (std::get<bool>(v) ? "true" : "false");
 					if (i + 1 < LIST[varName].size()) std::cout << ", ";
