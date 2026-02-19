@@ -58,10 +58,11 @@
 						</form>
 					</div>
 					<ul class="social-list list-inline mx-md-3 mx-lg-5 mb-0 d-none d-lg-flex">
-						<li class="list-inline-item"><a href="#"><i class="fa-brands fa-github fa-fw"></i></a></li>
-						<li class="list-inline-item"><a href="#"><i class="fa-brands fa-x-twitter fa-fw"></i></a></li>
+						<li class="list-inline-item"><a href="https://github.com/jclot/ClotLang" target="_blank"
+								rel="noopener noreferrer"><i class="fa-brands fa-github fa-fw"></i></a></li>
+						<!-- <li class="list-inline-item"><a href="#"><i class="fa-brands fa-x-twitter fa-fw"></i></a></li>
 						<li class="list-inline-item"><a href="#"><i class="fa-brands fa-slack fa-fw"></i></a></li>
-						<li class="list-inline-item"><a href="#"><i class="fa-brands fa-product-hunt fa-fw"></i></a>
+						<li class="list-inline-item"><a href="#"><i class="fa-brands fa-product-hunt fa-fw"></i></a> -->
 						</li>
 					</ul><!--//social-list-->
 					<a href="index.html" class="btn btn-primary d-none d-lg-flex">Inicio</a>
@@ -299,7 +300,7 @@ CLOT_LANG=en ./build/wsl-release/clot test.clot --mode compile --emit exe -o /tm
 								</thead>
 								<tbody>
 									<tr>
-										<td><code>number</code> (inferencia)</td>
+										<td><code>number</code></td>
 										<td><code>x = 12.5;</code></td>
 										<td>Numeros en coma flotante (base <code>double</code>)</td>
 										<td>Sirve para operaciones +, -, *, /, %, ^. Acepta notacion decimal.</td>
@@ -308,7 +309,7 @@ CLOT_LANG=en ./build/wsl-release/clot test.clot --mode compile --emit exe -o /tm
 										<td><code>long</code></td>
 										<td><code>long total = 9;</code></td>
 										<td>Entero largo (normalizado exacto)</td>
-										<td>Valida rango <code>[-2^63, 2^63)</code>. Si se sale, lanza error.</td>
+										<td>Valida rango <code>[-2^63, 2^63]</code>. Si se sale, lanza error.</td>
 									</tr>
 									<tr>
 										<td><code>byte</code></td>
@@ -433,7 +434,8 @@ print(inc_and_get(x));
 print(x);</code></pre>
 						</div>
 						<ul>
-							<li><code>&amp;param</code> en declaracion indica paso por referencia.</li>
+							<li><code>&amp;param</code> en declaracion indica paso por referencia. (Tambien hay
+								parametros por valor)</li>
 							<li><code>return expr;</code> permite usar la funcion en expresiones.</li>
 							<li>Hay validaciones de aridad y tipo de argumento por referencia.</li>
 						</ul>
