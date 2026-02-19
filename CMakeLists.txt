@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(ClotProgrammingLanguage VERSION 0.2.0 LANGUAGES CXX)
+project(ClotProgrammingLanguage VERSION 0.2.0 LANGUAGES C CXX)
 
 option(CLOT_ENABLE_LLVM "Enable LLVM compilation backend" ON)
 
