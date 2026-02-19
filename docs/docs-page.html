@@ -1,0 +1,1468 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+	<title>The Clot Programming Language</title>
+
+	<!-- Meta -->
+	<meta charset="utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta name="description" content="Documentacion oficial del lenguaje de programacion Clot">
+
+	<!-- Google Font -->
+	<link href="https://fonts.googleapis.com/css?family=Poppins:300,400,500,600,700&display=swap" rel="stylesheet">
+
+	<!-- FontAwesome JS-->
+	<script defer src="assets/fontawesome/js/all.min.js"></script>
+
+	<!-- Plugins CSS -->
+	<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.15.2/styles/atom-one-dark.min.css">
+	<link rel="stylesheet" href="assets/plugins/simplelightbox/simple-lightbox.min.css">
+
+	<!-- Theme CSS -->
+	<link id="theme-style" rel="stylesheet" href="assets/css/theme.css">
+
+	<!-- Fuse.js fuzzy search -->
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/7.0.0/fuse.min.js"></script>
+
+	<!-- Favicon -->
+	<link rel="icon" href="assets/images/iconos/clot-nb.png" type="image/png">
+
+	<!-- Clot styles -->
+	<link rel="stylesheet" href="assets/css/styles.css">
+</head>
+
+<body class="docs-page">
+	<header class="header fixed-top">
+		<div class="branding docs-branding">
+			<div class="container-fluid position-relative py-2">
+				<div class="docs-logo-wrapper">
+					<button id="docs-sidebar-toggler" class="docs-sidebar-toggler docs-sidebar-visible me-2 d-xl-none"
+						type="button">
+						<span></span>
+						<span></span>
+						<span></span>
+					</button>
+					<div class="site-logo"><a class="navbar-brand" href="index.html"><img class="logo-icon me-2"
+								src="assets/images/iconos/clot-nb.png" alt="logo"><span class="logo-text">Clot<span
+									class="text-alt">Docs</span></span></a></div>
+				</div><!--//docs-logo-wrapper-->
+				<div class="docs-top-utilities d-flex justify-content-end align-items-center">
+					<div class="top-search-box d-none d-lg-flex">
+						<form class="search-form">
+							<input type="text" placeholder="Buscar en la documentacion..." name="search"
+								class="form-control search-input">
+							<button type="submit" class="btn search-btn" value="Search"><i
+									class="fas fa-search"></i></button>
+						</form>
+					</div>
+					<ul class="social-list list-inline mx-md-3 mx-lg-5 mb-0 d-none d-lg-flex">
+						<li class="list-inline-item"><a href="#"><i class="fa-brands fa-github fa-fw"></i></a></li>
+						<li class="list-inline-item"><a href="#"><i class="fa-brands fa-x-twitter fa-fw"></i></a></li>
+						<li class="list-inline-item"><a href="#"><i class="fa-brands fa-slack fa-fw"></i></a></li>
+						<li class="list-inline-item"><a href="#"><i class="fa-brands fa-product-hunt fa-fw"></i></a>
+						</li>
+					</ul><!--//social-list-->
+					<a href="index.html" class="btn btn-primary d-none d-lg-flex">Inicio</a>
+				</div><!--//docs-top-utilities-->
+			</div><!--//container-->
+		</div><!--//branding-->
+	</header><!--//header-->
+
+	<div class="docs-wrapper">
+		<div id="docs-sidebar" class="docs-sidebar">
+			<div class="top-search-box d-lg-none p-3">
+				<form class="search-form">
+					<input type="text" placeholder="Buscar en la documentacion..." name="search"
+						class="form-control search-input">
+					<button type="submit" class="btn search-btn" value="Search"><i class="fas fa-search"></i></button>
+				</form>
+			</div>
+			<nav id="docs-nav" class="docs-nav navbar">
+				<ul class="section-items list-unstyled nav flex-column pb-3">
+
+					<li class="nav-item section-title">
+						<a class="nav-link scrollto active" href="#section-1">
+							<span class="theme-icon-holder me-2"><i class="fas fa-map-signs"></i></span>Beginner Guide
+						</a>
+					</li>
+					<li class="nav-item"><a class="nav-link scrollto" href="#item-1-1">Build y ejecucion</a></li>
+					<li class="nav-item"><a class="nav-link scrollto" href="#item-1-2">Modelo mental</a></li>
+					<li class="nav-item"><a class="nav-link scrollto" href="#item-1-3">Flujo completo</a></li>
+
+					<li class="nav-item section-title mt-3">
+						<a class="nav-link scrollto" href="#section-2">
+							<span class="theme-icon-holder me-2"><i class="fas fa-table"></i></span>Tipos de Datos
+						</a>
+					</li>
+					<li class="nav-item"><a class="nav-link scrollto" href="#item-2-1">Tabla de tipos</a></li>
+
+					<li class="nav-item section-title mt-3">
+						<a class="nav-link scrollto" href="#section-3">
+							<span class="theme-icon-holder me-2"><i class="fas fa-book"></i></span>Language Reference
+						</a>
+					</li>
+					<li class="nav-item"><a class="nav-link scrollto" href="#item-3-1">Variables y asignaciones</a></li>
+					<li class="nav-item"><a class="nav-link scrollto" href="#item-3-2">Expresiones y operadores</a></li>
+					<li class="nav-item"><a class="nav-link scrollto" href="#item-3-3">Condicionales</a></li>
+					<li class="nav-item"><a class="nav-link scrollto" href="#item-3-4">Funciones y return</a></li>
+					<li class="nav-item"><a class="nav-link scrollto" href="#item-3-5">Listas y objetos</a></li>
+					<li class="nav-item"><a class="nav-link scrollto" href="#item-3-6">Modulos e import</a></li>
+					<li class="nav-item"><a class="nav-link scrollto" href="#item-3-7">Internacionalizacion</a></li>
+					<li class="nav-item"><a class="nav-link scrollto" href="#item-3-8">Comentarios y estilo</a></li>
+
+					<li class="nav-item section-title mt-3">
+						<a class="nav-link scrollto" href="#section-4">
+							<span class="theme-icon-holder me-2"><i class="fas fa-sitemap"></i></span>Arquitectura
+						</a>
+					</li>
+					<li class="nav-item"><a class="nav-link scrollto" href="#item-4-1">Vista general</a></li>
+
+					<li class="nav-item section-title mt-3">
+						<a class="nav-link scrollto" href="#section-5">
+							<span class="theme-icon-holder me-2"><i class="fas fa-code-branch"></i></span>Estado
+							Refactor
+						</a>
+					</li>
+					<li class="nav-item"><a class="nav-link scrollto" href="#item-5-1">Parser Split</a></li>
+					<li class="nav-item"><a class="nav-link scrollto" href="#item-5-2">Backend LLVM Split</a></li>
+
+					<li class="nav-item section-title mt-3">
+						<a class="nav-link scrollto" href="#section-6">
+							<span class="theme-icon-holder me-2"><i class="fas fa-folder-open"></i></span>Inventario
+							Global
+						</a>
+					</li>
+					<li class="nav-item"><a class="nav-link scrollto" href="#item-6-1">Fuentes C++</a></li>
+					<li class="nav-item"><a class="nav-link scrollto" href="#item-6-2">Headers publicos</a></li>
+
+					<li class="nav-item section-title mt-3">
+						<a class="nav-link scrollto" href="#section-7">
+							<span class="theme-icon-holder me-2"><i class="fas fa-terminal"></i></span>Walkthrough: CLI
+							&amp; Frontend
+						</a>
+					</li>
+					<li class="nav-item"><a class="nav-link scrollto" href="#item-7-1">Capa CLI</a></li>
+					<li class="nav-item"><a class="nav-link scrollto" href="#item-7-2">Frontend — Tokenizer &amp;
+							Parser</a></li>
+
+					<li class="nav-item section-title mt-3">
+						<a class="nav-link scrollto" href="#section-8">
+							<span class="theme-icon-holder me-2"><i class="fas fa-cogs"></i></span>Walkthrough:
+							Interpreter &amp; LLVM
+						</a>
+					</li>
+					<li class="nav-item"><a class="nav-link scrollto" href="#item-8-1">Interpreter</a></li>
+					<li class="nav-item"><a class="nav-link scrollto" href="#item-8-2">Backend LLVM</a></li>
+
+					<li class="nav-item section-title mt-3">
+						<a class="nav-link scrollto" href="#section-9">
+							<span class="theme-icon-holder me-2"><i class="fas fa-check-circle"></i></span>Walkthrough:
+							Runtime &amp; Validacion
+						</a>
+					</li>
+					<li class="nav-item"><a class="nav-link scrollto" href="#item-9-1">Runtime compartido</a></li>
+					<li class="nav-item"><a class="nav-link scrollto" href="#item-9-2">Validacion recomendada (WSL)</a>
+					</li>
+
+				</ul>
+			</nav><!--//docs-nav-->
+		</div><!--//docs-sidebar-->
+
+		<div class="docs-content">
+			<div class="container">
+
+				<!-- ============================================================ -->
+				<!-- SECTION 1: BEGINNER GUIDE                                    -->
+				<!-- ============================================================ -->
+				<article class="docs-article" id="section-1">
+					<header class="docs-header">
+						<h1 class="docs-heading">Beginner Guide <span class="docs-time">Actualizado: 2026-02-19</span>
+						</h1>
+						<section class="docs-intro">
+							<p>Esta guia esta escrita para personas que nunca implementaron un lenguaje. El objetivo es
+								que entiendas no solo "como se usa Clot", sino tambien "como esta construido por
+								dentro".</p>
+						</section><!--//docs-intro-->
+					</header>
+
+					<section class="docs-section" id="item-1-1">
+						<h2 class="section-heading">Build y ejecucion</h2>
+						<p>Los tres pasos fundamentales para compilar y ejecutar programas Clot:</p>
+
+						<div class="row g-3 mb-4">
+							<div class="col-md-4">
+								<div class="card h-100">
+									<div class="card-body">
+										<h5 class="card-title">Paso 1 — Preparar build</h5>
+										<div class="docs-code-block">
+											<pre class="shadow-lg rounded"><code class="language-bash">cmake --preset wsl-release
+cmake --build --preset build-release</code></pre>
+										</div>
+										<p class="mb-0">Genera el binario listo para interpretar o compilar programas
+											Clot.</p>
+									</div>
+								</div>
+							</div>
+							<div class="col-md-4">
+								<div class="card h-100">
+									<div class="card-body">
+										<h5 class="card-title">Paso 2 — Ejecutar</h5>
+										<div class="docs-code-block">
+											<pre
+												class="shadow-lg rounded"><code class="language-bash">./build/wsl-release/clot test.clot</code></pre>
+										</div>
+										<p class="mb-0">Ejecuta AST en el interprete.</p>
+									</div>
+								</div>
+							</div>
+							<div class="col-md-4">
+								<div class="card h-100">
+									<div class="card-body">
+										<h5 class="card-title">Paso 3 — Compilar</h5>
+										<div class="docs-code-block">
+											<pre class="shadow-lg rounded"><code class="language-bash">./build/wsl-release/clot test.clot \
+  --mode compile --emit exe -o /tmp/test
+./build/wsl-release/clot test.clot \
+  --mode compile --emit exe -o /tmp/test_en --lang en</code></pre>
+										</div>
+										<p class="mb-0">Compila con LLVM. Si hace falta, usa runtime bridge
+											automaticamente.</p>
+									</div>
+								</div>
+							</div>
+						</div>
+					</section><!--//docs-section-->
+
+					<section class="docs-section" id="item-1-2">
+						<h2 class="section-heading">Modelo mental de un lenguaje (aplicado a Clot)</h2>
+						<p>Para entender el proyecto, interioriza este flujo de datos:</p>
+						<ol>
+							<li><strong>Texto:</strong> escribes <code>.clot</code>.</li>
+							<li><strong>Tokens:</strong> el tokenizer divide ese texto en piezas.</li>
+							<li><strong>AST:</strong> el parser organiza esas piezas en una estructura arbol.</li>
+							<li><strong>Ejecucion o compilacion:</strong> AST pasa al interprete o al backend LLVM.</li>
+							<li><strong>Runtime:</strong> valores y errores se manejan de forma consistente.</li>
+						</ol>
+					</section><!--//docs-section-->
+
+					<section class="docs-section" id="item-1-3">
+						<h2 class="section-heading">Flujo completo de ejecucion y compilacion</h2>
+						<ol>
+							<li>Tu archivo <code>.clot</code> se tokeniza linea por linea.</li>
+							<li>El parser arma AST con nodos de expresion y sentencia.</li>
+							<li>En <code>--mode run</code> AST se ejecuta directo en el interprete.</li>
+							<li>En <code>--mode compile</code> se intenta AOT LLVM.</li>
+							<li>Si el programa usa caracteristicas fuera del subset AOT, se genera runtime bridge y aun
+								asi compila.</li>
+						</ol>
+						<div class="docs-code-block">
+							<pre class="shadow-lg rounded"><code class="language-bash"># Interprete
+./build/wsl-release/clot test.clot
+
+# Compilacion LLVM
+./build/wsl-release/clot test.clot --mode compile --emit exe -o /tmp/test
+
+# Compilacion LLVM en ingles
+./build/wsl-release/clot test.clot --mode compile --emit exe -o /tmp/test_en --lang en
+CLOT_LANG=en ./build/wsl-release/clot test.clot --mode compile --emit exe -o /tmp/test_en</code></pre>
+						</div>
+					</section><!--//docs-section-->
+
+				</article><!--//docs-article-->
+
+
+				<!-- ============================================================ -->
+				<!-- SECTION 2: TIPOS DE DATOS                                    -->
+				<!-- ============================================================ -->
+				<article class="docs-article" id="section-2">
+					<header class="docs-header">
+						<h1 class="docs-heading">Tipos de Datos</h1>
+						<section class="docs-intro">
+							<p>Mapa completo de tipos de datos de Clot. Cada tipo tiene comportamiento de validacion de
+								rango estricto: no hay clamp silencioso.</p>
+						</section><!--//docs-intro-->
+					</header>
+
+					<section class="docs-section" id="item-2-1">
+						<h2 class="section-heading">Tabla de tipos</h2>
+						<div class="table-responsive">
+							<table class="table table-bordered table-sm align-middle">
+								<thead class="table-dark">
+									<tr>
+										<th>Tipo visible en Clot</th>
+										<th>Ejemplo</th>
+										<th>Que almacena</th>
+										<th>Notas practicas</th>
+									</tr>
+								</thead>
+								<tbody>
+									<tr>
+										<td><code>number</code> (inferencia)</td>
+										<td><code>x = 12.5;</code></td>
+										<td>Numeros en coma flotante (base <code>double</code>)</td>
+										<td>Sirve para operaciones +, -, *, /, %, ^. Acepta notacion decimal.</td>
+									</tr>
+									<tr>
+										<td><code>long</code></td>
+										<td><code>long total = 9;</code></td>
+										<td>Entero largo (normalizado exacto)</td>
+										<td>Valida rango <code>[-2^63, 2^63)</code>. Si se sale, lanza error.</td>
+									</tr>
+									<tr>
+										<td><code>byte</code></td>
+										<td><code>byte level = 2;</code></td>
+										<td>Entero de 0..255</td>
+										<td>Si sales del rango, da error claro (no hay clamp silencioso).</td>
+									</tr>
+									<tr>
+										<td><code>string</code></td>
+										<td><code>name = "Ada";</code></td>
+										<td>Texto</td>
+										<td>Se concatena con <code>+</code></td>
+									</tr>
+									<tr>
+										<td><code>bool</code></td>
+										<td><code>flag = true;</code></td>
+										<td><code>true</code> o <code>false</code></td>
+										<td>Usado en <code>if</code>, <code>&amp;&amp;</code>, <code>||</code>,
+											<code>!</code>
+										</td>
+									</tr>
+									<tr>
+										<td><code>list</code></td>
+										<td><code>nums = [1,2,3];</code></td>
+										<td>Coleccion ordenada</td>
+										<td>Soporta indexacion y mutacion por indice</td>
+									</tr>
+									<tr>
+										<td><code>object</code></td>
+										<td><code>u = {name:"Ada"};</code></td>
+										<td>Pares clave:valor</td>
+										<td>Soporta rutas como <code>u.stats.score</code></td>
+									</tr>
+								</tbody>
+							</table>
+						</div>
+					</section><!--//docs-section-->
+
+				</article><!--//docs-article-->
+
+
+				<!-- ============================================================ -->
+				<!-- SECTION 3: LANGUAGE REFERENCE                                -->
+				<!-- ============================================================ -->
+				<article class="docs-article" id="section-3">
+					<header class="docs-header">
+						<h1 class="docs-heading">Language Reference</h1>
+						<section class="docs-intro">
+							<p>Guia detallada de todas las construcciones del lenguaje Clot: sintaxis, semantica y
+								comportamiento del runtime para cada feature.</p>
+						</section><!--//docs-intro-->
+					</header>
+
+					<section class="docs-section" id="item-3-1">
+						<h2 class="section-heading">1) Variables, tipos y asignaciones</h2>
+						<div class="docs-code-block">
+							<pre class="shadow-lg rounded"><code class="language-bash">a = 10;
+long total = 1000;
+byte level = 42;
+a += 5;
+a -= 2;</code></pre>
+						</div>
+						<p><strong>Detalles:</strong></p>
+						<ul>
+							<li><code>=</code> asigna un nuevo valor.</li>
+							<li><code>+=</code> y <code>-=</code> realizan mutacion aritmetica.</li>
+							<li><code>long</code> y <code>byte</code> aplican truncado hacia cero + validacion estricta
+								de rango.</li>
+							<li><code>long</code> usa ventana valida
+								<code>[-9223372036854775808, 9223372036854775808)</code>.
+							</li>
+							<li>Nota tecnica: literales enteros se preservan en int64 para validacion exacta de
+								<code>long</code>; expresiones con punto flotante siguen base <code>double</code>.
+							</li>
+						</ul>
+					</section><!--//docs-section-->
+
+					<section class="docs-section" id="item-3-2">
+						<h2 class="section-heading">2) Expresiones y operadores</h2>
+						<div class="docs-code-block">
+							<pre class="shadow-lg rounded"><code class="language-bash">print(2 + 3);
+print(10 / 2);
+print(10 % 3);
+print(2 ^ 4);
+print(5 > 2);
+print(5 == 5);
+print(true &amp;&amp; false);
+print(true || false);
+print(!false);</code></pre>
+						</div>
+						<p>
+							Soporte de precedencia en parser:
+							<code>or -&gt; and -&gt; igualdad -&gt; comparacion -&gt; termino -&gt; factor -&gt; potencia -&gt; unario</code>.
+						</p>
+					</section><!--//docs-section-->
+
+					<section class="docs-section" id="item-3-3">
+						<h2 class="section-heading">3) Condicionales</h2>
+						<div class="docs-code-block">
+							<pre class="shadow-lg rounded"><code class="language-bash">if(a > 10):
+    print("Mayor");
+else:
+    print("No mayor");
+endif</code></pre>
+						</div>
+						<p>
+							El interprete evalua la condicion con conversion a booleano y luego ejecuta rama
+							<code>then</code> o <code>else</code>.
+						</p>
+					</section><!--//docs-section-->
+
+					<section class="docs-section" id="item-3-4">
+						<h2 class="section-heading">4) Funciones, referencia y return</h2>
+						<div class="docs-code-block">
+							<pre class="shadow-lg rounded"><code class="language-bash">func inc_and_get(&amp;value):
+    value += 1;
+    return value;
+endfunc
+
+x = 7;
+print(inc_and_get(x));
+print(x);</code></pre>
+						</div>
+						<ul>
+							<li><code>&amp;param</code> en declaracion indica paso por referencia.</li>
+							<li><code>return expr;</code> permite usar la funcion en expresiones.</li>
+							<li>Hay validaciones de aridad y tipo de argumento por referencia.</li>
+						</ul>
+					</section><!--//docs-section-->
+
+					<section class="docs-section" id="item-3-5">
+						<h2 class="section-heading">5) Listas, objetos, indexacion y mutaciones</h2>
+						<div class="docs-code-block">
+							<pre class="shadow-lg rounded"><code class="language-bash">nums = [1, 2, 3];
+user = {name: "Ada", stats: {score: 7}};
+
+nums[1] = 10;
+nums[1] += 4;
+user.stats.score += 3;
+print(nums[1]);
+print(user.stats.score);</code></pre>
+						</div>
+						<p>
+							El runtime resuelve rutas anidadas y permite mutar valores internos.
+							El indice debe ser entero finito; si no lo es, o queda fuera de rango, retorna error claro.
+						</p>
+					</section><!--//docs-section-->
+
+					<section class="docs-section" id="item-3-6">
+						<h2 class="section-heading">6) Modulos e import</h2>
+						<div class="docs-code-block">
+							<pre class="shadow-lg rounded"><code class="language-bash">import math;
+import modules.utils;</code></pre>
+						</div>
+						<ul>
+							<li><code>math</code> es nativo y habilita <code>sum(a,b)</code>.</li>
+							<li><code>import a.b.c;</code> busca <code>a/b/c.clot</code>.</li>
+							<li>Se detectan importaciones circulares.</li>
+						</ul>
+					</section><!--//docs-section-->
+
+					<section class="docs-section" id="item-3-7">
+						<h2 class="section-heading">7) Internacionalizacion (es/en)</h2>
+						<div class="docs-code-block">
+							<pre class="shadow-lg rounded"><code class="language-bash"># Interprete en ingles
+./build/wsl-release/clot test.clot --lang en
+CLOT_LANG=en ./build/wsl-release/clot test.clot
+
+# Compilar en ingles (diagnosticos de compilacion)
+./build/wsl-release/clot test.clot --mode compile --emit exe -o /tmp/test_en --lang en
+CLOT_LANG=en ./build/wsl-release/clot test.clot --mode compile --emit exe -o /tmp/test_en
+
+# Ejecutar binario compilado en ingles (cuando usa runtime bridge)
+CLOT_LANG=en /tmp/test_en</code></pre>
+						</div>
+						<p>
+							<code>--lang en</code> cambia idioma para CLI/diagnosticos en esa ejecucion.
+							<code>CLOT_LANG=en</code> tambien aplica al runtime bridge del ejecutable compilado.
+						</p>
+					</section><!--//docs-section-->
+
+					<section class="docs-section" id="item-3-8">
+						<h2 class="section-heading">8) Comentarios y estilo recomendado</h2>
+						<div class="docs-code-block">
+							<pre class="shadow-lg rounded"><code class="language-bash">// Comentario de linea
+long score = 10; // comentario al final</code></pre>
+						</div>
+						<ul>
+							<li>El tokenizer corta la linea cuando ve <code>//</code>.</li>
+							<li>Usa comentarios para explicar "por que", no para repetir codigo.</li>
+							<li>Mantener comentarios cortos facilita lectura para novatos.</li>
+						</ul>
+					</section><!--//docs-section-->
+
+				</article><!--//docs-article-->
+
+
+				<!-- ============================================================ -->
+				<!-- SECTION 4: ARQUITECTURA                                      -->
+				<!-- ============================================================ -->
+				<article class="docs-article" id="section-4">
+					<header class="docs-header">
+						<h1 class="docs-heading">Arquitectura de Clot</h1>
+						<section class="docs-intro">
+							<p>Estructura inspirada en documentaciones tecnicas maduras: <strong>getting
+									started</strong> + <strong>language reference</strong> + <strong>implementation
+									internals</strong>.</p>
+						</section><!--//docs-intro-->
+					</header>
+
+					<section class="docs-section" id="item-4-1">
+						<h2 class="section-heading">Vista general (vista de ingenieria)</h2>
+						<div class="row g-3 mb-3">
+							<div class="col-md-3">
+								<div class="card h-100">
+									<div class="card-body">
+										<h5 class="card-title"><i class="fas fa-code me-2 text-primary"></i>Frontend
+										</h5>
+										<p class="mb-0">Tokenizer y parser convierten texto en AST.</p>
+									</div>
+								</div>
+							</div>
+							<div class="col-md-3">
+								<div class="card h-100">
+									<div class="card-body">
+										<h5 class="card-title"><i class="fas fa-database me-2 text-success"></i>Runtime
+										</h5>
+										<p class="mb-0">Value + i18n para representar datos y mensajes.</p>
+									</div>
+								</div>
+							</div>
+							<div class="col-md-3">
+								<div class="card h-100">
+									<div class="card-body">
+										<h5 class="card-title"><i
+												class="fas fa-play-circle me-2 text-warning"></i>Interpreter</h5>
+										<p class="mb-0">Ejecuta AST, maneja funciones, return, mutaciones y modulos.</p>
+									</div>
+								</div>
+							</div>
+							<div class="col-md-3">
+								<div class="card h-100">
+									<div class="card-body">
+										<h5 class="card-title"><i class="fas fa-bolt me-2 text-danger"></i>LLVM</h5>
+										<p class="mb-0">AOT para subset y runtime bridge para lenguaje completo.</p>
+									</div>
+								</div>
+							</div>
+						</div>
+						<div class="callout-block callout-block-info">
+							<div class="content">
+								<h4 class="callout-title">
+									<span class="callout-icon-holder me-1"><i class="fas fa-info-circle"></i></span>
+									Cobertura del walkthrough
+								</h4>
+								<p class="mb-0">Actualizada con refactor 2026-02-19 (split parser + split backend LLVM).
+								</p>
+							</div>
+						</div>
+					</section><!--//docs-section-->
+
+				</article><!--//docs-article-->
+
+
+				<!-- ============================================================ -->
+				<!-- SECTION 5: ESTADO REFACTOR 2026-02-19                        -->
+				<!-- ============================================================ -->
+				<article class="docs-article" id="section-5">
+					<header class="docs-header">
+						<h1 class="docs-heading">Estado Refactor 2026-02-19</h1>
+						<section class="docs-intro">
+							<p>El proyecto fue migrado a una arquitectura modular: parser dividido por responsabilidades
+								y backend LLVM separado por fases. Esta es la estructura vigente del codigo fuente. Si
+								vienes de una version anterior, usa este mapa como referencia oficial.</p>
+						</section><!--//docs-intro-->
+					</header>
+
+					<section class="docs-section" id="item-5-1">
+						<h2 class="section-heading">Frontend (Parser Split)</h2>
+						<div class="callout-block callout-block-success">
+							<div class="content">
+								<h4 class="callout-title">
+									<span class="callout-icon-holder me-1"><i class="fas fa-thumbs-up"></i></span>
+									Arquitectura modular activa
+								</h4>
+								<p class="mb-0">Esta documentacion ya no usa la vista monolitica antigua: el walkthrough
+									fue reescrito contra la estructura split actual.</p>
+							</div>
+						</div>
+						<ul>
+							<li><code>src/frontend/parser_core.cpp</code>: ciclo principal y despacho de sentencias.
+							</li>
+							<li><code>src/frontend/parser_statements.cpp</code>:
+								assignment/if/func/import/mutation/return.</li>
+							<li><code>src/frontend/parser_expression.cpp</code>: precedencia de expresiones y postfix.
+							</li>
+							<li><code>src/frontend/parser_support.hpp</code>: utilidades internas compartidas.</li>
+						</ul>
+					</section><!--//docs-section-->
+
+					<section class="docs-section" id="item-5-2">
+						<h2 class="section-heading">Backend LLVM (Codegen Split)</h2>
+						<ul>
+							<li><code>src/codegen/llvm_compiler.cpp</code>: facade publica y pipeline de compilacion.
+							</li>
+							<li><code>src/codegen/llvm_aot_support.cpp</code>: analisis de soporte AOT.</li>
+							<li><code>src/codegen/llvm_emitter.cpp</code>: lowering AST a LLVM IR/obj.</li>
+							<li><code>src/codegen/llvm_linker.cpp</code>: enlazado y runtime bridge.</li>
+							<li><code>src/codegen/llvm_backend_internal.hpp</code>: contratos internos.</li>
+						</ul>
+						<p>Build + validacion (WSL):</p>
+						<div class="docs-code-block">
+							<pre class="shadow-lg rounded"><code class="language-bash"># Build + validacion (WSL)
+cmake --build --preset build-release
+tests/smoke.sh ./build/wsl-release/clot
+tests/llvm_smoke.sh ./build/wsl-release/clot</code></pre>
+						</div>
+					</section><!--//docs-section-->
+
+				</article><!--//docs-article-->
+
+
+				<!-- ============================================================ -->
+				<!-- SECTION 6: INVENTARIO GLOBAL DE CODIGO                       -->
+				<!-- ============================================================ -->
+				<article class="docs-article" id="section-6">
+					<header class="docs-header">
+						<h1 class="docs-heading">Inventario Global de Codigo</h1>
+						<section class="docs-intro">
+							<p>Este inventario esta sincronizado con la arquitectura actual del repositorio despues del
+								refactor de parser y backend LLVM. Se documentan solo rutas reales activas.</p>
+						</section><!--//docs-intro-->
+					</header>
+
+					<section class="docs-section" id="item-6-1">
+						<h2 class="section-heading">Metricas y mapa de fuentes C++</h2>
+
+						<div class="row g-3 mb-4">
+							<div class="col-6 col-md-3">
+								<div class="card h-100 text-center">
+									<div class="card-body">
+										<h5 class="card-title">Headers publicos</h5>
+										<p class="display-6 mb-0 fw-bold">9</p>
+									</div>
+								</div>
+							</div>
+							<div class="col-6 col-md-3">
+								<div class="card h-100 text-center">
+									<div class="card-body">
+										<h5 class="card-title">Fuentes C++</h5>
+										<p class="display-6 mb-0 fw-bold">15</p>
+									</div>
+								</div>
+							</div>
+							<div class="col-6 col-md-3">
+								<div class="card h-100 text-center">
+									<div class="card-body">
+										<h5 class="card-title">Modulos base</h5>
+										<p class="display-6 mb-0 fw-bold">5</p>
+									</div>
+								</div>
+							</div>
+							<div class="col-6 col-md-3">
+								<div class="card h-100 text-center">
+									<div class="card-body">
+										<h5 class="card-title">Tests smoke</h5>
+										<p class="display-6 mb-0 fw-bold">2</p>
+									</div>
+								</div>
+							</div>
+						</div>
+
+						<h5>Mapa de archivos fuente activos</h5>
+						<div class="table-responsive">
+							<table class="table table-sm table-bordered align-middle">
+								<thead class="table-dark">
+									<tr>
+										<th>Ruta</th>
+										<th>Capa</th>
+										<th>Rol</th>
+									</tr>
+								</thead>
+								<tbody>
+									<tr>
+										<td><code>src/cli/main.cpp</code></td>
+										<td>CLI</td>
+										<td>Parsea argumentos, selecciona modo interpret/compile y coordina ejecucion.
+										</td>
+									</tr>
+									<tr>
+										<td><code>src/frontend/tokenizer.cpp</code></td>
+										<td>Frontend</td>
+										<td>Convierte texto de cada linea en tokens tipados.</td>
+									</tr>
+									<tr>
+										<td><code>src/frontend/parser_core.cpp</code></td>
+										<td>Frontend</td>
+										<td>Ciclo principal del parser, bloques y despacho de sentencias.</td>
+									</tr>
+									<tr>
+										<td><code>src/frontend/parser_statements.cpp</code></td>
+										<td>Frontend</td>
+										<td>Parseo de assignment, if, func, import, mutation, return y expression
+											statements.</td>
+									</tr>
+									<tr>
+										<td><code>src/frontend/parser_expression.cpp</code></td>
+										<td>Frontend</td>
+										<td>Parser de expresiones por precedencia, llamadas, indexacion y literales
+											complejos.</td>
+									</tr>
+									<tr>
+										<td><code>src/frontend/source_loader.cpp</code></td>
+										<td>Frontend</td>
+										<td>Carga archivos fuente y normaliza errores de lectura.</td>
+									</tr>
+									<tr>
+										<td><code>src/interpreter/interpreter.cpp</code></td>
+										<td>Interpreter</td>
+										<td>Motor principal de ejecucion de AST y evaluacion de expresiones.</td>
+									</tr>
+									<tr>
+										<td><code>src/interpreter/interpreter_state.cpp</code></td>
+										<td>Interpreter</td>
+										<td>Mutaciones, coerciones y helpers de estado/variables.</td>
+									</tr>
+									<tr>
+										<td><code>src/interpreter/interpreter_modules.cpp</code></td>
+										<td>Interpreter</td>
+										<td>Resolucion/import de modulos y control de ciclos.</td>
+									</tr>
+									<tr>
+										<td><code>src/codegen/llvm_compiler.cpp</code></td>
+										<td>Codegen LLVM</td>
+										<td>Facade publica <code>LlvmCompiler</code> y pipeline alto nivel.</td>
+									</tr>
+									<tr>
+										<td><code>src/codegen/llvm_aot_support.cpp</code></td>
+										<td>Codegen LLVM</td>
+										<td>Analiza si el programa entra en subset AOT puro.</td>
+									</tr>
+									<tr>
+										<td><code>src/codegen/llvm_emitter.cpp</code></td>
+										<td>Codegen LLVM</td>
+										<td>Lowering AST a LLVM IR y emision de objeto/IR.</td>
+									</tr>
+									<tr>
+										<td><code>src/codegen/llvm_linker.cpp</code></td>
+										<td>Codegen LLVM</td>
+										<td>Link con <code>clang++</code> y ensamblado runtime bridge.</td>
+									</tr>
+									<tr>
+										<td><code>src/codegen/runtime_bridge.cpp</code></td>
+										<td>Codegen LLVM</td>
+										<td>Entry runtime para ejecutar source completo desde binario compilado.</td>
+									</tr>
+									<tr>
+										<td><code>src/runtime/i18n.cpp</code></td>
+										<td>Runtime</td>
+										<td>Traduccion de interfaz y diagnosticos es/en.</td>
+									</tr>
+								</tbody>
+							</table>
+						</div>
+					</section><!--//docs-section-->
+
+					<section class="docs-section" id="item-6-2">
+						<h2 class="section-heading">Headers publicos</h2>
+						<div class="table-responsive">
+							<table class="table table-sm table-bordered align-middle">
+								<thead class="table-dark">
+									<tr>
+										<th>Ruta</th>
+										<th>API</th>
+										<th>Uso</th>
+									</tr>
+								</thead>
+								<tbody>
+									<tr>
+										<td><code>include/clot/frontend/ast.hpp</code></td>
+										<td>Nodos AST</td>
+										<td>Contrato comun de parser, interprete y codegen.</td>
+									</tr>
+									<tr>
+										<td><code>include/clot/frontend/token.hpp</code></td>
+										<td>Token/TokenKind</td>
+										<td>Vocabulario del lexer.</td>
+									</tr>
+									<tr>
+										<td><code>include/clot/frontend/tokenizer.hpp</code></td>
+										<td><code>Tokenizer</code></td>
+										<td>Entrada tokenizada para parser.</td>
+									</tr>
+									<tr>
+										<td><code>include/clot/frontend/parser.hpp</code></td>
+										<td><code>Parser</code></td>
+										<td>Construccion de <code>Program</code> + diagnosticos.</td>
+									</tr>
+									<tr>
+										<td><code>include/clot/frontend/source_loader.hpp</code></td>
+										<td>Loader</td>
+										<td>Lectura segura de fuente desde disco.</td>
+									</tr>
+									<tr>
+										<td><code>include/clot/interpreter/interpreter.hpp</code></td>
+										<td><code>Interpreter</code></td>
+										<td>Ejecucion de AST (modo interpret y runtime bridge).</td>
+									</tr>
+									<tr>
+										<td><code>include/clot/codegen/llvm_compiler.hpp</code></td>
+										<td><code>LlvmCompiler</code></td>
+										<td>Compilacion LLVM en CLI.</td>
+									</tr>
+									<tr>
+										<td><code>include/clot/runtime/value.hpp</code></td>
+										<td><code>Value</code></td>
+										<td>Representacion unificada de datos del lenguaje.</td>
+									</tr>
+									<tr>
+										<td><code>include/clot/runtime/i18n.hpp</code></td>
+										<td>i18n API</td>
+										<td>Idioma activo, traduccion y helpers de mensajes.</td>
+									</tr>
+								</tbody>
+							</table>
+						</div>
+					</section><!--//docs-section-->
+
+				</article><!--//docs-article-->
+
+
+				<!-- ============================================================ -->
+				<!-- SECTION 7: WALKTHROUGH — CLI & FRONTEND                      -->
+				<!-- ============================================================ -->
+				<article class="docs-article" id="section-7">
+					<header class="docs-header">
+						<h1 class="docs-heading">Walkthrough: CLI &amp; Frontend</h1>
+						<section class="docs-intro">
+							<p>Walkthrough del codigo alineado con los archivos reales actuales (version vigente y
+								consistente). Retirada la vista monolitica antigua; esta seccion esta pensada para
+								principiantes con nivel tecnico suficiente para mantenimiento profesional.</p>
+						</section><!--//docs-intro-->
+					</header>
+
+					<section class="docs-section" id="item-7-1">
+						<h2 class="section-heading">1) Capa CLI — <code>src/cli/main.cpp</code></h2>
+						<p><strong>Objetivo:</strong> ser la puerta de entrada unica del ejecutable <code>clot</code>.
+						</p>
+						<ul>
+							<li>Interpreta argumentos: archivo de entrada, <code>--mode</code>, <code>--emit</code>,
+								<code>--lang</code>, salida.
+							</li>
+							<li>Resuelve idioma activo con prioridad CLI -&gt; variable <code>CLOT_LANG</code> -&gt;
+								default.</li>
+							<li>En modo interpret: tokeniza + parsea + ejecuta AST.</li>
+							<li>En modo compile: tokeniza + parsea + delega en <code>LlvmCompiler</code>.</li>
+							<li>Centraliza impresion de errores traducidos.</li>
+						</ul>
+						<div class="docs-code-block">
+							<pre class="shadow-lg rounded"><code class="language-bash"># Interpretar
+./build/wsl-release/clot programa.clot
+
+# Compilar (exe)
+./build/wsl-release/clot programa.clot --mode compile --emit exe -o programa
+
+# Compilar en ingles
+./build/wsl-release/clot programa.clot --mode compile --emit exe -o programa --lang en</code></pre>
+						</div>
+					</section><!--//docs-section-->
+
+					<section class="docs-section" id="item-7-2">
+						<h2 class="section-heading">2) Frontend — Tokenizer + Parser Split</h2>
+
+						<h5><code>src/frontend/tokenizer.cpp</code></h5>
+						<p>
+							Define reglas del lexer: numeros, strings, identificadores, keywords, operadores y
+							comentarios.
+							Entrega tokens con linea/columna para diagnosticos precisos.
+						</p>
+
+						<h5><code>src/frontend/parser_core.cpp</code></h5>
+						<ul>
+							<li><code>Parser::Parse</code>: inicializa salida y lanza parseo de bloque raiz.</li>
+							<li><code>Parser::ParseBlock</code>: avanza por lineas, ignora vacias y corta en tokens de
+								control cuando aplica.</li>
+							<li><code>Parser::ParseStatement</code>: decide que rutina usar segun el primer token.</li>
+							<li><code>Parser::MakeError</code>: fabrica diagnosticos consistentes.</li>
+						</ul>
+
+						<h5><code>src/frontend/parser_statements.cpp</code></h5>
+						<ul>
+							<li><code>ParseAssignment</code>: soporta <code>=</code>, <code>+=</code>, <code>-=</code> y
+								validacion de <code>long/byte</code>.</li>
+							<li><code>ParseIf</code>: valida estructura <code>if / else / endif</code>.</li>
+							<li><code>ParseFunctionDeclaration</code>: parsea parametros (incluye <code>&amp;</code>) y
+								cuerpo hasta <code>endfunc</code>.</li>
+							<li><code>ParseImport</code>: formato estricto <code>import modulo;</code>.</li>
+							<li><code>ParseMutation</code>: mutaciones de variable/indexacion.</li>
+							<li><code>ParseReturn</code>: <code>return;</code> y <code>return expr;</code>.</li>
+						</ul>
+
+						<h5><code>src/frontend/parser_expression.cpp</code></h5>
+						<p>
+							Contiene <code>ExpressionParser</code> con precedencia completa:
+							<code>or -&gt; and -&gt; igualdad -&gt; comparacion -&gt; termino -&gt; factor -&gt; potencia -&gt; unario -&gt; postfix -&gt; primario</code>.
+						</p>
+						<p>
+							Soporta llamadas, listas, objetos, indexacion y validaciones de cierre de delimitadores.
+						</p>
+
+						<h5><code>src/frontend/parser_support.hpp</code></h5>
+						<p>
+							Helpers internos reutilizables (deteccion de tokens de control y operador de asignacion a
+							nivel superior).
+						</p>
+					</section><!--//docs-section-->
+
+				</article><!--//docs-article-->
+
+
+				<!-- ============================================================ -->
+				<!-- SECTION 8: WALKTHROUGH — INTERPRETER & LLVM                  -->
+				<!-- ============================================================ -->
+				<article class="docs-article" id="section-8">
+					<header class="docs-header">
+						<h1 class="docs-heading">Walkthrough: Interpreter &amp; Backend LLVM</h1>
+						<section class="docs-intro">
+							<p>Detalle tecnico del motor de ejecucion de AST y del backend de compilacion LLVM con sus
+								distintas fases separadas por responsabilidad.</p>
+						</section><!--//docs-intro-->
+					</header>
+
+					<section class="docs-section" id="item-8-1">
+						<h2 class="section-heading">3) Interpreter — Ejecucion del AST</h2>
+
+						<h5><code>src/interpreter/interpreter.cpp</code></h5>
+						<ul>
+							<li>Loop principal de sentencias.</li>
+							<li>Evaluacion de expresiones numericas, booleanas, strings, listas y objetos.</li>
+							<li>Llamadas a funciones de usuario y builtins.</li>
+							<li>Control de <code>return</code> con propagacion entre bloques.</li>
+						</ul>
+
+						<h5><code>src/interpreter/interpreter_state.cpp</code></h5>
+						<ul>
+							<li>Normalizacion de tipos y conversiones seguras.</li>
+							<li>Mutacion por variable, propiedad e indice.</li>
+							<li>Reglas de asignacion compuesta y chequeos de errores de tipo.</li>
+						</ul>
+
+						<h5><code>src/interpreter/interpreter_modules.cpp</code></h5>
+						<ul>
+							<li>Resolucion de rutas para <code>import a.b.c;</code> =&gt; <code>a/b/c.clot</code>.</li>
+							<li>Prevencion de ciclos de importacion.</li>
+							<li>Ejecucion aislada de modulos importados con seguimiento de contexto.</li>
+						</ul>
+					</section><!--//docs-section-->
+
+					<section class="docs-section" id="item-8-2">
+						<h2 class="section-heading">4) Backend LLVM — Arquitectura dividida por fases</h2>
+
+						<h5><code>src/codegen/llvm_compiler.cpp</code></h5>
+						<p>
+							Punto de entrada del backend: valida opciones, invoca emisor y decide salida
+							(<code>ir</code>, <code>obj</code>, <code>exe</code>).
+						</p>
+
+						<h5><code>src/codegen/llvm_aot_support.cpp</code></h5>
+						<p>
+							Detecta si el programa puede compilarse en AOT puro o necesita runtime bridge.
+							Evalua nodos AST, firmas de funciones y compatibilidad de llamadas.
+						</p>
+
+						<h5><code>src/codegen/llvm_emitter.cpp</code></h5>
+						<ul>
+							<li>Construye modulo LLVM y funcion <code>main</code>.</li>
+							<li>Emite statements/expresiones soportadas AOT.</li>
+							<li>En AOT puro mantiene numericos dinamicos y <code>byte</code>; declaraciones
+								<code>long</code> fuerzan runtime bridge para preservar semantica exacta.
+							</li>
+							<li>Tambien activa runtime bridge si detecta literales enteros fuera del rango seguro de
+								<code>double</code> (|n| &gt; 2^53-1).
+							</li>
+							<li>Declara y emite funciones de usuario en IR.</li>
+							<li>Genera archivo IR o objeto segun opcion.</li>
+						</ul>
+
+						<h5><code>src/codegen/llvm_linker.cpp</code></h5>
+						<ul>
+							<li>Arma comando de <code>clang++</code> y enlaza ejecutable final.</li>
+							<li>Cuando aplica runtime bridge, agrega parser split + interpreter + i18n al link.</li>
+							<li>Soporta modo verbose para inspeccion del comando real.</li>
+						</ul>
+
+						<h5><code>src/codegen/runtime_bridge.cpp</code></h5>
+						<p>
+							Expone <code>clot_runtime_execute_source</code> para que un binario compilado ejecute
+							lenguaje completo
+							cuando el subset AOT no cubre todas las features del programa.
+						</p>
+					</section><!--//docs-section-->
+
+				</article><!--//docs-article-->
+
+
+				<!-- ============================================================ -->
+				<!-- SECTION 9: WALKTHROUGH — RUNTIME & VALIDACION                -->
+				<!-- ============================================================ -->
+				<article class="docs-article" id="section-9">
+					<header class="docs-header">
+						<h1 class="docs-heading">Walkthrough: Runtime &amp; Validacion</h1>
+						<section class="docs-intro">
+							<p>Capa de runtime compartida entre interprete y backend, mas la guia de validacion
+								recomendada en entorno WSL para verificar el pipeline completo.</p>
+						</section><!--//docs-intro-->
+					</header>
+
+					<section class="docs-section" id="item-9-1">
+						<h2 class="section-heading">5) Runtime compartido — Datos e i18n</h2>
+
+						<h5><code>include/clot/runtime/value.hpp</code></h5>
+						<p>
+							Tipo <code>Value</code> para representar enteros exactos, number, string, bool, list y
+							object; incluye utilidades de conversion/inspeccion.
+						</p>
+
+						<h5><code>src/runtime/i18n.cpp</code></h5>
+						<p>
+							Traduccion de diagnosticos (es/en), seleccion de idioma activo y helpers para mensajes de
+							CLI/runtime.
+							Este modulo evita duplicar textos en todo el proyecto.
+						</p>
+					</section><!--//docs-section-->
+
+					<section class="docs-section" id="item-9-2">
+						<h2 class="section-heading">6) Validacion recomendada (WSL)</h2>
+						<div class="docs-code-block">
+							<pre class="shadow-lg rounded"><code class="language-bash"># Build
+cmake --preset wsl-release
+cmake --build --preset build-release
+
+# Pruebas base
+tests/smoke.sh ./build/wsl-release/clot
+
+# Pruebas LLVM (AOT + runtime bridge)
+tests/llvm_smoke.sh ./build/wsl-release/clot
+
+# Ejemplo rapido
+echo 'long x = 10; print(x + 2);' > /tmp/quick.clot
+./build/wsl-release/clot /tmp/quick.clot</code></pre>
+						</div>
+						<p>
+							Si las tres validaciones pasan, el pipeline completo del lenguaje queda verificado:
+							frontend, interpreter, backend LLVM y runtime bridge.
+						</p>
+					</section><!--//docs-section-->
+
+				</article><!--//docs-article-->
+
+
+				<footer class="footer">
+					<div class="container text-center py-5">
+						<small class="copyright">
+							<i class="fas fa-copyright"></i> Todos los derechos reservados –
+							<span class="theme-link">Clot Programming Language</span>
+						</small>
+						<ul class="social-list list-unstyled pt-4 mb-0">
+							<li class="list-inline-item"><a href="https://github.com/jclot/ClotLang" target="_blank"
+									rel="noopener noreferrer"><i class="fa-brands fa-github fa-fw"></i></a></li>
+							<!-- <li class="list-inline-item"><a href="#"><i class="fa-brands fa-x-twitter fa-fw"></i></a>
+							</li>
+							<li class="list-inline-item"><a href="#"><i class="fa-brands fa-slack fa-fw"></i></a></li>
+							<li class="list-inline-item"><a href="#"><i class="fa-brands fa-product-hunt fa-fw"></i></a>
+							</li>
+							<li class="list-inline-item"><a href="#"><i class="fa-brands fa-facebook-f fa-fw"></i></a>
+							</li>
+							<li class="list-inline-item"><a href="#"><i class="fa-brands fa-instagram fa-fw"></i></a>
+							</li> -->
+						</ul><!--//social-list-->
+					</div>
+				</footer>
+
+			</div>
+		</div>
+	</div><!--//docs-wrapper-->
+
+
+	<!-- Search Modal Overlay -->
+	<div id="clot-search-overlay" role="dialog" aria-modal="true" aria-label="Buscar en la documentacion">
+		<div id="clot-search-panel">
+			<div id="clot-search-input-wrap">
+				<i class="fas fa-search search-icon"></i>
+				<input id="clot-search-main-input" type="text" autocomplete="off" spellcheck="false"
+					placeholder="Buscar en toda la documentacion... (ej: ParseFunctionDeclaration, runtime bridge, byte)" />
+				<span id="clot-search-kbd">ESC</span>
+			</div>
+			<div id="clot-search-results">
+				<div class="clot-search-hint">
+					Escribe para buscar en todos los articulos, codigos y tablas de la
+					documentacion.
+				</div>
+			</div>
+			<div id="clot-search-footer">
+				<div class="clot-search-shortcuts">
+					<span><kbd>↑</kbd><kbd>↓</kbd> Navegar</span>
+					<span><kbd>↵</kbd> Ir</span>
+					<span><kbd>ESC</kbd> Cerrar</span>
+				</div>
+				<span id="clot-result-count"></span>
+			</div>
+		</div>
+	</div>
+
+	<script src="assets/plugins/popper.min.js"></script>
+	<script src="assets/plugins/bootstrap/js/bootstrap.min.js"></script>
+
+	<script src="assets/plugins/smoothscroll.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.15.8/highlight.min.js"></script>
+	<script src="assets/js/highlight-custom.js"></script>
+	<script src="assets/plugins/simplelightbox/simple-lightbox.min.js"></script>
+	<script src="assets/plugins/gumshoe/gumshoe.polyfills.min.js"></script>
+	<script src="assets/js/docs.js"></script>
+
+	<!-- ── CLOT SEARCH ENGINE ────────────────────────────────────────────── -->
+	<script>
+		(function () {
+			'use strict';
+
+			const SECTION_ICONS = {
+				'section-1': 'fa-map-signs',
+				'section-2': 'fa-table',
+				'section-3': 'fa-book',
+				'section-4': 'fa-sitemap',
+				'section-5': 'fa-code-branch',
+				'section-6': 'fa-folder-open',
+				'section-7': 'fa-terminal',
+				'section-8': 'fa-cogs',
+				'section-9': 'fa-check-circle',
+			};
+
+			function buildIndex() {
+				const entries = [];
+
+				document.querySelectorAll('article.docs-article, section.docs-section').forEach(function (el) {
+					const sectionId = el.id || '';
+					if (!sectionId) return;
+
+					const article = el.closest('article.docs-article') || el;
+					const articleHeading = article.querySelector('.docs-heading');
+					const articleTitle = articleHeading ? articleHeading.textContent.replace(/Last updated.*$/i, '').trim() : '';
+
+					const headingEl = el.querySelector('h1.docs-heading, h2.section-heading');
+					const heading = headingEl ? headingEl.textContent.replace(/Last updated.*$/i, '').trim() : articleTitle;
+
+					const breadcrumb = (articleTitle && heading !== articleTitle)
+						? articleTitle + ' › ' + heading
+						: heading;
+
+					const textNodes = [];
+					el.querySelectorAll('h1,h2,h3,h4,h5,p,li,td,th,code,pre').forEach(function (node) {
+						const t = node.textContent.trim();
+						if (t.length > 4) textNodes.push(t);
+					});
+					const fullText = textNodes.join(' ').replace(/\s+/g, ' ').trim();
+
+					const parentArticle = el.closest('article.docs-article');
+					const parentId = parentArticle ? parentArticle.id : sectionId;
+
+					entries.push({
+						id: sectionId,
+						parentId: parentId,
+						title: heading,
+						breadcrumb: breadcrumb,
+						text: fullText,
+						anchor: '#' + sectionId,
+					});
+				});
+
+				document.querySelectorAll('.docs-section table tbody tr').forEach(function (tr) {
+					const cells = tr.querySelectorAll('td, th');
+					if (cells.length < 2) return;
+					const firstCell = cells[0].textContent.trim();
+					if (!firstCell || firstCell.length > 120) return;
+
+					const rowText = Array.from(cells).map(function (c) { return c.textContent.trim(); }).join(' — ');
+					const section = tr.closest('section.docs-section');
+					if (!section || !section.id) return;
+
+					const article = tr.closest('article.docs-article');
+					const articleHeading = article ? article.querySelector('.docs-heading') : null;
+					const articleTitle = articleHeading ? articleHeading.textContent.replace(/Last updated.*$/i, '').trim() : '';
+					const sectionHeading = section.querySelector('h2.section-heading');
+					const sectionTitle = sectionHeading ? sectionHeading.textContent.trim() : '';
+
+					entries.push({
+						id: section.id + '-row-' + firstCell.replace(/[^a-z0-9]/gi, ''),
+						parentId: article ? article.id : section.id,
+						title: firstCell,
+						breadcrumb: articleTitle + ' › ' + sectionTitle,
+						text: rowText,
+						anchor: '#' + section.id,
+						isRow: true,
+					});
+				});
+
+				return entries;
+			}
+
+			function escapeRe(str) {
+				return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+			}
+
+			function highlight(text, terms) {
+				if (!terms || !terms.length) return escapeHtml(text);
+				let out = escapeHtml(text);
+				terms.forEach(function (term) {
+					if (!term || term.length < 2) return;
+					const re = new RegExp('(' + escapeRe(escapeHtml(term)) + ')', 'gi');
+					out = out.replace(re, '<mark class="clot-hl">$1</mark>');
+				});
+				return out;
+			}
+
+			function escapeHtml(str) {
+				return (str || '')
+					.replace(/&/g, '&amp;')
+					.replace(/</g, '&lt;')
+					.replace(/>/g, '&gt;')
+					.replace(/"/g, '&quot;');
+			}
+
+			function excerpt(text, terms, maxLen) {
+				maxLen = maxLen || 140;
+				if (!terms || !terms.length) return text.slice(0, maxLen);
+				const lc = text.toLowerCase();
+				let best = 0;
+				terms.forEach(function (term) {
+					const idx = lc.indexOf(term.toLowerCase());
+					if (idx >= 0) best = Math.max(0, idx - 40);
+				});
+				const raw = text.slice(best, best + maxLen);
+				return (best > 0 ? '…' : '') + raw + (best + maxLen < text.length ? '…' : '');
+			}
+
+			var INDEX = [];
+			var fuse = null;
+
+			function initFuse() {
+				INDEX = buildIndex();
+				fuse = new Fuse(INDEX, {
+					keys: [
+						{ name: 'title', weight: 0.45 },
+						{ name: 'text', weight: 0.40 },
+						{ name: 'breadcrumb', weight: 0.15 },
+					],
+					threshold: 0.35,
+					distance: 400,
+					minMatchCharLength: 2,
+					includeScore: true,
+					includeMatches: true,
+					ignoreLocation: true,
+					useExtendedSearch: false,
+				});
+			}
+
+			var resultsEl = document.getElementById('clot-search-results');
+			var countEl = document.getElementById('clot-result-count');
+			var focusedIndex = -1;
+			var currentResults = [];
+
+			function renderResults(query) {
+				if (!query || query.trim().length < 2) {
+					resultsEl.innerHTML = '<div class="clot-search-hint"><i class="fas fa-book-open"></i>Escribe para buscar en todos los articulos, codigos y tablas de la documentacion.</div>';
+					countEl.textContent = '';
+					focusedIndex = -1;
+					currentResults = [];
+					return;
+				}
+
+				const raw = fuse.search(query.trim(), { limit: 60 });
+
+				if (!raw.length) {
+					resultsEl.innerHTML = '<div class="clot-search-empty"><i class="fas fa-search" style="font-size:2rem;display:block;margin-bottom:.5rem;opacity:.3"></i>Sin resultados para <strong>' + escapeHtml(query) + '</strong><br><small>Prueba con otro termino o fragmento de codigo.</small></div>';
+					countEl.textContent = '0 resultados';
+					focusedIndex = -1;
+					currentResults = [];
+					return;
+				}
+
+				const terms = query.trim().split(/\s+/).filter(function (t) { return t.length >= 2; });
+
+				const grouped = {};
+				const groupOrder = [];
+				raw.forEach(function (r) {
+					const g = r.item.parentId || r.item.id;
+					if (!grouped[g]) { grouped[g] = []; groupOrder.push(g); }
+					grouped[g].push(r);
+				});
+
+				currentResults = raw;
+				focusedIndex = 0;
+
+				let html = '';
+				let totalShown = 0;
+				const SECTION_LABELS = {
+					'section-1': 'Beginner Guide',
+					'section-2': 'Tipos de Datos',
+					'section-3': 'Language Reference',
+					'section-4': 'Arquitectura',
+					'section-5': 'Estado Refactor 2026-02-19',
+					'section-6': 'Inventario Global de Codigo',
+					'section-7': 'Walkthrough: CLI & Frontend',
+					'section-8': 'Walkthrough: Interpreter & LLVM',
+					'section-9': 'Walkthrough: Runtime & Validacion',
+				};
+
+				groupOrder.forEach(function (gId) {
+					const items = grouped[gId];
+					const label = SECTION_LABELS[gId] || gId;
+					html += '<div class="clot-search-section-label"><i class="fas ' + (SECTION_ICONS[gId] || 'fa-file') + ' me-1"></i>' + escapeHtml(label) + '</div>';
+
+					items.forEach(function (r) {
+						const item = r.item;
+						const icon = SECTION_ICONS[item.parentId] || SECTION_ICONS[item.id] || 'fa-file-alt';
+						const excerptText = excerpt(item.text, terms, 150);
+
+						html += '<a class="clot-result-item' + (totalShown === 0 ? ' focused' : '') + '" href="' + item.anchor + '" data-idx="' + totalShown + '">'
+							+ '<div class="clot-result-icon"><i class="fas ' + icon + '"></i></div>'
+							+ '<div class="clot-result-body">'
+							+ '<div class="clot-result-title">' + highlight(item.title, terms) + '</div>'
+							+ '<div class="clot-result-breadcrumb">' + escapeHtml(item.breadcrumb) + '</div>'
+							+ '<div class="clot-result-excerpt">' + highlight(excerptText, terms) + '</div>'
+							+ '</div>'
+							+ '<i class="fas fa-chevron-right clot-result-arrow"></i>'
+							+ '</a>';
+						totalShown++;
+					});
+				});
+
+				resultsEl.innerHTML = html;
+				countEl.textContent = totalShown + ' resultado' + (totalShown !== 1 ? 's' : '');
+
+				resultsEl.querySelectorAll('.clot-result-item').forEach(function (link) {
+					link.addEventListener('click', function (e) {
+						e.preventDefault();
+						closeOverlay();
+						const anchor = link.getAttribute('href');
+						const target = document.querySelector(anchor);
+						if (target) {
+							setTimeout(function () {
+								target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+								target.style.transition = 'background .3s';
+								target.style.background = '#fef9c3';
+								setTimeout(function () { target.style.background = ''; }, 1200);
+							}, 80);
+						}
+					});
+				});
+			}
+
+			function updateFocus(newIdx) {
+				const items = resultsEl.querySelectorAll('.clot-result-item');
+				if (!items.length) return;
+				newIdx = Math.max(0, Math.min(items.length - 1, newIdx));
+				items.forEach(function (el) { el.classList.remove('focused'); });
+				items[newIdx].classList.add('focused');
+				items[newIdx].scrollIntoView({ block: 'nearest' });
+				focusedIndex = newIdx;
+			}
+
+			var overlay = document.getElementById('clot-search-overlay');
+			var mainInput = document.getElementById('clot-search-main-input');
+
+			function openOverlay(prefill) {
+				overlay.classList.add('active');
+				mainInput.value = prefill || '';
+				setTimeout(function () { mainInput.focus(); }, 60);
+				if (prefill) renderResults(prefill);
+				document.body.style.overflow = 'hidden';
+			}
+
+			function closeOverlay() {
+				overlay.classList.remove('active');
+				mainInput.value = '';
+				resultsEl.innerHTML = '<div class="clot-search-hint"><i class="fas fa-book-open"></i>Escribe para buscar en todos los articulos, codigos y tablas de la documentacion.</div>';
+				countEl.textContent = '';
+				currentResults = [];
+				focusedIndex = -1;
+				document.body.style.overflow = '';
+			}
+
+			var debounceTimer;
+			mainInput.addEventListener('input', function () {
+				clearTimeout(debounceTimer);
+				debounceTimer = setTimeout(function () { renderResults(mainInput.value); }, 120);
+			});
+
+			mainInput.addEventListener('keydown', function (e) {
+				const items = resultsEl.querySelectorAll('.clot-result-item');
+				if (e.key === 'ArrowDown') { e.preventDefault(); updateFocus(focusedIndex + 1); }
+				else if (e.key === 'ArrowUp') { e.preventDefault(); updateFocus(focusedIndex - 1); }
+				else if (e.key === 'Enter') {
+					e.preventDefault();
+					const focused = resultsEl.querySelector('.clot-result-item.focused');
+					if (focused) focused.click();
+				}
+				else if (e.key === 'Escape') { closeOverlay(); }
+			});
+
+			overlay.addEventListener('click', function (e) {
+				if (e.target === overlay) closeOverlay();
+			});
+
+			document.querySelectorAll('.search-input').forEach(function (input) {
+				input.addEventListener('focus', function () {
+					openOverlay(input.value);
+					input.blur();
+				});
+			});
+
+			document.querySelectorAll('.search-form').forEach(function (form) {
+				form.addEventListener('submit', function (e) { e.preventDefault(); openOverlay(); });
+			});
+
+			/* Global keyboard shortcut: / or Ctrl+K */
+			document.addEventListener('keydown', function (e) {
+				if (overlay.classList.contains('active')) return;
+				const tag = document.activeElement ? document.activeElement.tagName : '';
+				if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+				if (e.key === '/' || (e.key === 'k' && (e.ctrlKey || e.metaKey))) {
+					e.preventDefault();
+					openOverlay();
+				}
+			});
+
+			function getParam(name) {
+				return new URLSearchParams(window.location.search).get(name);
+			}
+
+			if (document.readyState === 'loading') {
+				document.addEventListener('DOMContentLoaded', function () { initFuse(); checkUrlParam(); });
+			} else {
+				initFuse();
+				checkUrlParam();
+			}
+
+			function checkUrlParam() {
+				const q = getParam('q');
+				if (q) openOverlay(q);
+			}
+
+		}());
+	</script>
+
+</body>
+
+</html>

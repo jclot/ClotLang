@@ -365,3 +365,7 @@ FodyWeavers.xsd
 # CMake/Ninja/Make build trees
 build/
 cmake-build-*/
+
+# Docs
+.DS_Store
+config.codekit3

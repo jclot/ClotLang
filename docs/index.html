@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+	<title>The Clot Programming Language</title>
+
+	<!-- Meta -->
+	<meta charset="utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta name="description" content="Documentacion oficial del lenguaje de programacion Clot">
+	<link rel="shortcut icon" href="favicon.ico">
+
+	<!-- Google Font -->
+	<link href="https://fonts.googleapis.com/css?family=Poppins:300,400,500,600,700&display=swap" rel="stylesheet">
+
+	<!-- FontAwesome JS-->
+	<script defer src="assets/fontawesome/js/all.min.js"></script>
+
+	<!-- Theme CSS -->
+	<link id="theme-style" rel="stylesheet" href="assets/css/theme.css">
+
+	<!-- Favicon -->
+	<link rel="icon" href="assets/images/iconos/clot-nb.png" type="image/png">
+
+</head>
+
+<body>
+	<header class="header fixed-top">
+		<div class="branding docs-branding">
+			<div class="container-fluid position-relative py-2">
+				<div class="docs-logo-wrapper">
+					<div class="site-logo"><a class="navbar-brand" href="index.html"><img class="logo-icon me-2"
+								src="assets/images/iconos/clot-nb.png" alt="logo"><span class="logo-text">Clot<span
+									class="text-alt">Docs</span></span></a></div>
+				</div><!--//docs-logo-wrapper-->
+				<div class="docs-top-utilities d-flex justify-content-end align-items-center">
+					<ul class="social-list list-inline mx-md-3 mx-lg-5 mb-0 d-none d-lg-flex">
+						<li class="list-inline-item"><a href="https://github.com/jclot/ClotLang" target="_blank"
+								rel="noopener noreferrer"><i class="fa-brands fa-github fa-fw"></i></a></li>
+						<!-- <li class="list-inline-item"><a href="#"><i class="fa-brands fa-x-twitter fa-fw"></i></a></li>
+						<li class="list-inline-item"><a href="#"><i class="fa-brands fa-slack fa-fw"></i></a></li>
+						<li class="list-inline-item"><a href="#"><i class="fa-brands fa-product-hunt fa-fw"></i></a>
+						</li> -->
+					</ul><!--//social-list-->
+					<a href="docs-page.html" class="btn btn-primary d-none d-lg-flex">Ver Docs</a>
+				</div><!--//docs-top-utilities-->
+			</div><!--//container-->
+		</div><!--//branding-->
+	</header><!--//header-->
+
+	<div class="page-header theme-bg-dark py-5 text-center position-relative">
+		<div class="theme-bg-shapes-right"></div>
+		<div class="theme-bg-shapes-left"></div>
+		<div class="container">
+			<h1 class="page-heading single-col-max mx-auto">ClotLang</h1>
+			<div class="page-intro single-col-max mx-auto">Guia completa del lenguaje<br><small
+					class="opacity-75">Actualizado 2026-02-19</small></div>
+			<div class="main-search-box pt-3 d-block mx-auto">
+				<form class="search-form w-100" id="index-search-form" action="docs-page.html" method="get">
+					<input type="text"
+						placeholder="Buscar en la documentacion... (ej: ParseFunctionDeclaration, runtime bridge, byte, import module...)"
+						name="q" class="form-control search-input" id="index-search-input">
+					<button type="submit" class="btn search-btn" value="Search"><i class="fas fa-search"></i></button>
+				</form>
+			</div>
+		</div>
+	</div><!--//page-header-->
+
+	<div class="page-content">
+		<div class="container">
+			<div class="docs-overview py-5">
+				<div class="row justify-content-center">
+
+					<div class="col-12 col-lg-4 py-3">
+						<div class="card shadow-sm">
+							<div class="card-body">
+								<h5 class="card-title mb-3">
+									<span class="theme-icon-holder card-icon-holder me-2">
+										<i class="fas fa-map-signs"></i>
+									</span>
+									<span class="card-title-text">Beginner Guide</span>
+								</h5>
+								<div class="card-text">
+									Guia de inicio total para novatos. Como preparar el build, ejecutar e interpretar
+									programas Clot. Modelo mental del lenguaje.
+								</div>
+								<a class="card-link-mask" href="docs-page.html#section-1"></a>
+							</div><!--//card-body-->
+						</div><!--//card-->
+					</div><!--//col-->
+
+					<div class="col-12 col-lg-4 py-3">
+						<div class="card shadow-sm">
+							<div class="card-body">
+								<h5 class="card-title mb-3">
+									<span class="theme-icon-holder card-icon-holder me-2">
+										<i class="fas fa-table"></i>
+									</span>
+									<span class="card-title-text">Tipos de Datos</span>
+								</h5>
+								<div class="card-text">
+									Mapa completo de tipos de datos de Clot: number, long, byte, string, bool, list,
+									object. Rangos, ejemplos y notas practicas.
+								</div>
+								<a class="card-link-mask" href="docs-page.html#section-2"></a>
+							</div><!--//card-body-->
+						</div><!--//card-->
+					</div><!--//col-->
+
+					<div class="col-12 col-lg-4 py-3">
+						<div class="card shadow-sm">
+							<div class="card-body">
+								<h5 class="card-title mb-3">
+									<span class="theme-icon-holder card-icon-holder me-2">
+										<i class="fas fa-book fa-fw"></i>
+									</span>
+									<span class="card-title-text">Language Reference</span>
+								</h5>
+								<div class="card-text">
+									Referencia completa del lenguaje: variables, operadores, condicionales, funciones,
+									listas, objetos, modulos, internacionalizacion y mas.
+								</div>
+								<a class="card-link-mask" href="docs-page.html#section-3"></a>
+							</div><!--//card-body-->
+						</div><!--//card-->
+					</div><!--//col-->
+
+					<div class="col-12 col-lg-4 py-3">
+						<div class="card shadow-sm">
+							<div class="card-body">
+								<h5 class="card-title mb-3">
+									<span class="theme-icon-holder card-icon-holder me-2">
+										<i class="fas fa-sitemap fa-fw"></i>
+									</span>
+									<span class="card-title-text">Arquitectura</span>
+								</h5>
+								<div class="card-text">
+									Vista de ingenieria del proyecto: Frontend, Runtime, Interpreter y LLVM. Estructura
+									inspirada en documentaciones tecnicas maduras.
+								</div>
+								<a class="card-link-mask" href="docs-page.html#section-4"></a>
+							</div><!--//card-body-->
+						</div><!--//card-->
+					</div><!--//col-->
+
+					<div class="col-12 col-lg-4 py-3">
+						<div class="card shadow-sm">
+							<div class="card-body">
+								<h5 class="card-title mb-3">
+									<span class="theme-icon-holder card-icon-holder me-2">
+										<i class="fas fa-code-branch"></i>
+									</span>
+									<span class="card-title-text">Estado Refactor 2026-02-19</span>
+								</h5>
+								<div class="card-text">
+									Migracion a arquitectura modular: parser dividido por responsabilidades y backend
+									LLVM separado por fases. Mapa de referencia oficial.
+								</div>
+								<a class="card-link-mask" href="docs-page.html#section-5"></a>
+							</div><!--//card-body-->
+						</div><!--//card-->
+					</div><!--//col-->
+
+					<div class="col-12 col-lg-4 py-3">
+						<div class="card shadow-sm">
+							<div class="card-body">
+								<h5 class="card-title mb-3">
+									<span class="theme-icon-holder card-icon-holder me-2">
+										<i class="fas fa-folder-open fa-fw"></i>
+									</span>
+									<span class="card-title-text">Inventario Global de Codigo</span>
+								</h5>
+								<div class="card-text">
+									Inventario sincronizado con la arquitectura actual: 9 headers publicos, 15 fuentes
+									C++, 5 modulos base y 2 test scripts. Tablas completas.
+								</div>
+								<a class="card-link-mask" href="docs-page.html#section-6"></a>
+							</div><!--//card-body-->
+						</div><!--//card-->
+					</div><!--//col-->
+
+					<div class="col-12 col-lg-4 py-3">
+						<div class="card shadow-sm">
+							<div class="card-body">
+								<h5 class="card-title mb-3">
+									<span class="theme-icon-holder card-icon-holder me-2">
+										<i class="fas fa-terminal"></i>
+									</span>
+									<span class="card-title-text">CLI &amp; Frontend</span>
+								</h5>
+								<div class="card-text">
+									Walkthrough detallado de la capa CLI (main.cpp) y del Frontend: Tokenizer,
+									parser_core, parser_statements, parser_expression y parser_support.
+								</div>
+								<a class="card-link-mask" href="docs-page.html#section-7"></a>
+							</div><!--//card-body-->
+						</div><!--//card-->
+					</div><!--//col-->
+
+					<div class="col-12 col-lg-4 py-3">
+						<div class="card shadow-sm">
+							<div class="card-body">
+								<h5 class="card-title mb-3">
+									<span class="theme-icon-holder card-icon-holder me-2">
+										<i class="fas fa-cogs fa-fw"></i>
+									</span>
+									<span class="card-title-text">Interpreter &amp; LLVM</span>
+								</h5>
+								<div class="card-text">
+									Ejecucion del AST, mutaciones, modulos, y backend LLVM: compiler, aot_support,
+									emitter, linker y runtime_bridge.
+								</div>
+								<a class="card-link-mask" href="docs-page.html#section-8"></a>
+							</div><!--//card-body-->
+						</div><!--//card-->
+					</div><!--//col-->
+
+					<div class="col-12 col-lg-4 py-3">
+						<div class="card shadow-sm">
+							<div class="card-body">
+								<h5 class="card-title mb-3">
+									<span class="theme-icon-holder card-icon-holder me-2">
+										<i class="fas fa-check-circle fa-fw"></i>
+									</span>
+									<span class="card-title-text">Runtime &amp; Validacion</span>
+								</h5>
+								<div class="card-text">
+									Runtime compartido (value.hpp, i18n.cpp) y guia de validacion recomendada en WSL:
+									smoke tests, LLVM tests y ejemplos rapidos.
+								</div>
+								<a class="card-link-mask" href="docs-page.html#section-9"></a>
+							</div><!--//card-body-->
+						</div><!--//card-->
+					</div><!--//col-->
+
+				</div><!--//row-->
+			</div><!--//container-->
+		</div><!--//container-->
+	</div><!--//page-content-->
+
+	<section class="cta-section text-center py-5 theme-bg-dark position-relative">
+		<div class="theme-bg-shapes-right"></div>
+		<div class="theme-bg-shapes-left"></div>
+		<div class="container">
+			<h3 class="mb-2 text-white mb-3">El lenguaje de programacion Clot</h3>
+			<div class="section-intro text-white mb-3 single-col-max mx-auto">
+				Clot es un lenguaje con interprete AST y compilacion LLVM. Soporta AOT puro y runtime bridge para
+				cobertura completa del lenguaje.
+			</div>
+			<div class="pt-3 text-center">
+				<a class="btn btn-light" href="docs-page.html#section-1">Leer Documentacion <i
+						class="fas fa-arrow-alt-circle-right ml-2"></i></a>
+			</div>
+		</div>
+	</section><!--//cta-section-->
+
+	<footer class="footer">
+		<div class="footer-bottom text-center py-5">
+			<ul class="social-list list-unstyled pb-4 mb-0">
+				<li class="list-inline-item"><a href="#"><i class="fa-brands fa-github fa-fw"></i></a></li>
+				<li class="list-inline-item"><a href="#"><i class="fa-brands fa-x-twitter fa-fw"></i></a></li>
+				<li class="list-inline-item"><a href="#"><i class="fa-brands fa-slack fa-fw"></i></a></li>
+				<li class="list-inline-item"><a href="#"><i class="fa-brands fa-product-hunt fa-fw"></i></a></li>
+				<li class="list-inline-item"><a href="#"><i class="fa-brands fa-facebook-f fa-fw"></i></a></li>
+				<li class="list-inline-item"><a href="#"><i class="fa-brands fa-instagram fa-fw"></i></a></li>
+			</ul><!--//social-list-->
+			<small class="copyright">
+				<i class="fas fa-copyright"></i> Todos los derechos reservados –
+				<span class="theme-link">Clot Programming Language</span>
+			</small>
+
+		</div>
+	</footer>
+
+	<!-- Javascript -->
+	<script src="assets/plugins/popper.min.js"></script>
+	<script src="assets/plugins/bootstrap/js/bootstrap.min.js"></script>
+
+	<!-- Page Specific JS -->
+	<script src="assets/plugins/smoothscroll.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.15.8/highlight.min.js"></script>
+	<script src="assets/js/highlight-custom.js"></script>
+	<script src="assets/plugins/simplelightbox/simple-lightbox.min.js"></script>
+	<script src="assets/plugins/gumshoe/gumshoe.polyfills.min.js"></script>
+	<script src="assets/js/docs.js"></script>
+	<script>
+		/* On index.html, pressing / focuses the search bar */
+		document.addEventListener('keydown', function (e) {
+			if (e.key === '/') {
+				const inp = document.getElementById('index-search-input');
+				if (inp && document.activeElement !== inp) { e.preventDefault(); inp.focus(); }
+			}
+		});
+	</script>
+
+</body>
+
+</html>
