@@ -34,7 +34,7 @@ jobs:
         run: cmake --build --preset build-release
 
       - name: Smoke tests
-        run: tests/smoke.sh ./build/wsl-release/clot
+        run: bash tests/smoke.sh ./build/wsl-release/clot
 
       - name: LLVM smoke tests
-        run: tests/llvm_smoke.sh ./build/wsl-release/clot
+        run: bash tests/llvm_smoke.sh ./build/wsl-release/clot
