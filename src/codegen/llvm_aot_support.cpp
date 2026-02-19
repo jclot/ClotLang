@@ -3,12 +3,33 @@
 #ifdef CLOT_HAS_LLVM
 
 #include <algorithm>
+#include <string_view>
 #include <utility>
 
 namespace clot::codegen::internal {
 
 bool ContainsDot(const std::string& value) {
     return value.find('.') != std::string::npos;
+}
+
+bool IsUnsafeIntegerLiteralForDouble(const std::string& lexeme) {
+    if (ContainsDot(lexeme)) {
+        return false;
+    }
+
+    std::size_t first_non_zero = lexeme.find_first_not_of('0');
+    if (first_non_zero == std::string::npos) {
+        return false;
+    }
+
+    const std::string_view digits(lexeme.data() + first_non_zero, lexeme.size() - first_non_zero);
+    constexpr std::string_view kMaxSafeInteger = "9007199254740991";  // 2^53 - 1
+
+    if (digits.size() != kMaxSafeInteger.size()) {
+        return digits.size() > kMaxSafeInteger.size();
+    }
+
+    return digits > kMaxSafeInteger;
 }
 
 bool ContainsMathImportInStatement(const frontend::Statement& statement) {
@@ -72,7 +93,18 @@ bool CollectAotSupportContext(const frontend::Program& program, AotSupportContex
 }
 
 bool IsAotSupportedExpr(const frontend::Expr& expression, const AotSupportContext& context) {
-    if (dynamic_cast<const frontend::NumberExpr*>(&expression) != nullptr) {
+    if (const auto* number = dynamic_cast<const frontend::NumberExpr*>(&expression)) {
+        if (IsUnsafeIntegerLiteralForDouble(number->lexeme)) {
+            return false;
+        }
+
+        if (number->exact_integer.has_value()) {
+            constexpr long long kMaxSafeIntegerInDouble = 9007199254740991LL;  // 2^53 - 1
+            const long long integer = *number->exact_integer;
+            if (integer < -kMaxSafeIntegerInDouble || integer > kMaxSafeIntegerInDouble) {
+                return false;
+            }
+        }
         return true;
     }
 
@@ -169,6 +201,9 @@ bool IsAotSupportedStatement(
     const AotSupportContext& context,
     bool inside_function) {
     if (const auto* assignment = dynamic_cast<const frontend::AssignmentStmt*>(&statement)) {
+        if (assignment->declaration_type == frontend::DeclarationType::Long) {
+            return false;
+        }
         return !ContainsDot(assignment->name) &&
                assignment->expr != nullptr &&
                IsAotSupportedExpr(*assignment->expr, context);

@@ -1,6 +1,9 @@
 #include "clot/frontend/parser.hpp"
 
+#include <charconv>
 #include <memory>
+#include <optional>
+#include <system_error>
 #include <utility>
 #include <vector>
 
@@ -310,7 +313,18 @@ private:
 
         if (token.kind == TokenKind::Number) {
             try {
-                return std::make_unique<NumberExpr>(std::stod(token.lexeme));
+                std::optional<long long> exact_integer;
+                if (token.lexeme.find('.') == std::string::npos) {
+                    long long parsed = 0;
+                    const char* begin = token.lexeme.data();
+                    const char* end = begin + token.lexeme.size();
+                    const auto parsed_result = std::from_chars(begin, end, parsed);
+                    if (parsed_result.ec == std::errc() && parsed_result.ptr == end) {
+                        exact_integer = parsed;
+                    }
+                }
+
+                return std::make_unique<NumberExpr>(std::stod(token.lexeme), token.lexeme, exact_integer);
             } catch (...) {
                 Fail(token.column, "Numero invalido: '" + token.lexeme + "'.");
                 return nullptr;

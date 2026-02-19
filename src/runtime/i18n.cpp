@@ -105,6 +105,7 @@ std::string TranslateSpanishToEnglish(const std::string& text) {
         {"Propiedad no encontrada: ", "Property not found: "},
         {"No se puede acceder propiedad en un valor no objeto: ", "Cannot access property on non-object value: "},
         {"Solo se puede indexar una lista con [].", "Only lists can be indexed with []."},
+        {"El indice de lista debe ser un entero finito.", "List index must be a finite integer."},
         {"Indice fuera de rango en lista.", "List index out of bounds."},
         {"Solo se puede mutar una lista con [].", "Only lists can be mutated with []."},
         {"El lado izquierdo de una mutacion debe ser variable o indexacion.", "Left side of a mutation must be variable or index expression."},

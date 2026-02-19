@@ -224,6 +224,7 @@ bool LlvmEmitter::CreateMainFunction() {
     builder_.SetInsertPoint(entry);
     current_function_ = main_function_;
     variables_.clear();
+    variable_kinds_.clear();
     return EnsurePrintfFunction();
 }
 
@@ -240,6 +241,19 @@ bool LlvmEmitter::EnsurePrintfFunction() {
         true);
 
     printf_function_ = module_->getOrInsertFunction("printf", printf_type);
+    return true;
+}
+
+bool LlvmEmitter::EnsureExitFunction() {
+    if (exit_function_.getCallee() != nullptr) {
+        return true;
+    }
+
+    llvm::FunctionType* exit_type = llvm::FunctionType::get(
+        builder_.getVoidTy(),
+        {builder_.getInt32Ty()},
+        false);
+    exit_function_ = module_->getOrInsertFunction("exit", exit_type);
     return true;
 }
 
@@ -319,10 +333,12 @@ bool LlvmEmitter::EmitUserFunction(const UserFunctionInfo& function_info) {
     }
 
     std::unordered_map<std::string, llvm::Value*> saved_variables = std::move(variables_);
+    std::unordered_map<std::string, VariableNumericKind> saved_variable_kinds = std::move(variable_kinds_);
     llvm::Function* saved_function = current_function_;
 
     current_function_ = function_info.llvm_function;
     variables_.clear();
+    variable_kinds_.clear();
 
     llvm::BasicBlock* entry = llvm::BasicBlock::Create(
         context_,
@@ -332,6 +348,7 @@ bool LlvmEmitter::EmitUserFunction(const UserFunctionInfo& function_info) {
 
     if (!EnsurePrintfFunction()) {
         variables_ = std::move(saved_variables);
+        variable_kinds_ = std::move(saved_variable_kinds);
         current_function_ = saved_function;
         return false;
     }
@@ -344,17 +361,20 @@ bool LlvmEmitter::EmitUserFunction(const UserFunctionInfo& function_info) {
 
         if (param.by_reference) {
             variables_[param.name] = &argument;
+            variable_kinds_[param.name] = VariableNumericKind::Dynamic;
             continue;
         }
 
         llvm::AllocaInst* slot = CreateEntryBlockAlloca(function_info.llvm_function, param.name);
         builder_.CreateStore(&argument, slot);
         variables_[param.name] = slot;
+        variable_kinds_[param.name] = VariableNumericKind::Dynamic;
     }
 
     for (const auto& nested_statement : function_info.declaration->body) {
         if (nested_statement == nullptr || !EmitStatement(*nested_statement, false)) {
             variables_ = std::move(saved_variables);
+            variable_kinds_ = std::move(saved_variable_kinds);
             current_function_ = saved_function;
             return false;
         }
@@ -367,11 +387,13 @@ bool LlvmEmitter::EmitUserFunction(const UserFunctionInfo& function_info) {
     if (llvm::verifyFunction(*function_info.llvm_function, &llvm::errs())) {
         error_ = "LLVM genero una funcion invalida para '" + function_info.declaration->name + "'.";
         variables_ = std::move(saved_variables);
+        variable_kinds_ = std::move(saved_variable_kinds);
         current_function_ = saved_function;
         return false;
     }
 
     variables_ = std::move(saved_variables);
+    variable_kinds_ = std::move(saved_variable_kinds);
     current_function_ = saved_function;
     return true;
 }
@@ -430,7 +452,37 @@ bool LlvmEmitter::EmitAssignment(const frontend::AssignmentStmt& statement) {
         return false;
     }
 
+    VariableNumericKind target_kind = VariableNumericKind::Dynamic;
+    const auto existing_kind = variable_kinds_.find(statement.name);
+    if (existing_kind != variable_kinds_.end()) {
+        target_kind = existing_kind->second;
+    }
+
+    if (statement.declaration_type == frontend::DeclarationType::Long) {
+        target_kind = VariableNumericKind::Long;
+    } else if (statement.declaration_type == frontend::DeclarationType::Byte) {
+        target_kind = VariableNumericKind::Byte;
+    }
+
     llvm::Value* value_to_store = expression_value;
+    bool skip_kind_normalization = false;
+
+    if (statement.op == frontend::AssignmentOp::Set) {
+        const auto* literal = dynamic_cast<const frontend::NumberExpr*>(statement.expr.get());
+        if (literal != nullptr && literal->exact_integer.has_value()) {
+            const long long integer_literal = *literal->exact_integer;
+            if (target_kind == VariableNumericKind::Long) {
+                value_to_store = llvm::ConstantFP::get(builder_.getDoubleTy(), static_cast<double>(integer_literal));
+                skip_kind_normalization = true;
+            } else if (target_kind == VariableNumericKind::Byte) {
+                if (integer_literal >= 0 && integer_literal <= 255) {
+                    const unsigned char normalized = static_cast<unsigned char>(integer_literal);
+                    value_to_store = llvm::ConstantFP::get(builder_.getDoubleTy(), static_cast<double>(normalized));
+                    skip_kind_normalization = true;
+                }
+            }
+        }
+    }
 
     if (statement.op == frontend::AssignmentOp::AddAssign ||
         statement.op == frontend::AssignmentOp::SubAssign) {
@@ -448,6 +500,13 @@ bool LlvmEmitter::EmitAssignment(const frontend::AssignmentStmt& statement) {
         }
     }
 
+    if (!skip_kind_normalization) {
+        value_to_store = NormalizeForKind(value_to_store, target_kind);
+        if (value_to_store == nullptr) {
+            return false;
+        }
+    }
+
     llvm::Value* target = nullptr;
     auto found = variables_.find(statement.name);
     if (found == variables_.end()) {
@@ -462,20 +521,8 @@ bool LlvmEmitter::EmitAssignment(const frontend::AssignmentStmt& statement) {
         target = found->second;
     }
 
-    if (statement.declaration_type == frontend::DeclarationType::Byte) {
-        llvm::Value* zero = llvm::ConstantFP::get(builder_.getDoubleTy(), 0.0);
-        llvm::Value* upper = llvm::ConstantFP::get(builder_.getDoubleTy(), 255.0);
-        llvm::Value* clamped_low = builder_.CreateSelect(
-            builder_.CreateFCmpOLT(value_to_store, zero),
-            zero,
-            value_to_store);
-        value_to_store = builder_.CreateSelect(
-            builder_.CreateFCmpOGT(clamped_low, upper),
-            upper,
-            clamped_low);
-    }
-
     builder_.CreateStore(value_to_store, target);
+    variable_kinds_[statement.name] = target_kind;
     return true;
 }
 
@@ -562,6 +609,67 @@ bool LlvmEmitter::EmitCallStatement(const frontend::CallExpr& call) {
 llvm::AllocaInst* LlvmEmitter::CreateEntryBlockAlloca(llvm::Function* function, const std::string& name) {
     llvm::IRBuilder<> entry_builder(&function->getEntryBlock(), function->getEntryBlock().begin());
     return entry_builder.CreateAlloca(builder_.getDoubleTy(), nullptr, name);
+}
+
+bool LlvmEmitter::EmitRangeCheckOrAbort(llvm::Value* out_of_range, const char* message) {
+    if (out_of_range == nullptr) {
+        error_ = "Error interno: condicion nula para chequeo de rango LLVM.";
+        return false;
+    }
+
+    if (!EnsurePrintfFunction() || !EnsureExitFunction()) {
+        return false;
+    }
+
+    llvm::Function* function = builder_.GetInsertBlock()->getParent();
+    llvm::BasicBlock* fail_block = llvm::BasicBlock::Create(context_, "range.fail", function);
+    llvm::BasicBlock* ok_block = llvm::BasicBlock::Create(context_, "range.ok", function);
+    builder_.CreateCondBr(out_of_range, fail_block, ok_block);
+
+    builder_.SetInsertPoint(fail_block);
+    llvm::Value* format = builder_.CreateGlobalStringPtr("%s\n");
+    llvm::Value* text = builder_.CreateGlobalStringPtr(message);
+    builder_.CreateCall(printf_function_, {format, text});
+    builder_.CreateCall(exit_function_, {llvm::ConstantInt::get(builder_.getInt32Ty(), 1)});
+    builder_.CreateUnreachable();
+
+    builder_.SetInsertPoint(ok_block);
+    return true;
+}
+
+llvm::Value* LlvmEmitter::NormalizeForKind(llvm::Value* value, VariableNumericKind kind) {
+    if (value == nullptr || kind == VariableNumericKind::Dynamic) {
+        return value;
+    }
+
+    if (kind == VariableNumericKind::Long) {
+        llvm::Value* min_value = llvm::ConstantFP::get(builder_.getDoubleTy(), -9223372036854775808.0);
+        llvm::Value* max_exclusive = llvm::ConstantFP::get(builder_.getDoubleTy(), 9223372036854775808.0);
+        llvm::Value* is_nan = builder_.CreateFCmpUNO(value, value, "long.nan");
+        llvm::Value* below = builder_.CreateFCmpOLT(value, min_value, "long.low");
+        llvm::Value* above_or_equal = builder_.CreateFCmpOGE(value, max_exclusive, "long.high");
+        llvm::Value* out_of_range = builder_.CreateOr(is_nan, builder_.CreateOr(below, above_or_equal), "long.oor");
+        if (!EmitRangeCheckOrAbort(out_of_range, "Valor fuera de rango para long.")) {
+            return nullptr;
+        }
+
+        llvm::Value* as_i64 = builder_.CreateFPToSI(value, builder_.getInt64Ty(), "long.i64");
+        return builder_.CreateSIToFP(as_i64, builder_.getDoubleTy(), "long.norm");
+    }
+
+    llvm::Value* min_value = llvm::ConstantFP::get(builder_.getDoubleTy(), 0.0);
+    llvm::Value* max_value = llvm::ConstantFP::get(builder_.getDoubleTy(), 255.0);
+    llvm::Value* is_nan = builder_.CreateFCmpUNO(value, value, "byte.nan");
+    llvm::Value* below = builder_.CreateFCmpOLT(value, min_value, "byte.low");
+    llvm::Value* above = builder_.CreateFCmpOGT(value, max_value, "byte.high");
+    llvm::Value* out_of_range = builder_.CreateOr(is_nan, builder_.CreateOr(below, above), "byte.oor");
+    if (!EmitRangeCheckOrAbort(out_of_range, "Valor fuera de rango para byte (0-255).")) {
+        return nullptr;
+    }
+
+    llvm::Value* as_i64 = builder_.CreateFPToSI(value, builder_.getInt64Ty(), "byte.i64");
+    llvm::Value* as_i8 = builder_.CreateTrunc(as_i64, builder_.getInt8Ty(), "byte.i8");
+    return builder_.CreateUIToFP(as_i8, builder_.getDoubleTy(), "byte.norm");
 }
 
 llvm::Value* LlvmEmitter::EmitBuiltinSumCall(const frontend::CallExpr& call) {

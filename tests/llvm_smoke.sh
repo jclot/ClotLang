@@ -13,7 +13,7 @@ trap 'rm -rf "$TMP_DIR"' EXIT
 
 cat > "$TMP_DIR/aot_functions.clot" <<'PROG'
 import math;
-long max = 10;
+max = 10;
 byte delta = 2;
 
 func bump(&value, amount):
@@ -47,6 +47,110 @@ if [[ "$ACTUAL_AOT" != "$EXPECTED_AOT" ]]; then
     printf '%s\n' "$EXPECTED_AOT" >&2
     echo "Actual:" >&2
     printf '%s\n' "$ACTUAL_AOT" >&2
+    exit 1
+fi
+
+cat > "$TMP_DIR/aot_long_near_max_ok.clot" <<'PROG'
+long value = 9223372036854775800;
+print(value);
+PROG
+
+AOT_LONG_OK_EXE="$TMP_DIR/aot_long_near_max_ok"
+"$BIN_PATH" "$TMP_DIR/aot_long_near_max_ok.clot" --mode compile --emit exe -o "$AOT_LONG_OK_EXE" --verbose >"$TMP_DIR/aot_long_near_max_ok.log" 2>&1
+
+set +e
+"$AOT_LONG_OK_EXE" >"$TMP_DIR/aot_long_near_max_ok.out" 2>&1
+STATUS_AOT_LONG_OK=$?
+set -e
+
+if [[ "$STATUS_AOT_LONG_OK" -ne 0 ]]; then
+    echo "Fallo llvm_smoke (aot_long_near_max_ok): no deberia fallar." >&2
+    cat "$TMP_DIR/aot_long_near_max_ok.out" >&2
+    exit 1
+fi
+
+if ! grep -q "runtime bridge LLVM activado" "$TMP_DIR/aot_long_near_max_ok.log"; then
+    echo "Fallo llvm_smoke (aot_long_near_max_ok): este caso debe usar runtime bridge para enteros grandes." >&2
+    cat "$TMP_DIR/aot_long_near_max_ok.log" >&2
+    exit 1
+fi
+
+cat > "$TMP_DIR/aot_long_min_ok.clot" <<'PROG'
+long value = -9223372036854775808;
+print(value);
+PROG
+
+AOT_LONG_MIN_EXE="$TMP_DIR/aot_long_min_ok"
+"$BIN_PATH" "$TMP_DIR/aot_long_min_ok.clot" --mode compile --emit exe -o "$AOT_LONG_MIN_EXE" --verbose >"$TMP_DIR/aot_long_min_ok.log" 2>&1
+
+set +e
+"$AOT_LONG_MIN_EXE" >"$TMP_DIR/aot_long_min_ok.out" 2>&1
+STATUS_AOT_LONG_MIN=$?
+set -e
+
+if [[ "$STATUS_AOT_LONG_MIN" -ne 0 ]]; then
+    echo "Fallo llvm_smoke (aot_long_min_ok): no deberia fallar." >&2
+    cat "$TMP_DIR/aot_long_min_ok.out" >&2
+    exit 1
+fi
+
+if ! grep -q "runtime bridge LLVM activado" "$TMP_DIR/aot_long_min_ok.log"; then
+    echo "Fallo llvm_smoke (aot_long_min_ok): este caso debe usar runtime bridge para entero minimo." >&2
+    cat "$TMP_DIR/aot_long_min_ok.log" >&2
+    exit 1
+fi
+
+if ! grep -q "^-9223372036854775808$" "$TMP_DIR/aot_long_min_ok.out"; then
+    echo "Fallo llvm_smoke (aot_long_min_ok): salida inesperada." >&2
+    cat "$TMP_DIR/aot_long_min_ok.out" >&2
+    exit 1
+fi
+
+cat > "$TMP_DIR/aot_long_overflow.clot" <<'PROG'
+long value = 9223372036854775808;
+print(value);
+PROG
+
+AOT_LONG_EXE="$TMP_DIR/aot_long_overflow"
+"$BIN_PATH" "$TMP_DIR/aot_long_overflow.clot" --mode compile --emit exe -o "$AOT_LONG_EXE" >/dev/null 2>&1
+
+set +e
+"$AOT_LONG_EXE" >"$TMP_DIR/aot_long_overflow.out" 2>&1
+STATUS_AOT_LONG=$?
+set -e
+
+if [[ "$STATUS_AOT_LONG" -eq 0 ]]; then
+    echo "Fallo llvm_smoke (aot_long_overflow): se esperaba salida con error." >&2
+    exit 1
+fi
+
+if ! grep -q "Valor fuera de rango para long." "$TMP_DIR/aot_long_overflow.out"; then
+    echo "Fallo llvm_smoke (aot_long_overflow): mensaje esperado no encontrado." >&2
+    cat "$TMP_DIR/aot_long_overflow.out" >&2
+    exit 1
+fi
+
+cat > "$TMP_DIR/aot_byte_overflow.clot" <<'PROG'
+byte level = 300;
+print(level);
+PROG
+
+AOT_BYTE_EXE="$TMP_DIR/aot_byte_overflow"
+"$BIN_PATH" "$TMP_DIR/aot_byte_overflow.clot" --mode compile --emit exe -o "$AOT_BYTE_EXE" >/dev/null 2>&1
+
+set +e
+"$AOT_BYTE_EXE" >"$TMP_DIR/aot_byte_overflow.out" 2>&1
+STATUS_AOT_BYTE=$?
+set -e
+
+if [[ "$STATUS_AOT_BYTE" -eq 0 ]]; then
+    echo "Fallo llvm_smoke (aot_byte_overflow): se esperaba salida con error." >&2
+    exit 1
+fi
+
+if ! grep -q "Valor fuera de rango para byte (0-255)." "$TMP_DIR/aot_byte_overflow.out"; then
+    echo "Fallo llvm_smoke (aot_byte_overflow): mensaje esperado no encontrado." >&2
+    cat "$TMP_DIR/aot_byte_overflow.out" >&2
     exit 1
 fi
 

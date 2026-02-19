@@ -1,5 +1,6 @@
 #include "clot/interpreter/interpreter.hpp"
 
+#include <cmath>
 #include <limits>
 #include <string>
 #include <utility>
@@ -19,6 +20,26 @@ bool ReadNumeric(const runtime::Value& value, double* out_number, std::string* o
     }
 
     *out_number = numeric;
+    return true;
+}
+
+bool ReadListIndex(const runtime::Value& value, std::size_t* out_index, std::string* out_error) {
+    double numeric_index = 0.0;
+    if (!ReadNumeric(value, &numeric_index, out_error)) {
+        return false;
+    }
+
+    if (!std::isfinite(numeric_index) ||
+        std::trunc(numeric_index) != numeric_index ||
+        numeric_index < 0.0 ||
+        numeric_index >= 9223372036854775808.0) {  // 2^63
+        if (out_error != nullptr) {
+            *out_error = "El indice de lista debe ser un entero finito.";
+        }
+        return false;
+    }
+
+    *out_index = static_cast<std::size_t>(static_cast<long long>(numeric_index));
     return true;
 }
 
@@ -176,18 +197,17 @@ bool Interpreter::ResolveMutableTarget(
             return false;
         }
 
-        double numeric_index = 0.0;
-        if (!ReadNumeric(index_value, &numeric_index, out_error)) {
+        std::size_t integer_index = 0;
+        if (!ReadListIndex(index_value, &integer_index, out_error)) {
             return false;
         }
 
-        const long long integer_index = static_cast<long long>(numeric_index);
-        if (integer_index < 0 || static_cast<std::size_t>(integer_index) >= list->size()) {
+        if (integer_index >= list->size()) {
             *out_error = "Indice fuera de rango en lista.";
             return false;
         }
 
-        *out_value = &(*list)[static_cast<std::size_t>(integer_index)];
+        *out_value = &(*list)[integer_index];
         return true;
     }
 
@@ -209,25 +229,45 @@ bool Interpreter::NormalizeValueForKind(
 
     runtime::Value normalized = value;
     if (kind == runtime::VariableKind::Long || kind == runtime::VariableKind::Byte) {
+        bool integer_ok = false;
+        const long long integer = value.AsInteger(&integer_ok);
+        if (integer_ok) {
+            if (kind == runtime::VariableKind::Long) {
+                normalized = runtime::Value(integer);
+            } else {
+                if (integer < 0 || integer > 255) {
+                    *out_error = "Valor fuera de rango para byte (0-255).";
+                    return false;
+                }
+                normalized = runtime::Value(static_cast<long long>(static_cast<unsigned char>(integer)));
+            }
+            *out_value = std::move(normalized);
+            return true;
+        }
+
         double numeric = 0.0;
         if (!ReadNumeric(value, &numeric, out_error)) {
             return false;
         }
 
-        const long long integer_value = static_cast<long long>(numeric);
         if (kind == runtime::VariableKind::Long) {
-            if (numeric < static_cast<double>(std::numeric_limits<long long>::min()) ||
-                numeric > static_cast<double>(std::numeric_limits<long long>::max())) {
+            constexpr double kLongMin = static_cast<double>(std::numeric_limits<long long>::min());
+            constexpr double kLongUpperExclusive = 9223372036854775808.0;  // 2^63
+            if (!std::isfinite(numeric) ||
+                numeric < kLongMin ||
+                numeric >= kLongUpperExclusive) {
                 *out_error = "Valor fuera de rango para long.";
                 return false;
             }
-            normalized = runtime::Value(static_cast<double>(integer_value));
+            const long long integer_value = static_cast<long long>(std::trunc(numeric));
+            normalized = runtime::Value(integer_value);
         } else {
-            if (numeric < 0.0 || numeric > 255.0) {
+            if (!std::isfinite(numeric) || numeric < 0.0 || numeric > 255.0) {
                 *out_error = "Valor fuera de rango para byte (0-255).";
                 return false;
             }
-            normalized = runtime::Value(static_cast<double>(static_cast<unsigned char>(integer_value)));
+            const long long integer_value = static_cast<long long>(std::trunc(numeric));
+            normalized = runtime::Value(static_cast<long long>(static_cast<unsigned char>(integer_value)));
         }
     }
 

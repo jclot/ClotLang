@@ -140,20 +140,20 @@ cmake --build --preset build-release</code></pre>
             <tr>
               <td><code>number</code> (inferencia)</td>
               <td><code>x = 12.5;</code></td>
-              <td>Numeros en coma flotante</td>
-              <td>Sirve para operaciones +, -, *, /, %, ^</td>
+              <td>Numeros en coma flotante (base <code>double</code>)</td>
+              <td>Sirve para operaciones +, -, *, /, %, ^. Acepta notacion decimal.</td>
             </tr>
             <tr>
               <td><code>long</code></td>
               <td><code>long total = 9;</code></td>
-              <td>Entero largo (normalizado)</td>
-              <td>El runtime valida conversion numerica</td>
+              <td>Entero largo (normalizado exacto)</td>
+              <td>Valida rango <code>[-2^63, 2^63)</code>. Si se sale, lanza error.</td>
             </tr>
             <tr>
               <td><code>byte</code></td>
               <td><code>byte level = 2;</code></td>
               <td>Entero de 0..255</td>
-              <td>Si sales del rango, da error claro</td>
+              <td>Si sales del rango, da error claro (no hay clamp silencioso).</td>
             </tr>
             <tr>
               <td><code>string</code></td>
@@ -202,7 +202,9 @@ a -= 2;</code></pre>
               <ul>
                 <li><code>=</code> asigna un nuevo valor.</li>
                 <li><code>+=</code> y <code>-=</code> realizan mutacion aritmetica.</li>
-                <li><code>long</code> y <code>byte</code> aplican normalizacion numerica.</li>
+                <li><code>long</code> y <code>byte</code> aplican truncado hacia cero + validacion estricta de rango.</li>
+                <li><code>long</code> usa ventana valida <code>[-9223372036854775808, 9223372036854775808)</code>.</li>
+                <li>Nota tecnica: literales enteros se preservan en int64 para validacion exacta de <code>long</code>; expresiones con punto flotante siguen base <code>double</code>.</li>
               </ul>
             </div>
           </div>
@@ -295,7 +297,7 @@ print(nums[1]);
 print(user.stats.score);</code></pre>
               <p>
                 El runtime resuelve rutas anidadas y permite mutar valores internos.
-                Si un indice queda fuera de rango, retorna error claro.
+                El indice debe ser entero finito; si no lo es, o queda fuera de rango, retorna error claro.
               </p>
             </div>
           </div>
@@ -688,6 +690,8 @@ tests/llvm_smoke.sh ./build/wsl-release/clot</code></pre>
               <ul>
                 <li>Construye modulo LLVM y funcion <code>main</code>.</li>
                 <li>Emite statements/expresiones soportadas AOT.</li>
+                <li>En AOT puro mantiene numericos dinamicos y <code>byte</code>; declaraciones <code>long</code> fuerzan runtime bridge para preservar semantica exacta.</li>
+                <li>Tambien activa runtime bridge si detecta literales enteros fuera del rango seguro de <code>double</code> (|n| &gt; 2^53-1).</li>
                 <li>Declara y emite funciones de usuario en IR.</li>
                 <li>Genera archivo IR o objeto segun opcion.</li>
               </ul>
@@ -718,7 +722,7 @@ tests/llvm_smoke.sh ./build/wsl-release/clot</code></pre>
             <div class="accordion-body">
               <h5><code>include/clot/runtime/value.hpp</code></h5>
               <p>
-                Tipo <code>Value</code> para representar number/string/bool/list/object y utilidades de conversion/inspeccion.
+                Tipo <code>Value</code> para representar enteros exactos, number, string, bool, list y object; incluye utilidades de conversion/inspeccion.
               </p>
 
               <h5><code>src/runtime/i18n.cpp</code></h5>

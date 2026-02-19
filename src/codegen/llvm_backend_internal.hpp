@@ -52,6 +52,12 @@ public:
         std::string* out_error);
 
 private:
+    enum class VariableNumericKind {
+        Dynamic,
+        Long,
+        Byte,
+    };
+
     struct UserFunctionInfo {
         const frontend::FunctionDeclStmt* declaration = nullptr;
         llvm::Function* llvm_function = nullptr;
@@ -71,6 +77,9 @@ private:
     bool EmitCallStatement(const frontend::CallExpr& call);
 
     llvm::AllocaInst* CreateEntryBlockAlloca(llvm::Function* function, const std::string& name);
+    bool EnsureExitFunction();
+    bool EmitRangeCheckOrAbort(llvm::Value* out_of_range, const char* message);
+    llvm::Value* NormalizeForKind(llvm::Value* value, VariableNumericKind kind);
     llvm::Value* EmitBuiltinSumCall(const frontend::CallExpr& call);
     bool EmitUserFunctionCall(
         const frontend::CallExpr& call,
@@ -88,8 +97,10 @@ private:
     llvm::Function* main_function_ = nullptr;
     llvm::Function* current_function_ = nullptr;
     llvm::FunctionCallee printf_function_;
+    llvm::FunctionCallee exit_function_;
 
     std::unordered_map<std::string, llvm::Value*> variables_;
+    std::unordered_map<std::string, VariableNumericKind> variable_kinds_;
     std::unordered_map<std::string, UserFunctionInfo> user_functions_;
     std::vector<std::string> user_function_order_;
     bool math_module_imported_ = false;

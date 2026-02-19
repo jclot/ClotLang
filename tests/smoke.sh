@@ -130,4 +130,79 @@ if ! grep -q "Runtime error: Undefined variable: unknown_var" "$TMP_DIR/i18n_en.
     exit 1
 fi
 
+cat > "$TMP_DIR/long_near_max_ok.clot" <<'PROG'
+long value = 9223372036854775800;
+print(value);
+PROG
+
+EXPECTED_LONG_NEAR_MAX=$'9223372036854775800'
+ACTUAL_LONG_NEAR_MAX="$($BIN_PATH "$TMP_DIR/long_near_max_ok.clot")"
+if [[ "$ACTUAL_LONG_NEAR_MAX" != "$EXPECTED_LONG_NEAR_MAX" ]]; then
+    echo "Fallo test long_near_max_ok" >&2
+    echo "Esperado:" >&2
+    printf '%s\n' "$EXPECTED_LONG_NEAR_MAX" >&2
+    echo "Actual:" >&2
+    printf '%s\n' "$ACTUAL_LONG_NEAR_MAX" >&2
+    exit 1
+fi
+
+cat > "$TMP_DIR/long_near_max_mutation_ok.clot" <<'PROG'
+long value = 9223372036854775800;
+value += 0;
+print(value);
+PROG
+
+EXPECTED_LONG_MUT=$'9223372036854775800'
+ACTUAL_LONG_MUT="$($BIN_PATH "$TMP_DIR/long_near_max_mutation_ok.clot")"
+if [[ "$ACTUAL_LONG_MUT" != "$EXPECTED_LONG_MUT" ]]; then
+    echo "Fallo test long_near_max_mutation_ok" >&2
+    echo "Esperado:" >&2
+    printf '%s\n' "$EXPECTED_LONG_MUT" >&2
+    echo "Actual:" >&2
+    printf '%s\n' "$ACTUAL_LONG_MUT" >&2
+    exit 1
+fi
+
+cat > "$TMP_DIR/long_overflow.clot" <<'PROG'
+long value = 9223372036854775808;
+print(value);
+PROG
+
+set +e
+"$BIN_PATH" "$TMP_DIR/long_overflow.clot" >"$TMP_DIR/long_overflow.out" 2>"$TMP_DIR/long_overflow.err"
+STATUS_LONG=$?
+set -e
+
+if [[ "$STATUS_LONG" -eq 0 ]]; then
+    echo "Fallo test long_overflow: se esperaba error de rango." >&2
+    exit 1
+fi
+
+if ! grep -q "Valor fuera de rango para long." "$TMP_DIR/long_overflow.err"; then
+    echo "Fallo test long_overflow: mensaje de rango no encontrado." >&2
+    cat "$TMP_DIR/long_overflow.err" >&2
+    exit 1
+fi
+
+cat > "$TMP_DIR/list_non_integer_index.clot" <<'PROG'
+nums = [1, 2, 3];
+print(nums[1.5]);
+PROG
+
+set +e
+"$BIN_PATH" "$TMP_DIR/list_non_integer_index.clot" >"$TMP_DIR/list_non_integer_index.out" 2>"$TMP_DIR/list_non_integer_index.err"
+STATUS_INDEX=$?
+set -e
+
+if [[ "$STATUS_INDEX" -eq 0 ]]; then
+    echo "Fallo test list_non_integer_index: se esperaba error de indice." >&2
+    exit 1
+fi
+
+if ! grep -q "El indice de lista debe ser un entero finito." "$TMP_DIR/list_non_integer_index.err"; then
+    echo "Fallo test list_non_integer_index: mensaje esperado no encontrado." >&2
+    cat "$TMP_DIR/list_non_integer_index.err" >&2
+    exit 1
+fi
+
 echo "Smoke tests OK"

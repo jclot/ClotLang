@@ -1,8 +1,8 @@
 // Prueba integral de Clot
 import math;
 import modules.utils;
-
-long counter = 10;
+number = 9223372036854775801000000000000000000000000000000000000000000000000000;
+long counter = 9223372036854775801;
 byte level = 2;
 flag = true;
 nums = [1, 2, counter];

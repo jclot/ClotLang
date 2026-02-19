@@ -2,7 +2,10 @@
 #define CLOT_RUNTIME_VALUE_HPP
 
 #include <algorithm>
+#include <charconv>
+#include <cmath>
 #include <iomanip>
+#include <limits>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -23,6 +26,7 @@ public:
     using Object = std::vector<std::pair<std::string, Value>>;
 
     Value() : data_(0.0) {}
+    explicit Value(long long value) : data_(value) {}
     explicit Value(double value) : data_(value) {}
     explicit Value(std::string value) : data_(std::move(value)) {}
     explicit Value(const char* value) : data_(std::string(value)) {}
@@ -30,7 +34,10 @@ public:
     explicit Value(List value) : data_(std::move(value)) {}
     explicit Value(Object value) : data_(std::move(value)) {}
 
-    bool IsNumber() const { return std::holds_alternative<double>(data_); }
+    bool IsNumber() const {
+        return std::holds_alternative<long long>(data_) || std::holds_alternative<double>(data_);
+    }
+    bool IsInteger() const { return std::holds_alternative<long long>(data_); }
     bool IsString() const { return std::holds_alternative<std::string>(data_); }
     bool IsBool() const { return std::holds_alternative<bool>(data_); }
     bool IsList() const { return std::holds_alternative<List>(data_); }
@@ -111,6 +118,13 @@ public:
     }
 
     double AsNumber(bool* out_ok = nullptr) const {
+        if (std::holds_alternative<long long>(data_)) {
+            if (out_ok != nullptr) {
+                *out_ok = true;
+            }
+            return static_cast<double>(std::get<long long>(data_));
+        }
+
         if (std::holds_alternative<double>(data_)) {
             if (out_ok != nullptr) {
                 *out_ok = true;
@@ -155,9 +169,73 @@ public:
         return 0.0;
     }
 
+    long long AsInteger(bool* out_ok = nullptr) const {
+        if (std::holds_alternative<long long>(data_)) {
+            if (out_ok != nullptr) {
+                *out_ok = true;
+            }
+            return std::get<long long>(data_);
+        }
+
+        if (std::holds_alternative<double>(data_)) {
+            const double value = std::get<double>(data_);
+            constexpr double kLongMin = static_cast<double>(std::numeric_limits<long long>::min());
+            constexpr double kLongUpperExclusive = 9223372036854775808.0;  // 2^63
+            if (!std::isfinite(value) ||
+                std::trunc(value) != value ||
+                value < kLongMin ||
+                value >= kLongUpperExclusive) {
+                if (out_ok != nullptr) {
+                    *out_ok = false;
+                }
+                return 0;
+            }
+
+            if (out_ok != nullptr) {
+                *out_ok = true;
+            }
+            return static_cast<long long>(value);
+        }
+
+        if (std::holds_alternative<std::string>(data_)) {
+            const std::string& text = std::get<std::string>(data_);
+            long long parsed = 0;
+            const char* begin = text.data();
+            const char* end = begin + text.size();
+            const auto parse_result = std::from_chars(begin, end, parsed);
+            if (parse_result.ec == std::errc() && parse_result.ptr == end) {
+                if (out_ok != nullptr) {
+                    *out_ok = true;
+                }
+                return parsed;
+            }
+
+            if (out_ok != nullptr) {
+                *out_ok = false;
+            }
+            return 0;
+        }
+
+        if (std::holds_alternative<bool>(data_)) {
+            if (out_ok != nullptr) {
+                *out_ok = true;
+            }
+            return std::get<bool>(data_) ? 1 : 0;
+        }
+
+        if (out_ok != nullptr) {
+            *out_ok = false;
+        }
+        return 0;
+    }
+
     bool AsBool() const {
         if (std::holds_alternative<bool>(data_)) {
             return std::get<bool>(data_);
+        }
+
+        if (std::holds_alternative<long long>(data_)) {
+            return std::get<long long>(data_) != 0;
         }
 
         if (std::holds_alternative<double>(data_)) {
@@ -232,6 +310,10 @@ private:
             return std::get<bool>(data_) ? "true" : "false";
         }
 
+        if (std::holds_alternative<long long>(data_)) {
+            return std::to_string(std::get<long long>(data_));
+        }
+
         if (std::holds_alternative<double>(data_)) {
             return FormatNumber(std::get<double>(data_));
         }
@@ -263,7 +345,7 @@ private:
         return text;
     }
 
-    std::variant<double, std::string, bool, List, Object> data_;
+    std::variant<long long, double, std::string, bool, List, Object> data_;
 };
 
 struct VariableSlot {

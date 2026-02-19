@@ -2,6 +2,7 @@
 #define CLOT_FRONTEND_AST_HPP
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -48,8 +49,14 @@ struct Expr {
 };
 
 struct NumberExpr final : Expr {
-    explicit NumberExpr(double in_value) : value(in_value) {}
+    NumberExpr(double in_value, std::string in_lexeme, std::optional<long long> in_exact_integer)
+        : value(in_value),
+          lexeme(std::move(in_lexeme)),
+          exact_integer(std::move(in_exact_integer)) {}
+
     double value = 0.0;
+    std::string lexeme;
+    std::optional<long long> exact_integer;
 };
 
 struct StringExpr final : Expr {

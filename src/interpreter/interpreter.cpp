@@ -3,6 +3,7 @@
 #include <cmath>
 #include <filesystem>
 #include <iostream>
+#include <limits>
 
 namespace clot::interpreter {
 
@@ -19,6 +20,61 @@ bool ReadNumeric(const runtime::Value& value, double* out_number, std::string* o
     }
 
     *out_number = numeric;
+    return true;
+}
+
+bool ReadInteger(const runtime::Value& value, long long* out_integer) {
+    bool ok = false;
+    const long long integer = value.AsInteger(&ok);
+    if (!ok) {
+        return false;
+    }
+
+    *out_integer = integer;
+    return true;
+}
+
+bool CheckedAdd(long long lhs, long long rhs, long long* out_result) {
+    if (rhs > 0 && lhs > std::numeric_limits<long long>::max() - rhs) {
+        return false;
+    }
+    if (rhs < 0 && lhs < std::numeric_limits<long long>::min() - rhs) {
+        return false;
+    }
+
+    *out_result = lhs + rhs;
+    return true;
+}
+
+bool CheckedSubtract(long long lhs, long long rhs, long long* out_result) {
+    if (rhs > 0 && lhs < std::numeric_limits<long long>::min() + rhs) {
+        return false;
+    }
+    if (rhs < 0 && lhs > std::numeric_limits<long long>::max() + rhs) {
+        return false;
+    }
+
+    *out_result = lhs - rhs;
+    return true;
+}
+
+bool ReadListIndex(const runtime::Value& value, std::size_t* out_index, std::string* out_error) {
+    double numeric_index = 0.0;
+    if (!ReadNumeric(value, &numeric_index, out_error)) {
+        return false;
+    }
+
+    if (!std::isfinite(numeric_index) ||
+        std::trunc(numeric_index) != numeric_index ||
+        numeric_index < 0.0 ||
+        numeric_index >= 9223372036854775808.0) {  // 2^63
+        if (out_error != nullptr) {
+            *out_error = "El indice de lista debe ser un entero finito.";
+        }
+        return false;
+    }
+
+    *out_index = static_cast<std::size_t>(static_cast<long long>(numeric_index));
     return true;
 }
 
@@ -178,6 +234,10 @@ bool Interpreter::EvaluateExpression(
     runtime::Value* out_value,
     std::string* out_error) {
     if (const auto* number = dynamic_cast<const frontend::NumberExpr*>(&expression)) {
+        if (number->exact_integer.has_value()) {
+            *out_value = runtime::Value(*number->exact_integer);
+            return true;
+        }
         *out_value = runtime::Value(number->value);
         return true;
     }
@@ -243,18 +303,17 @@ bool Interpreter::EvaluateExpression(
             return false;
         }
 
-        double numeric_index = 0.0;
-        if (!ReadNumeric(index_value, &numeric_index, out_error)) {
+        std::size_t integer_index = 0;
+        if (!ReadListIndex(index_value, &integer_index, out_error)) {
             return false;
         }
 
-        const long long integer_index = static_cast<long long>(numeric_index);
-        if (integer_index < 0 || static_cast<std::size_t>(integer_index) >= list->size()) {
+        if (integer_index >= list->size()) {
             *out_error = "Indice fuera de rango en lista.";
             return false;
         }
 
-        *out_value = (*list)[static_cast<std::size_t>(integer_index)];
+        *out_value = (*list)[integer_index];
         return true;
     }
 
@@ -299,6 +358,21 @@ bool Interpreter::EvaluateUnary(
         return true;
     }
 
+    long long integer = 0;
+    if (ReadInteger(operand, &integer)) {
+        if (op == frontend::UnaryOp::Negate) {
+            if (integer == std::numeric_limits<long long>::min()) {
+                *out_value = runtime::Value(-static_cast<double>(integer));
+            } else {
+                *out_value = runtime::Value(-integer);
+            }
+            return true;
+        }
+
+        *out_value = runtime::Value(integer);
+        return true;
+    }
+
     double numeric = 0.0;
     if (!ReadNumeric(operand, &numeric, out_error)) {
         return false;
@@ -334,6 +408,11 @@ bool Interpreter::EvaluateBinary(
         return true;
     }
 
+    long long left_integer = 0;
+    long long right_integer = 0;
+    const bool left_is_integer = ReadInteger(lhs, &left_integer);
+    const bool right_is_integer = ReadInteger(rhs, &right_integer);
+
     if (op == frontend::BinaryOp::Equal || op == frontend::BinaryOp::NotEqual) {
         bool result = false;
 
@@ -343,6 +422,8 @@ bool Interpreter::EvaluateBinary(
             result = lhs.ToString() == rhs.ToString();
         } else if (lhs.IsBool() || rhs.IsBool()) {
             result = lhs.AsBool() == rhs.AsBool();
+        } else if (left_is_integer && right_is_integer) {
+            result = left_integer == right_integer;
         } else {
             double left_number = 0.0;
             double right_number = 0.0;
@@ -354,6 +435,50 @@ bool Interpreter::EvaluateBinary(
 
         *out_value = runtime::Value(op == frontend::BinaryOp::Equal ? result : !result);
         return true;
+    }
+
+    if (left_is_integer && right_is_integer) {
+        switch (op) {
+        case frontend::BinaryOp::Add: {
+            long long result = 0;
+            if (CheckedAdd(left_integer, right_integer, &result)) {
+                *out_value = runtime::Value(result);
+            } else {
+                *out_value = runtime::Value(static_cast<double>(left_integer) + static_cast<double>(right_integer));
+            }
+            return true;
+        }
+        case frontend::BinaryOp::Subtract: {
+            long long result = 0;
+            if (CheckedSubtract(left_integer, right_integer, &result)) {
+                *out_value = runtime::Value(result);
+            } else {
+                *out_value = runtime::Value(static_cast<double>(left_integer) - static_cast<double>(right_integer));
+            }
+            return true;
+        }
+        case frontend::BinaryOp::Less:
+            *out_value = runtime::Value(left_integer < right_integer);
+            return true;
+        case frontend::BinaryOp::LessEqual:
+            *out_value = runtime::Value(left_integer <= right_integer);
+            return true;
+        case frontend::BinaryOp::Greater:
+            *out_value = runtime::Value(left_integer > right_integer);
+            return true;
+        case frontend::BinaryOp::GreaterEqual:
+            *out_value = runtime::Value(left_integer >= right_integer);
+            return true;
+        case frontend::BinaryOp::Multiply:
+        case frontend::BinaryOp::Divide:
+        case frontend::BinaryOp::Modulo:
+        case frontend::BinaryOp::Power:
+        case frontend::BinaryOp::Equal:
+        case frontend::BinaryOp::NotEqual:
+        case frontend::BinaryOp::LogicalAnd:
+        case frontend::BinaryOp::LogicalOr:
+            break;
+        }
     }
 
     double left_number = 0.0;
