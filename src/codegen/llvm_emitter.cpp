@@ -5,6 +5,7 @@
 #include <optional>
 #include <utility>
 
+#include <llvm/Config/llvm-config.h>
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/DerivedTypes.h>
@@ -21,6 +22,18 @@
 #include <llvm/TargetParser/Host.h>
 
 namespace clot::codegen::internal {
+
+namespace {
+
+auto ObjectFileKind() {
+#if LLVM_VERSION_MAJOR >= 18
+    return llvm::CodeGenFileType::ObjectFile;
+#else
+    return llvm::CGFT_ObjectFile;
+#endif
+}
+
+}  // namespace
 
 LlvmEmitter::LlvmEmitter(std::string module_name)
     : module_(std::make_unique<llvm::Module>(module_name, context_)),
@@ -142,7 +155,7 @@ bool LlvmEmitter::EmitObjectFile(
         pass_manager,
         destination,
         nullptr,
-        llvm::CodeGenFileType::ObjectFile);
+        ObjectFileKind());
 
     if (cannot_emit) {
         *out_error = "El backend LLVM no puede emitir archivo objeto para ese target.";
