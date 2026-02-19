@@ -1,0 +1,42 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 20,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "wsl-debug",
+      "displayName": "WSL Debug",
+      "description": "Debug build for Ubuntu WSL",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build/wsl-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CLOT_ENABLE_LLVM": "ON"
+      }
+    },
+    {
+      "name": "wsl-release",
+      "displayName": "WSL Release",
+      "description": "Release build for Ubuntu WSL",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build/wsl-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CLOT_ENABLE_LLVM": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "build-debug",
+      "configurePreset": "wsl-debug"
+    },
+    {
+      "name": "build-release",
+      "configurePreset": "wsl-release"
+    }
+  ]
+}

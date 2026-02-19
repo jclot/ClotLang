@@ -1,0 +1,40 @@
+// Prueba integral de Clot
+import math;
+import modules.utils;
+
+long counter = 10;
+byte level = 2;
+flag = true;
+nums = [1, 2, counter];
+user = {name: "Ada", active: counter, stats: {score: 7}};
+
+// Mutaciones
+nums[1] = 20;
+nums[1] += 5;
+user.stats.score += 3;
+
+// Funciones + return
+func adjust(&value, extra):
+    value += sum(extra, 3);
+    if(value > 20):
+        print("alto");
+    else:
+        print("normal");
+    endif
+    return value;
+endfunc
+
+print(inc_and_get(counter));
+print(counter);
+
+result = adjust(counter, level);
+print(result);
+
+bump_index(nums, 1, 4);
+print(nums[1]);
+
+if(flag && counter > 10):
+    print(user.name + " score=" + user.stats.score);
+else:
+    print("disabled");
+endif

@@ -1,39 +1,24 @@
-# Clot Programming Language Makefile
-# Configured for Antigravity and Windows with g++
+BUILD_DIR ?= build
+CMAKE_GENERATOR ?= Unix Makefiles
 
-CXX = g++
-CXXFLAGS = -std=c++20 -Wall -O2
-TARGET = ClotProgrammingLanguage/clot.exe
-SRC_DIR = ClotProgrammingLanguage
+.PHONY: all configure build run run-sample check clean
 
-# Source files (matching Visual Studio project)
-SOURCES = $(SRC_DIR)/ClotProgrammingLanguage.cpp \
-          $(SRC_DIR)/ConditionalStatement.cpp \
-          $(SRC_DIR)/ExpressionEvaluator.cpp \
-          $(SRC_DIR)/FunctionDeclaration.cpp \
-          $(SRC_DIR)/FunctionExecution.cpp \
-          $(SRC_DIR)/ModuleImporter.cpp \
-          $(SRC_DIR)/PrintStatement.cpp \
-          $(SRC_DIR)/Tokenizer.cpp \
-          $(SRC_DIR)/VariableAssignment.cpp
+all: build
 
-# Build target
-all: $(TARGET)
+configure:
+	cmake -S . -B $(BUILD_DIR) -G "$(CMAKE_GENERATOR)" -DCLOT_ENABLE_LLVM=ON
 
-$(TARGET): $(SOURCES)
-	$(CXX) $(CXXFLAGS) -o $(TARGET) $(SOURCES)
-	@echo Build complete: $(TARGET)
+build: configure
+	cmake --build $(BUILD_DIR)
 
-# Run the interpreter
-run: $(TARGET)
-	cd $(SRC_DIR) && ./clot.exe
+run: build
+	./$(BUILD_DIR)/clot examples/basic.clot
 
-# Build and run
-build-run: all
-	cd $(SRC_DIR) && ./clot.exe
+run-sample: build
+	./$(BUILD_DIR)/clot examples/basic.clot
 
-# Clean build artifacts
+check:
+	./scripts/check.sh
+
 clean:
-	del /Q $(TARGET) 2>NUL || echo No executable to clean
-
-.PHONY: all run build-run clean
+	rm -rf $(BUILD_DIR)

@@ -1,0 +1,9 @@
+// Modulo de ejemplo para pruebas
+func inc_and_get(&value):
+    value += 1;
+    return value;
+endfunc
+
+func bump_index(&values, idx, amount):
+    values[idx] += amount;
+endfunc

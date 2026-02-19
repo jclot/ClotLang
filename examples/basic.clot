@@ -1,0 +1,11 @@
+long a = 10;
+byte b = 3;
+c = a * 2 + b;
+print("Resultado:");
+print(c);
+
+if(c > 20):
+    print("Mayor que 20");
+else:
+    print("No es mayor que 20");
+endif

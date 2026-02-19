@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            build-essential \
+            cmake \
+            clang \
+            lld \
+            llvm \
+            llvm-dev \
+            libclang-dev
+
+      - name: Configure
+        run: cmake --preset wsl-release
+
+      - name: Build
+        run: cmake --build --preset build-release
+
+      - name: Smoke tests
+        run: tests/smoke.sh ./build/wsl-release/clot
+
+      - name: LLVM smoke tests
+        run: tests/llvm_smoke.sh ./build/wsl-release/clot
