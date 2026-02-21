@@ -22,6 +22,44 @@ std::string QuoteForShell(const std::string& value) {
     return quoted;
 }
 
+std::filesystem::path ResolveClotFromPath(const std::filesystem::path& cwd) {
+    const char* raw_path = std::getenv("PATH");
+    if (raw_path == nullptr) {
+        return {};
+    }
+
+    const std::string path_value(raw_path);
+    std::size_t start = 0;
+    while (start <= path_value.size()) {
+        const std::size_t end = path_value.find(':', start);
+        std::string entry;
+        if (end == std::string::npos) {
+            entry = path_value.substr(start);
+            start = path_value.size() + 1;
+        } else {
+            entry = path_value.substr(start, end - start);
+            start = end + 1;
+        }
+
+        if (entry.empty()) {
+            entry = ".";
+        }
+
+        std::filesystem::path dir(entry);
+        if (!dir.is_absolute()) {
+            dir = cwd / dir;
+        }
+
+        const std::filesystem::path candidate = dir / "clot";
+        std::error_code ec;
+        if (std::filesystem::exists(candidate, ec) && !ec) {
+            return std::filesystem::weakly_canonical(candidate, ec);
+        }
+    }
+
+    return {};
+}
+
 } // namespace
 
 extern "C" int clot_runtime_execute_source(const char* source_text, const char* source_path) {
@@ -39,8 +77,11 @@ extern "C" int clot_runtime_execute_source(const char* source_text, const char* 
         return 1;
     }
 
-    std::error_code ec;
-    const std::filesystem::path temp_dir = std::filesystem::temp_directory_path(ec);
+    const std::filesystem::path invocation_cwd = std::filesystem::current_path();
+    const std::filesystem::path clot_from_path = ResolveClotFromPath(invocation_cwd);
+    const std::string clot_command =
+        clot_from_path.empty() ? "clot" : QuoteForShell(clot_from_path.string());
+
     std::filesystem::path base_dir;
 
     if (source_path != nullptr && source_path[0] != '\0') {
@@ -67,7 +108,7 @@ extern "C" int clot_runtime_execute_source(const char* source_text, const char* 
     }
 
     const std::string command =
-        "cd " + QuoteForShell(working_dir.string()) + " && clot " + QuoteForShell(temp_file.string());
+        "cd " + QuoteForShell(working_dir.string()) + " && " + clot_command + " " + QuoteForShell(temp_file.string());
     const int status = std::system(command.c_str());
 
     std::error_code ignored;
