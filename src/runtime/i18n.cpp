@@ -35,8 +35,10 @@ std::string TranslateSpanishToEnglish(const std::string& text) {
         {"Falta valor para --output.", "Missing value for --output."},
         {"Falta valor para --target.", "Missing value for --target."},
         {"Falta valor para --lang.", "Missing value for --lang."},
+        {"Falta valor para --runtime-bridge.", "Missing value for --runtime-bridge."},
         {"Modo invalido: ", "Invalid mode: "},
         {"Emit invalido: ", "Invalid emit kind: "},
+        {"Runtime bridge invalido. Use static o external.", "Invalid runtime bridge. Use static or external."},
         {"Idioma invalido. Use es o en.", "Invalid language. Use es or en."},
         {"Opcion desconocida: ", "Unknown option: "},
         {"Se recibieron multiples archivos de entrada.", "Multiple input files were provided."},
@@ -54,6 +56,7 @@ std::string TranslateSpanishToEnglish(const std::string& text) {
         {"Falta ';' al final de la asignacion.", "Missing ';' at end of assignment."},
         {"Falta expresion en la asignacion.", "Missing expression in assignment."},
         {"Se esperaba un identificador.", "Expected an identifier."},
+        {"Token de control fuera de bloque: ", "Control token outside block: "},
         {"Literal de objeto incompleto.", "Incomplete object literal."},
         {"Falta ';' al final de print.", "Missing ';' at end of print."},
         {"Se esperaba '(' despues de print.", "Expected '(' after print."},
@@ -74,6 +77,15 @@ std::string TranslateSpanishToEnglish(const std::string& text) {
         {"Declaracion de funcion invalida: falta ':' final.", "Invalid function declaration: missing final ':'."},
         {"Falta 'endfunc' para cerrar la funcion '", "Missing 'endfunc' to close function '"},
         {"Formato invalido en import. Use: import modulo;", "Invalid import format. Use: import module;"},
+        {"Formato invalido en try. Use: try:", "Invalid try format. Use: try:"},
+        {"Falta 'catch:' para cerrar bloque try.", "Missing 'catch:' to close try block."},
+        {"Se esperaba 'catch:' despues de try.", "Expected 'catch:' after try."},
+        {"Falta ':' al final de catch.", "Missing ':' at end of catch."},
+        {"Formato invalido en catch. Use: catch: o catch(error):", "Invalid catch format. Use: catch: or catch(error):"},
+        {"Solo se permite un catch por bloque try.", "Only one catch is allowed per try block."},
+        {"Falta 'endtry' para cerrar bloque try/catch.", "Missing 'endtry' to close try/catch block."},
+        {"Se esperaba 'endtry'.", "Expected 'endtry'."},
+        {"'endtry' no acepta tokens adicionales.", "'endtry' does not accept extra tokens."},
         {"Falta ';' al final de la mutacion.", "Missing ';' at end of mutation."},
         {"No se encontro operador de asignacion para mutacion.", "No assignment operator found for mutation."},
         {"Mutacion invalida: falta expresion en un lado de la asignacion.", "Invalid mutation: missing expression on one side of assignment."},
@@ -94,6 +106,19 @@ std::string TranslateSpanishToEnglish(const std::string& text) {
         {"sum(a, b) requiere 2 argumentos.", "sum(a, b) requires 2 arguments."},
         {"sum(a, b) requiere exactamente 2 argumentos.", "sum(a, b) requires exactly 2 arguments."},
         {"sum(a, b) no acepta argumentos por referencia.", "sum(a, b) does not accept by-reference arguments."},
+        {"input() acepta 0 o 1 argumento.", "input() accepts 0 or 1 argument."},
+        {"read_file(path) requiere 1 argumento.", "read_file(path) requires 1 argument."},
+        {"write_file(path, content) requiere 2 argumentos.", "write_file(path, content) requires 2 arguments."},
+        {"append_file(path, content) requiere 2 argumentos.", "append_file(path, content) requires 2 arguments."},
+        {"file_exists(path) requiere 1 argumento.", "file_exists(path) requires 1 argument."},
+        {"now_ms() no acepta argumentos.", "now_ms() does not accept arguments."},
+        {"sleep_ms(ms) requiere 1 argumento.", "sleep_ms(ms) requires 1 argument."},
+        {"sleep_ms(ms) requiere entero >= 0.", "sleep_ms(ms) requires integer >= 0."},
+        {"async_read_file(path) requiere 1 argumento.", "async_read_file(path) requires 1 argument."},
+        {"task_ready(task_id) requiere 1 argumento.", "task_ready(task_id) requires 1 argument."},
+        {"await(task_id) requiere 1 argumento.", "await(task_id) requires 1 argument."},
+        {"El id de tarea debe ser un entero positivo.", "Task id must be a positive integer."},
+        {"Id de tarea no encontrado: ", "Task id not found: "},
         {"Numero incorrecto de argumentos para funcion '", "Incorrect number of arguments for function '"},
         {"Parametro por referencia '", "Reference parameter '"},
         {"Referencia no soporta acceso con propiedad: ", "Reference does not support property access: "},
@@ -121,6 +146,7 @@ std::string TranslateSpanishToEnglish(const std::string& text) {
         {"Error de runtime bridge: source_text nulo.", "Runtime bridge error: source_text is null."},
         {"No se pudo abrir el archivo: ", "Could not open file: "},
         {"Error leyendo el archivo: ", "Error reading file: "},
+        {"Error escribiendo el archivo: ", "Error writing file: "},
         {"No se pudo crear la funcion main.", "Failed to create main function."},
         {"Se requiere output_path para compilar con LLVM.", "output_path is required to compile with LLVM."},
         {"El backend LLVM no puede emitir archivo objeto para ese target.", "LLVM backend cannot emit object file for this target."},
@@ -129,6 +155,7 @@ std::string TranslateSpanishToEnglish(const std::string& text) {
         {"No se pudo crear TargetMachine para '", "Could not create TargetMachine for '"},
         {"No se pudo abrir el archivo objeto '", "Could not open object file '"},
         {"Fallo el enlazado con clang++. Comando: ", "Linking with clang++ failed. Command: "},
+        {"No se encontro runtime bridge externo LLVM en: ", "LLVM external runtime bridge was not found at: "},
         {"LLVM genero una funcion main invalida.", "LLVM generated an invalid main function."},
         {"LLVM genero una funcion main invalida en runtime bridge.", "LLVM generated an invalid main function in runtime bridge."},
         {"LLVM genero un modulo invalido.", "LLVM generated an invalid module."},
@@ -157,10 +184,13 @@ std::string TranslateSpanishToEnglish(const std::string& text) {
         {"La expresion requiere un valor numerico.", "Expression requires a numeric value."},
         {"Las expresiones string solo se soportan como literal directo en print dentro del modo compilado.", "String expressions are only supported as direct literals in print in compiled mode."},
         {"Import no soportado en LLVM: ", "Unsupported import in LLVM: "},
+        {"try/catch aun no se soporta en modo compile LLVM AOT.", "try/catch is not yet supported in LLVM AOT compile mode."},
         {"Funcion no soportada en modo compile LLVM AOT: ", "Unsupported function in LLVM AOT compile mode: "},
         {"Llamada no soportada en modo compile LLVM AOT: ", "Unsupported call in LLVM AOT compile mode: "},
         {"Expresion no soportada en backend LLVM.", "Unsupported expression in LLVM backend."},
         {"Este binario se compilo sin soporte LLVM. Reconfigura con LLVM instalado.", "This binary was built without LLVM support. Reconfigure with LLVM installed."},
+        {"Analisis estatico (sentencia ", "Static analysis (statement "},
+        {"Analisis estatico sin errores criticos.", "Static analysis completed with no critical errors."},
     };
 
     std::string translated = text;
@@ -176,6 +206,7 @@ std::string TranslateSpanishToEnglish(const std::string& text) {
     ReplaceAll(&translated, " en linea ", " at line ");
     ReplaceAll(&translated, "No se pudo abrir el archivo: ", "Could not open file: ");
     ReplaceAll(&translated, "Error leyendo el archivo: ", "Error reading file: ");
+    ReplaceAll(&translated, "Error escribiendo el archivo: ", "Error writing file: ");
     ReplaceAll(&translated, "Variable no definida: ", "Undefined variable: ");
     ReplaceAll(&translated, "Funcion no definida: ", "Undefined function: ");
     ReplaceAll(&translated, "Propiedad no encontrada: ", "Property not found: ");
