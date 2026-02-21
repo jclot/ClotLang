@@ -1,7 +1,6 @@
 // Prueba integral de Clot
 import math;
 import modules.utils;
-number = 9223372036854775801000000000000000000000000000000000000000000000000000;
 long counter = 9223372036854775801;
 byte level = 2;
 flag = true;
@@ -38,3 +37,12 @@ if(flag && counter > 10):
 else:
     print("disabled");
 endif
+
+
+try:
+    nums = [1, 2];
+    print(nums[9]);
+catch(err):
+    print("Error capturado");
+    print(err);
+endtry
