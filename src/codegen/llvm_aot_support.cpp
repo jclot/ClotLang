@@ -201,9 +201,6 @@ bool IsAotSupportedStatement(
     const AotSupportContext& context,
     bool inside_function) {
     if (const auto* assignment = dynamic_cast<const frontend::AssignmentStmt*>(&statement)) {
-        if (assignment->declaration_type == frontend::DeclarationType::Long) {
-            return false;
-        }
         return !ContainsDot(assignment->name) &&
                assignment->expr != nullptr &&
                IsAotSupportedExpr(*assignment->expr, context);
@@ -268,6 +265,10 @@ bool IsAotSupportedStatement(
             [&context](const std::unique_ptr<frontend::Statement>& nested) {
                 return nested != nullptr && IsAotSupportedStatement(*nested, context, true);
             });
+    }
+
+    if (dynamic_cast<const frontend::TryCatchStmt*>(&statement) != nullptr) {
+        return false;
     }
 
     return false;

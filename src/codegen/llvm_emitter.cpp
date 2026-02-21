@@ -420,6 +420,11 @@ bool LlvmEmitter::EmitStatement(const frontend::Statement& statement, bool allow
         return false;
     }
 
+    if (dynamic_cast<const frontend::TryCatchStmt*>(&statement) != nullptr) {
+        error_ = "try/catch aun no se soporta en modo compile LLVM AOT.";
+        return false;
+    }
+
     if (dynamic_cast<const frontend::FunctionDeclStmt*>(&statement) != nullptr) {
         if (!allow_function_declaration) {
             error_ = "No se soportan funciones anidadas en modo compile LLVM AOT.";

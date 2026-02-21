@@ -29,6 +29,7 @@ std::string QuoteForShell(const std::string& value) {
 
 bool RuntimeBridgeSourcesExist(
     const std::filesystem::path& bridge_source,
+    const std::filesystem::path& external_bridge_source,
     const std::filesystem::path& parser_core_source,
     const std::filesystem::path& parser_expression_source,
     const std::filesystem::path& parser_statements_source,
@@ -39,6 +40,7 @@ bool RuntimeBridgeSourcesExist(
     const std::filesystem::path& interpreter_modules_source,
     const std::filesystem::path& i18n_source) {
     return std::filesystem::exists(bridge_source) &&
+           std::filesystem::exists(external_bridge_source) &&
            std::filesystem::exists(parser_core_source) &&
            std::filesystem::exists(parser_expression_source) &&
            std::filesystem::exists(parser_statements_source) &&
@@ -70,6 +72,7 @@ bool LinkExecutable(
         const std::filesystem::path root = std::filesystem::path(options.project_root);
         const std::filesystem::path include_dir = root / "include";
         const std::filesystem::path bridge_source = root / "src" / "codegen" / "runtime_bridge.cpp";
+        const std::filesystem::path external_bridge_source = root / "src" / "codegen" / "runtime_bridge_external.cpp";
 
         const std::filesystem::path parser_core_source = root / "src" / "frontend" / "parser_core.cpp";
         const std::filesystem::path parser_expression_source = root / "src" / "frontend" / "parser_expression.cpp";
@@ -82,17 +85,24 @@ bool LinkExecutable(
         const std::filesystem::path interpreter_modules_source = root / "src" / "interpreter" / "interpreter_modules.cpp";
         const std::filesystem::path i18n_source = root / "src" / "runtime" / "i18n.cpp";
 
-        if (!RuntimeBridgeSourcesExist(
-                bridge_source,
-                parser_core_source,
-                parser_expression_source,
-                parser_statements_source,
-                source_loader_source,
-                tokenizer_source,
-                interpreter_source,
-                interpreter_state_source,
-                interpreter_modules_source,
-                i18n_source)) {
+        const bool use_external_bridge = options.runtime_bridge_mode == CompileOptions::RuntimeBridgeMode::External;
+        if (use_external_bridge) {
+            if (!std::filesystem::exists(external_bridge_source)) {
+                *out_error = "No se encontro runtime bridge externo LLVM en: " + external_bridge_source.string();
+                return false;
+            }
+        } else if (!RuntimeBridgeSourcesExist(
+                       bridge_source,
+                       external_bridge_source,
+                       parser_core_source,
+                       parser_expression_source,
+                       parser_statements_source,
+                       source_loader_source,
+                       tokenizer_source,
+                       interpreter_source,
+                       interpreter_state_source,
+                       interpreter_modules_source,
+                       i18n_source)) {
             *out_error = "No se encontraron archivos fuente para runtime bridge LLVM en: " + root.string();
             return false;
         }
@@ -103,16 +113,21 @@ bool LinkExecutable(
         command += "-no-pie ";
 #endif
         command += QuoteForShell(object_path) + " ";
-        command += QuoteForShell(bridge_source.string()) + " ";
-        command += QuoteForShell(parser_core_source.string()) + " ";
-        command += QuoteForShell(parser_expression_source.string()) + " ";
-        command += QuoteForShell(parser_statements_source.string()) + " ";
-        command += QuoteForShell(source_loader_source.string()) + " ";
-        command += QuoteForShell(tokenizer_source.string()) + " ";
-        command += QuoteForShell(interpreter_source.string()) + " ";
-        command += QuoteForShell(interpreter_state_source.string()) + " ";
-        command += QuoteForShell(interpreter_modules_source.string()) + " ";
-        command += QuoteForShell(i18n_source.string()) + " ";
+        if (use_external_bridge) {
+            command += "-DCLOT_EXTERNAL_RUNTIME_BRIDGE_IMPL ";
+            command += QuoteForShell(external_bridge_source.string()) + " ";
+        } else {
+            command += QuoteForShell(bridge_source.string()) + " ";
+            command += QuoteForShell(parser_core_source.string()) + " ";
+            command += QuoteForShell(parser_expression_source.string()) + " ";
+            command += QuoteForShell(parser_statements_source.string()) + " ";
+            command += QuoteForShell(source_loader_source.string()) + " ";
+            command += QuoteForShell(tokenizer_source.string()) + " ";
+            command += QuoteForShell(interpreter_source.string()) + " ";
+            command += QuoteForShell(interpreter_state_source.string()) + " ";
+            command += QuoteForShell(interpreter_modules_source.string()) + " ";
+            command += QuoteForShell(i18n_source.string()) + " ";
+        }
         command += "-o " + QuoteForShell(executable_path);
     } else {
 #ifndef _WIN32
@@ -123,9 +138,15 @@ bool LinkExecutable(
 
     if (verbose) {
         if (use_runtime_bridge) {
-            llvm::outs() << clot::runtime::Tr(
-                "[clot] runtime bridge LLVM activado para soporte completo del lenguaje\n",
-                "[clot] LLVM runtime bridge enabled for full language support\n");
+            if (options.runtime_bridge_mode == CompileOptions::RuntimeBridgeMode::External) {
+                llvm::outs() << clot::runtime::Tr(
+                    "[clot] runtime bridge externo activado (binario liviano, requiere clot en PATH)\n",
+                    "[clot] external runtime bridge enabled (light binary, requires clot in PATH)\n");
+            } else {
+                llvm::outs() << clot::runtime::Tr(
+                    "[clot] runtime bridge LLVM activado para soporte completo del lenguaje\n",
+                    "[clot] LLVM runtime bridge enabled for full language support\n");
+            }
         }
         llvm::outs() << "[clot] linking: " << command << "\n";
     }
