@@ -14,12 +14,18 @@ struct CompileOptions {
         IR,
     };
 
+    enum class RuntimeBridgeMode {
+        Static,
+        External,
+    };
+
     EmitKind emit_kind = EmitKind::Executable;
     std::string output_path;
     std::string target_triple;
     std::string input_path;
     std::string source_text;
     std::string project_root;
+    RuntimeBridgeMode runtime_bridge_mode = RuntimeBridgeMode::Static;
     bool verbose = false;
 };
 
