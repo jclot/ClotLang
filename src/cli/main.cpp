@@ -7,6 +7,7 @@
 #include "clot/codegen/llvm_compiler.hpp"
 #include "clot/frontend/parser.hpp"
 #include "clot/frontend/source_loader.hpp"
+#include "clot/frontend/static_analyzer.hpp"
 #include "clot/interpreter/interpreter.hpp"
 #include "clot/runtime/i18n.hpp"
 
@@ -15,6 +16,7 @@ namespace {
 enum class RunMode {
     Interpret,
     Compile,
+    Analyze,
 };
 
 struct CliOptions {
@@ -34,15 +36,17 @@ void PrintHelp() {
             << "  clot [file.clot] [options]\n\n"
             << "Options:\n"
             << "  -h, --help               Show this help\n"
-            << "  --mode interpret|compile Run in interpreter or LLVM compiler mode\n"
+            << "  --mode interpret|compile|analyze Run in interpreter, LLVM compiler or static analyzer mode\n"
             << "  --emit exe|obj|ir        Output type in compile mode\n"
             << "  -o, --output <file>      Output path in compile mode\n"
             << "  --target <triple>        LLVM target (e.g. x86_64-pc-linux-gnu)\n"
+            << "  --runtime-bridge static|external Runtime bridge strategy in compile mode\n"
             << "  --lang es|en             UI language (Spanish/English)\n"
             << "  --verbose                Print extra information\n\n"
             << "Examples:\n"
             << "  clot program.clot\n"
             << "  clot program.clot --mode compile --emit exe -o program\n"
+            << "  clot program.clot --mode analyze\n"
             << "  clot program.clot --mode compile --emit ir -o program.ll\n";
         return;
     }
@@ -53,15 +57,17 @@ void PrintHelp() {
         << "  clot [archivo.clot] [opciones]\n\n"
         << "Opciones:\n"
         << "  -h, --help               Muestra esta ayuda\n"
-        << "  --mode interpret|compile Ejecuta en modo interprete o compilador LLVM\n"
+        << "  --mode interpret|compile|analyze Ejecuta en modo interprete, compilador LLVM o analizador estatico\n"
         << "  --emit exe|obj|ir        Tipo de salida en modo compile\n"
         << "  -o, --output <archivo>   Ruta de salida en modo compile\n"
         << "  --target <triple>        Target LLVM (ej. x86_64-pc-linux-gnu)\n"
+        << "  --runtime-bridge static|external Estrategia del runtime bridge en compile\n"
         << "  --lang es|en             Idioma de interfaz\n"
         << "  --verbose                Imprime informacion adicional\n\n"
         << "Ejemplos:\n"
         << "  clot programa.clot\n"
         << "  clot programa.clot --mode compile --emit exe -o programa\n"
+        << "  clot programa.clot --mode analyze\n"
         << "  clot programa.clot --mode compile --emit ir -o programa.ll\n";
 }
 
@@ -134,6 +140,8 @@ bool ParseArgs(int argc, char* argv[], CliOptions* out_options, std::string* out
                 out_options->mode = RunMode::Interpret;
             } else if (value == "compile") {
                 out_options->mode = RunMode::Compile;
+            } else if (value == "analyze") {
+                out_options->mode = RunMode::Analyze;
             } else {
                 *out_error = clot::runtime::Tr("Modo invalido: ", "Invalid mode: ") + value;
                 return false;
@@ -196,6 +204,30 @@ bool ParseArgs(int argc, char* argv[], CliOptions* out_options, std::string* out
                 return false;
             }
             out_options->compile_options.target_triple = argv[++i];
+            continue;
+        }
+
+        if (arg == "--runtime-bridge") {
+            if (i + 1 >= argc) {
+                *out_error = clot::runtime::Tr(
+                    "Falta valor para --runtime-bridge.",
+                    "Missing value for --runtime-bridge.");
+                return false;
+            }
+
+            const std::string value = argv[++i];
+            if (value == "static") {
+                out_options->compile_options.runtime_bridge_mode =
+                    clot::codegen::CompileOptions::RuntimeBridgeMode::Static;
+            } else if (value == "external") {
+                out_options->compile_options.runtime_bridge_mode =
+                    clot::codegen::CompileOptions::RuntimeBridgeMode::External;
+            } else {
+                *out_error = clot::runtime::Tr(
+                    "Runtime bridge invalido. Use static o external.",
+                    "Invalid runtime bridge. Use static or external.");
+                return false;
+            }
             continue;
         }
 
@@ -284,6 +316,33 @@ int main(int argc, char* argv[]) {
                   << ": "
                   << diagnostic_message
                   << "\n";
+        return 1;
+    }
+
+    if (options.mode == RunMode::Analyze) {
+        clot::frontend::StaticAnalyzer analyzer;
+        clot::frontend::AnalysisReport report;
+        analyzer.Analyze(program, &report);
+
+        for (const auto& warning : report.warnings) {
+            std::cerr << clot::runtime::Tr("Advertencia: ", "Warning: ")
+                      << clot::runtime::TranslateDiagnostic(warning.message) << "\n";
+        }
+
+        for (const auto& error : report.errors) {
+            std::cerr << clot::runtime::Tr("Error: ", "Error: ")
+                      << clot::runtime::TranslateDiagnostic(error.message) << "\n";
+        }
+
+        if (report.errors.empty()) {
+            if (options.verbose) {
+                std::cout << clot::runtime::Tr(
+                                 "Analisis estatico sin errores criticos.\n",
+                                 "Static analysis completed with no critical errors.\n");
+            }
+            return 0;
+        }
+
         return 1;
     }
 
