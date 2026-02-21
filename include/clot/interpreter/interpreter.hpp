@@ -2,11 +2,13 @@
 #define CLOT_INTERPRETER_INTERPRETER_HPP
 
 #include <filesystem>
+#include <future>
 #include <map>
 #include <memory>
 #include <optional>
 #include <set>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "clot/frontend/ast.hpp"
@@ -25,6 +27,7 @@ private:
     bool ExecuteBlock(const std::vector<std::unique_ptr<frontend::Statement>>& statements, std::string* out_error);
     bool ExecuteMutation(const frontend::MutationStmt& statement, std::string* out_error);
     bool ExecuteReturn(const frontend::ReturnStmt& statement, std::string* out_error);
+    bool ExecuteTryCatch(const frontend::TryCatchStmt& statement, std::string* out_error);
 
     bool EvaluateExpression(
         const frontend::Expr& expression,
@@ -116,6 +119,19 @@ private:
     std::vector<std::filesystem::path> module_base_dirs_;
     std::filesystem::path entry_file_path_;
     std::vector<std::unique_ptr<frontend::Program>> loaded_module_programs_;
+
+    struct AsyncTaskResult {
+        bool ok = false;
+        runtime::Value value;
+        std::string error;
+    };
+
+    struct AsyncTaskState {
+        std::future<AsyncTaskResult> future;
+    };
+
+    std::unordered_map<long long, AsyncTaskState> async_tasks_;
+    long long next_async_task_id_ = 1;
 };
 
 }  // namespace clot::interpreter
