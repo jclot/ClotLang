@@ -337,6 +337,134 @@ bool Parser::ParseImport(
     return true;
 }
 
+bool Parser::ParseTry(
+    std::size_t* line_index,
+    const std::vector<Token>& tokens,
+    std::vector<std::unique_ptr<Statement>>* out_statements,
+    Diagnostic* out_error) const {
+    if (tokens.size() != 2 || tokens[1].kind != TokenKind::Colon) {
+        *out_error = MakeError(*line_index + 1, tokens[0].column, "Formato invalido en try. Use: try:");
+        return false;
+    }
+
+    std::vector<std::unique_ptr<Statement>> try_branch;
+    ++(*line_index);
+
+    while (*line_index < lines_.size()) {
+        const std::vector<Token> branch_tokens = Tokenizer::TokenizeLine(lines_[*line_index]);
+        if (branch_tokens.empty()) {
+            ++(*line_index);
+            continue;
+        }
+
+        if (branch_tokens[0].kind == TokenKind::Unknown) {
+            *out_error = MakeError(
+                *line_index + 1,
+                branch_tokens[0].column,
+                "Token no reconocido: '" + branch_tokens[0].lexeme + "'.");
+            return false;
+        }
+
+        if (branch_tokens[0].kind == TokenKind::KeywordCatch || branch_tokens[0].kind == TokenKind::KeywordEndTry) {
+            break;
+        }
+
+        if (!ParseStatement(line_index, branch_tokens, &try_branch, out_error)) {
+            return false;
+        }
+    }
+
+    if (*line_index >= lines_.size()) {
+        *out_error = MakeError(*line_index, 1, "Falta 'catch:' para cerrar bloque try.");
+        return false;
+    }
+
+    std::vector<Token> control_tokens = Tokenizer::TokenizeLine(lines_[*line_index]);
+    if (control_tokens.empty() || control_tokens[0].kind != TokenKind::KeywordCatch) {
+        const std::size_t column = control_tokens.empty() ? 1 : control_tokens[0].column;
+        *out_error = MakeError(*line_index + 1, column, "Se esperaba 'catch:' despues de try.");
+        return false;
+    }
+
+    if (control_tokens.back().kind != TokenKind::Colon) {
+        *out_error = MakeError(*line_index + 1, control_tokens.back().column, "Falta ':' al final de catch.");
+        return false;
+    }
+
+    std::string error_binding;
+    if (control_tokens.size() == 2) {
+        // catch:
+    } else if (
+        control_tokens.size() == 5 &&
+        control_tokens[1].kind == TokenKind::LeftParen &&
+        control_tokens[2].kind == TokenKind::Identifier &&
+        control_tokens[3].kind == TokenKind::RightParen) {
+        error_binding = control_tokens[2].lexeme;
+    } else {
+        *out_error = MakeError(
+            *line_index + 1,
+            control_tokens[0].column,
+            "Formato invalido en catch. Use: catch: o catch(error):");
+        return false;
+    }
+
+    std::vector<std::unique_ptr<Statement>> catch_branch;
+    ++(*line_index);
+
+    while (*line_index < lines_.size()) {
+        const std::vector<Token> branch_tokens = Tokenizer::TokenizeLine(lines_[*line_index]);
+        if (branch_tokens.empty()) {
+            ++(*line_index);
+            continue;
+        }
+
+        if (branch_tokens[0].kind == TokenKind::Unknown) {
+            *out_error = MakeError(
+                *line_index + 1,
+                branch_tokens[0].column,
+                "Token no reconocido: '" + branch_tokens[0].lexeme + "'.");
+            return false;
+        }
+
+        if (branch_tokens[0].kind == TokenKind::KeywordEndTry) {
+            break;
+        }
+
+        if (branch_tokens[0].kind == TokenKind::KeywordCatch) {
+            *out_error = MakeError(*line_index + 1, branch_tokens[0].column, "Solo se permite un catch por bloque try.");
+            return false;
+        }
+
+        if (!ParseStatement(line_index, branch_tokens, &catch_branch, out_error)) {
+            return false;
+        }
+    }
+
+    if (*line_index >= lines_.size()) {
+        *out_error = MakeError(*line_index, 1, "Falta 'endtry' para cerrar bloque try/catch.");
+        return false;
+    }
+
+    control_tokens = Tokenizer::TokenizeLine(lines_[*line_index]);
+    if (control_tokens.empty() || control_tokens[0].kind != TokenKind::KeywordEndTry) {
+        const std::size_t column = control_tokens.empty() ? 1 : control_tokens[0].column;
+        *out_error = MakeError(*line_index + 1, column, "Se esperaba 'endtry'.");
+        return false;
+    }
+
+    if (control_tokens.size() != 1) {
+        *out_error = MakeError(*line_index + 1, control_tokens[1].column, "'endtry' no acepta tokens adicionales.");
+        return false;
+    }
+
+    out_statements->push_back(std::make_unique<TryCatchStmt>(
+        std::move(try_branch),
+        std::move(error_binding),
+        std::move(catch_branch)));
+    ++(*line_index);
+    return true;
+}
+
 bool Parser::ParseMutation(
     std::size_t* line_index,
     const std::vector<Token>& tokens,

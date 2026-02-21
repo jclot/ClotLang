@@ -165,6 +165,20 @@ struct IfStmt final : Statement {
     std::vector<std::unique_ptr<Statement>> else_branch;
 };
 
+struct TryCatchStmt final : Statement {
+    TryCatchStmt(
+        std::vector<std::unique_ptr<Statement>> in_try_branch,
+        std::string in_error_binding,
+        std::vector<std::unique_ptr<Statement>> in_catch_branch)
+        : try_branch(std::move(in_try_branch)),
+          error_binding(std::move(in_error_binding)),
+          catch_branch(std::move(in_catch_branch)) {}
+
+    std::vector<std::unique_ptr<Statement>> try_branch;
+    std::string error_binding;
+    std::vector<std::unique_ptr<Statement>> catch_branch;
+};
+
 struct FunctionParam {
     std::string name;
     bool by_reference = false;

@@ -76,12 +76,18 @@ bool Parser::ParseStatement(
         return ParseImport(line_index, tokens, out_statements, out_error);
     }
 
+    if (tokens[0].kind == TokenKind::KeywordTry) {
+        return ParseTry(line_index, tokens, out_statements, out_error);
+    }
+
     if (tokens[0].kind == TokenKind::KeywordReturn) {
         return ParseReturn(line_index, tokens, out_statements, out_error);
     }
 
     if (tokens[0].kind == TokenKind::KeywordElse ||
         tokens[0].kind == TokenKind::KeywordEndIf ||
+        tokens[0].kind == TokenKind::KeywordCatch ||
+        tokens[0].kind == TokenKind::KeywordEndTry ||
         tokens[0].kind == TokenKind::KeywordEndFunc) {
         *out_error = MakeError(
             *line_index + 1,

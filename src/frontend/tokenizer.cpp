@@ -45,6 +45,15 @@ TokenKind KeywordToTokenKind(const std::string& text) {
     if (text == "return") {
         return TokenKind::KeywordReturn;
     }
+    if (text == "try") {
+        return TokenKind::KeywordTry;
+    }
+    if (text == "catch") {
+        return TokenKind::KeywordCatch;
+    }
+    if (text == "endtry") {
+        return TokenKind::KeywordEndTry;
+    }
     if (text == "true" || text == "false") {
         return TokenKind::Boolean;
     }
@@ -83,6 +92,12 @@ const char* ToString(TokenKind kind) {
         return "import";
     case TokenKind::KeywordReturn:
         return "return";
+    case TokenKind::KeywordTry:
+        return "try";
+    case TokenKind::KeywordCatch:
+        return "catch";
+    case TokenKind::KeywordEndTry:
+        return "endtry";
     case TokenKind::Assign:
         return "=";
     case TokenKind::PlusEqual:

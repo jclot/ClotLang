@@ -1,9 +1,15 @@
 #include "clot/interpreter/interpreter.hpp"
 
+#include <chrono>
 #include <cmath>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <limits>
+#include <sstream>
+#include <thread>
+
+#include "clot/runtime/i18n.hpp"
 
 namespace clot::interpreter {
 
@@ -78,6 +84,72 @@ bool ReadListIndex(const runtime::Value& value, std::size_t* out_index, std::str
     return true;
 }
 
+bool ReadTaskId(const runtime::Value& value, long long* out_task_id, std::string* out_error) {
+    bool ok = false;
+    const long long task_id = value.AsInteger(&ok);
+    if (!ok || task_id <= 0) {
+        if (out_error != nullptr) {
+            *out_error = "El id de tarea debe ser un entero positivo.";
+        }
+        return false;
+    }
+
+    *out_task_id = task_id;
+    return true;
+}
+
+bool ReadFileToString(const std::string& path, std::string* out_text, std::string* out_error) {
+    std::ifstream input(path, std::ios::binary);
+    if (!input.is_open()) {
+        if (out_error != nullptr) {
+            *out_error = "No se pudo abrir el archivo: " + path;
+        }
+        return false;
+    }
+
+    std::ostringstream buffer;
+    buffer << input.rdbuf();
+    if (!input.good() && !input.eof()) {
+        if (out_error != nullptr) {
+            *out_error = "Error leyendo el archivo: " + path;
+        }
+        return false;
+    }
+
+    *out_text = buffer.str();
+    return true;
+}
+
+bool WriteStringToFile(
+    const std::string& path,
+    const std::string& text,
+    bool append,
+    std::string* out_error) {
+    std::ofstream output;
+    if (append) {
+        output.open(path, std::ios::binary | std::ios::app);
+    } else {
+        output.open(path, std::ios::binary | std::ios::trunc);
+    }
+
+    if (!output.is_open()) {
+        if (out_error != nullptr) {
+            *out_error = "No se pudo abrir el archivo: " + path;
+        }
+        return false;
+    }
+
+    output << text;
+    if (!output.good()) {
+        if (out_error != nullptr) {
+            *out_error = "Error escribiendo el archivo: " + path;
+        }
+        return false;
+    }
+
+    return true;
+}
+
 }  // namespace
 
 void Interpreter::SetEntryFilePath(const std::string& file_path) {
@@ -85,11 +157,15 @@ void Interpreter::SetEntryFilePath(const std::string& file_path) {
 }
 
 bool Interpreter::Execute(const frontend::Program& program, std::string* out_error) {
+    environment_.clear();
     functions_.clear();
+    imported_modules_.clear();
     loaded_module_programs_.clear();
     return_stack_.clear();
     module_base_dirs_.clear();
     importing_modules_.clear();
+    async_tasks_.clear();
+    next_async_task_id_ = 1;
 
     if (!entry_file_path_.empty()) {
         module_base_dirs_.push_back(entry_file_path_.parent_path());
@@ -193,6 +269,10 @@ bool Interpreter::ExecuteStatement(const frontend::Statement& statement, std::st
         return ExecuteReturn(*return_stmt, out_error);
     }
 
+    if (const auto* try_catch_stmt = dynamic_cast<const frontend::TryCatchStmt*>(&statement)) {
+        return ExecuteTryCatch(*try_catch_stmt, out_error);
+    }
+
     *out_error = "Tipo de sentencia no soportado por el interprete.";
     return false;
 }
@@ -226,6 +306,55 @@ bool Interpreter::ExecuteReturn(const frontend::ReturnStmt& statement, std::stri
     }
 
     return_stack_.back() = std::move(value);
+    return true;
+}
+
+bool Interpreter::ExecuteTryCatch(const frontend::TryCatchStmt& statement, std::string* out_error) {
+    std::string try_error;
+    if (ExecuteBlock(statement.try_branch, &try_error)) {
+        return true;
+    }
+
+    const bool has_active_return = !return_stack_.empty() && return_stack_.back().has_value();
+    if (has_active_return) {
+        if (out_error != nullptr) {
+            *out_error = try_error;
+        }
+        return false;
+    }
+
+    std::optional<runtime::VariableSlot> previous_slot;
+    if (!statement.error_binding.empty()) {
+        const auto existing = environment_.find(statement.error_binding);
+        if (existing != environment_.end()) {
+            previous_slot = existing->second;
+        }
+
+        const std::string localized_try_error = runtime::TranslateDiagnostic(try_error);
+        environment_[statement.error_binding] = runtime::VariableSlot{
+            runtime::Value(localized_try_error),
+            runtime::VariableKind::Dynamic,
+        };
+    }
+
+    std::string catch_error;
+    const bool catch_ok = ExecuteBlock(statement.catch_branch, &catch_error);
+
+    if (!statement.error_binding.empty()) {
+        if (previous_slot.has_value()) {
+            environment_[statement.error_binding] = *previous_slot;
+        } else {
+            environment_.erase(statement.error_binding);
+        }
+    }
+
+    if (!catch_ok) {
+        if (out_error != nullptr) {
+            *out_error = catch_error;
+        }
+        return false;
+    }
+
     return true;
 }
 
@@ -583,6 +712,225 @@ bool Interpreter::ExecuteBuiltinCall(
         }
 
         *out_value = runtime::Value(left_number + right_number);
+        return true;
+    }
+
+    if (call.callee == "input") {
+        *out_was_builtin = true;
+
+        if (call.arguments.size() > 1) {
+            *out_error = "input() acepta 0 o 1 argumento.";
+            return false;
+        }
+
+        if (call.arguments.size() == 1) {
+            runtime::Value prompt;
+            if (!EvaluateExpression(*call.arguments[0].value, &prompt, out_error)) {
+                return false;
+            }
+            std::cout << prompt.ToString() << std::flush;
+        }
+
+        std::string line;
+        std::getline(std::cin, line);
+        *out_value = runtime::Value(line);
+        return true;
+    }
+
+    if (call.callee == "read_file") {
+        *out_was_builtin = true;
+        if (call.arguments.size() != 1) {
+            *out_error = "read_file(path) requiere 1 argumento.";
+            return false;
+        }
+
+        runtime::Value path_value;
+        if (!EvaluateExpression(*call.arguments[0].value, &path_value, out_error)) {
+            return false;
+        }
+
+        const std::string path = path_value.ToString();
+        std::string text;
+        if (!ReadFileToString(path, &text, out_error)) {
+            return false;
+        }
+
+        *out_value = runtime::Value(text);
+        return true;
+    }
+
+    if (call.callee == "write_file" || call.callee == "append_file") {
+        *out_was_builtin = true;
+        if (call.arguments.size() != 2) {
+            *out_error = call.callee + "(path, content) requiere 2 argumentos.";
+            return false;
+        }
+
+        runtime::Value path_value;
+        runtime::Value content_value;
+        if (!EvaluateExpression(*call.arguments[0].value, &path_value, out_error) ||
+            !EvaluateExpression(*call.arguments[1].value, &content_value, out_error)) {
+            return false;
+        }
+
+        const std::string path = path_value.ToString();
+        const std::string content = content_value.ToString();
+        if (!WriteStringToFile(path, content, call.callee == "append_file", out_error)) {
+            return false;
+        }
+
+        *out_value = runtime::Value(true);
+        return true;
+    }
+
+    if (call.callee == "file_exists") {
+        *out_was_builtin = true;
+        if (call.arguments.size() != 1) {
+            *out_error = "file_exists(path) requiere 1 argumento.";
+            return false;
+        }
+
+        runtime::Value path_value;
+        if (!EvaluateExpression(*call.arguments[0].value, &path_value, out_error)) {
+            return false;
+        }
+
+        const std::string path = path_value.ToString();
+        *out_value = runtime::Value(std::filesystem::exists(std::filesystem::path(path)));
+        return true;
+    }
+
+    if (call.callee == "now_ms") {
+        *out_was_builtin = true;
+        if (!call.arguments.empty()) {
+            *out_error = "now_ms() no acepta argumentos.";
+            return false;
+        }
+
+        const auto now = std::chrono::system_clock::now().time_since_epoch();
+        const auto millis = std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
+        *out_value = runtime::Value(static_cast<long long>(millis));
+        return true;
+    }
+
+    if (call.callee == "sleep_ms") {
+        *out_was_builtin = true;
+        if (call.arguments.size() != 1) {
+            *out_error = "sleep_ms(ms) requiere 1 argumento.";
+            return false;
+        }
+
+        runtime::Value delay_value;
+        if (!EvaluateExpression(*call.arguments[0].value, &delay_value, out_error)) {
+            return false;
+        }
+
+        long long delay_ms = 0;
+        if (!ReadInteger(delay_value, &delay_ms) || delay_ms < 0) {
+            *out_error = "sleep_ms(ms) requiere entero >= 0.";
+            return false;
+        }
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(delay_ms));
+        *out_value = runtime::Value(0.0);
+        return true;
+    }
+
+    if (call.callee == "async_read_file") {
+        *out_was_builtin = true;
+        if (call.arguments.size() != 1) {
+            *out_error = "async_read_file(path) requiere 1 argumento.";
+            return false;
+        }
+
+        runtime::Value path_value;
+        if (!EvaluateExpression(*call.arguments[0].value, &path_value, out_error)) {
+            return false;
+        }
+
+        const std::string path = path_value.ToString();
+        const long long task_id = next_async_task_id_++;
+        async_tasks_[task_id] = AsyncTaskState{
+            std::async(std::launch::async, [path]() -> AsyncTaskResult {
+                AsyncTaskResult result;
+                std::string text;
+                std::string error;
+                if (!ReadFileToString(path, &text, &error)) {
+                    result.ok = false;
+                    result.error = std::move(error);
+                    return result;
+                }
+
+                result.ok = true;
+                result.value = runtime::Value(std::move(text));
+                return result;
+            }),
+        };
+
+        *out_value = runtime::Value(task_id);
+        return true;
+    }
+
+    if (call.callee == "task_ready") {
+        *out_was_builtin = true;
+        if (call.arguments.size() != 1) {
+            *out_error = "task_ready(task_id) requiere 1 argumento.";
+            return false;
+        }
+
+        runtime::Value task_id_value;
+        if (!EvaluateExpression(*call.arguments[0].value, &task_id_value, out_error)) {
+            return false;
+        }
+
+        long long task_id = 0;
+        if (!ReadTaskId(task_id_value, &task_id, out_error)) {
+            return false;
+        }
+
+        const auto task_it = async_tasks_.find(task_id);
+        if (task_it == async_tasks_.end()) {
+            *out_error = "Id de tarea no encontrado: " + std::to_string(task_id);
+            return false;
+        }
+
+        const auto status = task_it->second.future.wait_for(std::chrono::milliseconds(0));
+        *out_value = runtime::Value(status == std::future_status::ready);
+        return true;
+    }
+
+    if (call.callee == "await") {
+        *out_was_builtin = true;
+        if (call.arguments.size() != 1) {
+            *out_error = "await(task_id) requiere 1 argumento.";
+            return false;
+        }
+
+        runtime::Value task_id_value;
+        if (!EvaluateExpression(*call.arguments[0].value, &task_id_value, out_error)) {
+            return false;
+        }
+
+        long long task_id = 0;
+        if (!ReadTaskId(task_id_value, &task_id, out_error)) {
+            return false;
+        }
+
+        const auto task_it = async_tasks_.find(task_id);
+        if (task_it == async_tasks_.end()) {
+            *out_error = "Id de tarea no encontrado: " + std::to_string(task_id);
+            return false;
+        }
+
+        AsyncTaskResult result = task_it->second.future.get();
+        async_tasks_.erase(task_it);
+
+        if (!result.ok) {
+            *out_error = result.error;
+            return false;
+        }
+
+        *out_value = result.value;
         return true;
     }
 

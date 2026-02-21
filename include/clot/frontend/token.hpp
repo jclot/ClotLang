@@ -22,6 +22,9 @@ enum class TokenKind {
     KeywordEndFunc,
     KeywordImport,
     KeywordReturn,
+    KeywordTry,
+    KeywordCatch,
+    KeywordEndTry,
 
     Assign,
     PlusEqual,
