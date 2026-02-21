@@ -205,4 +205,79 @@ if ! grep -q "El indice de lista debe ser un entero finito." "$TMP_DIR/list_non_
     exit 1
 fi
 
+cat > "$TMP_DIR/try_catch.clot" <<'PROG'
+try:
+    nums = [1, 2];
+    print(nums[5]);
+catch(err):
+    print("captured");
+    print(err);
+endtry
+print("after");
+PROG
+
+EXPECTED_TRY_CATCH=$'captured\nIndice fuera de rango en lista.\nafter'
+ACTUAL_TRY_CATCH="$($BIN_PATH "$TMP_DIR/try_catch.clot")"
+if [[ "$ACTUAL_TRY_CATCH" != "$EXPECTED_TRY_CATCH" ]]; then
+    echo "Fallo test try_catch" >&2
+    echo "Esperado:" >&2
+    printf '%s\n' "$EXPECTED_TRY_CATCH" >&2
+    echo "Actual:" >&2
+    printf '%s\n' "$ACTUAL_TRY_CATCH" >&2
+    exit 1
+fi
+
+EXPECTED_TRY_CATCH_EN=$'captured\nList index out of bounds.\nafter'
+ACTUAL_TRY_CATCH_EN="$($BIN_PATH "$TMP_DIR/try_catch.clot" --lang en)"
+if [[ "$ACTUAL_TRY_CATCH_EN" != "$EXPECTED_TRY_CATCH_EN" ]]; then
+    echo "Fallo test try_catch_en" >&2
+    echo "Esperado:" >&2
+    printf '%s\n' "$EXPECTED_TRY_CATCH_EN" >&2
+    echo "Actual:" >&2
+    printf '%s\n' "$ACTUAL_TRY_CATCH_EN" >&2
+    exit 1
+fi
+
+IO_FILE="$TMP_DIR/io_data.txt"
+cat > "$TMP_DIR/async_io.clot" <<PROG
+write_file("$IO_FILE", "hola");
+task = async_read_file("$IO_FILE");
+print(await(task));
+append_file("$IO_FILE", "!");
+print(read_file("$IO_FILE"));
+print(file_exists("$IO_FILE"));
+PROG
+
+EXPECTED_ASYNC_IO=$'hola\nhola!\ntrue'
+ACTUAL_ASYNC_IO="$($BIN_PATH "$TMP_DIR/async_io.clot")"
+if [[ "$ACTUAL_ASYNC_IO" != "$EXPECTED_ASYNC_IO" ]]; then
+    echo "Fallo test async_io" >&2
+    echo "Esperado:" >&2
+    printf '%s\n' "$EXPECTED_ASYNC_IO" >&2
+    echo "Actual:" >&2
+    printf '%s\n' "$ACTUAL_ASYNC_IO" >&2
+    exit 1
+fi
+
+cat > "$TMP_DIR/analyze_fail.clot" <<'PROG'
+long x = "texto";
+print(y);
+PROG
+
+set +e
+"$BIN_PATH" "$TMP_DIR/analyze_fail.clot" --mode analyze >"$TMP_DIR/analyze_fail.out" 2>"$TMP_DIR/analyze_fail.err"
+STATUS_ANALYZE=$?
+set -e
+
+if [[ "$STATUS_ANALYZE" -eq 0 ]]; then
+    echo "Fallo test analyze_fail: se esperaba error en analisis estatico." >&2
+    exit 1
+fi
+
+if ! grep -q "Analisis estatico" "$TMP_DIR/analyze_fail.err"; then
+    echo "Fallo test analyze_fail: no se detectaron diagnosticos de analisis." >&2
+    cat "$TMP_DIR/analyze_fail.err" >&2
+    exit 1
+fi
+
 echo "Smoke tests OK"

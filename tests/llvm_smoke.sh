@@ -50,6 +50,34 @@ if [[ "$ACTUAL_AOT" != "$EXPECTED_AOT" ]]; then
     exit 1
 fi
 
+cat > "$TMP_DIR/aot_long_small.clot" <<'PROG'
+import math;
+long value = 42;
+value += sum(1, 2);
+print(value);
+PROG
+
+AOT_LONG_SMALL_EXE="$TMP_DIR/aot_long_small"
+AOT_LONG_SMALL_LOG="$TMP_DIR/aot_long_small.log"
+"$BIN_PATH" "$TMP_DIR/aot_long_small.clot" --mode compile --emit exe -o "$AOT_LONG_SMALL_EXE" --verbose >"$AOT_LONG_SMALL_LOG" 2>&1
+
+if grep -q "runtime bridge LLVM activado" "$AOT_LONG_SMALL_LOG"; then
+    echo "Fallo llvm_smoke: aot_long_small deberia compilar AOT puro." >&2
+    cat "$AOT_LONG_SMALL_LOG" >&2
+    exit 1
+fi
+
+EXPECTED_AOT_LONG_SMALL=$'45'
+ACTUAL_AOT_LONG_SMALL="$($AOT_LONG_SMALL_EXE)"
+if [[ "$ACTUAL_AOT_LONG_SMALL" != "$EXPECTED_AOT_LONG_SMALL" ]]; then
+    echo "Fallo llvm_smoke (aot_long_small)" >&2
+    echo "Esperado:" >&2
+    printf '%s\n' "$EXPECTED_AOT_LONG_SMALL" >&2
+    echo "Actual:" >&2
+    printf '%s\n' "$ACTUAL_AOT_LONG_SMALL" >&2
+    exit 1
+fi
+
 cat > "$TMP_DIR/aot_long_near_max_ok.clot" <<'PROG'
 long value = 9223372036854775800;
 print(value);
@@ -227,6 +255,32 @@ if [[ "$ACTUAL_BRIDGE" != "$EXPECTED_BRIDGE" ]]; then
     printf '%s\n' "$EXPECTED_BRIDGE" >&2
     echo "Actual:" >&2
     printf '%s\n' "$ACTUAL_BRIDGE" >&2
+    exit 1
+fi
+
+cat > "$TMP_DIR/external_bridge.clot" <<'PROG'
+nums = [1, 2, 3];
+print(nums[1]);
+PROG
+
+EXTERNAL_BRIDGE_EXE="$TMP_DIR/external_bridge"
+EXTERNAL_BRIDGE_LOG="$TMP_DIR/external_bridge.log"
+"$BIN_PATH" "$TMP_DIR/external_bridge.clot" --mode compile --emit exe -o "$EXTERNAL_BRIDGE_EXE" --runtime-bridge external --verbose >"$EXTERNAL_BRIDGE_LOG" 2>&1
+
+if ! grep -q "runtime bridge externo activado" "$EXTERNAL_BRIDGE_LOG"; then
+    echo "Fallo llvm_smoke: external_bridge debe activar runtime bridge externo." >&2
+    cat "$EXTERNAL_BRIDGE_LOG" >&2
+    exit 1
+fi
+
+EXPECTED_EXTERNAL=$'2'
+ACTUAL_EXTERNAL="$(PATH="$(dirname "$BIN_PATH"):$PATH" "$EXTERNAL_BRIDGE_EXE")"
+if [[ "$ACTUAL_EXTERNAL" != "$EXPECTED_EXTERNAL" ]]; then
+    echo "Fallo llvm_smoke (external_bridge)" >&2
+    echo "Esperado:" >&2
+    printf '%s\n' "$EXPECTED_EXTERNAL" >&2
+    echo "Actual:" >&2
+    printf '%s\n' "$ACTUAL_EXTERNAL" >&2
     exit 1
 fi
 
