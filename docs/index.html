@@ -55,12 +55,12 @@
 		<div class="container">
 			<h1 class="page-heading single-col-max mx-auto">ClotLang</h1>
 			<div class="page-intro single-col-max mx-auto">Guia completa del lenguaje<br><small
-					class="opacity-75">Actualizado 2026-02-19</small></div>
+					class="opacity-75">Actualizado 2026-02-20</small></div>
 			<div class="main-search-box pt-3 d-block mx-auto">
-				<form class="search-form w-100" id="index-search-form" action="docs-page.html" method="get">
-					<input type="text"
-						placeholder="Buscar en la documentacion... (ej: ParseFunctionDeclaration, runtime bridge, byte, import module...)"
-						name="q" class="form-control search-input" id="index-search-input">
+					<form class="search-form w-100" id="index-search-form" action="docs-page.html" method="get">
+						<input type="text"
+							placeholder="Buscar en la documentacion... (ej: try/catch, runtime bridge external, --mode analyze...)"
+							name="q" class="form-control search-input" id="index-search-input">
 					<button type="submit" class="btn search-btn" value="Search"><i class="fas fa-search"></i></button>
 				</form>
 			</div>
@@ -151,30 +151,30 @@
 									<span class="theme-icon-holder card-icon-holder me-2">
 										<i class="fas fa-code-branch"></i>
 									</span>
-									<span class="card-title-text">Estado Refactor 2026-02-19</span>
+									<span class="card-title-text">Estado Refactor 2026-02-20</span>
 								</h5>
-								<div class="card-text">
-									Migracion a arquitectura modular: parser dividido por responsabilidades y backend
-									LLVM separado por fases. Mapa de referencia oficial.
-								</div>
+									<div class="card-text">
+										Migracion a arquitectura modular: parser dividido por responsabilidades y backend
+										LLVM separado por fases. Mapa de referencia oficial.
+									</div>
 								<a class="card-link-mask" href="docs-page.html#section-5"></a>
 							</div><!--//card-body-->
 						</div><!--//card-->
 					</div><!--//col-->
 
-					<div class="col-12 col-lg-4 py-3">
-						<div class="card shadow-sm">
-							<div class="card-body">
-								<h5 class="card-title mb-3">
-									<span class="theme-icon-holder card-icon-holder me-2">
+						<div class="col-12 col-lg-4 py-3">
+							<div class="card shadow-sm">
+								<div class="card-body">
+									<h5 class="card-title mb-3">
+										<span class="theme-icon-holder card-icon-holder me-2">
 										<i class="fas fa-folder-open fa-fw"></i>
 									</span>
 									<span class="card-title-text">Inventario Global de Codigo</span>
 								</h5>
-								<div class="card-text">
-									Inventario sincronizado con la arquitectura actual: 9 headers publicos, 15 fuentes
-									C++, 5 modulos base y 2 test scripts. Tablas completas.
-								</div>
+									<div class="card-text">
+										Inventario sincronizado con la arquitectura actual: 10 headers publicos, 17 fuentes
+										C++, 5 modulos base y 2 test scripts. Tablas completas.
+									</div>
 								<a class="card-link-mask" href="docs-page.html#section-6"></a>
 							</div><!--//card-body-->
 						</div><!--//card-->
@@ -229,10 +229,28 @@
 									Runtime compartido (value.hpp, i18n.cpp) y guia de validacion recomendada en WSL:
 									smoke tests, LLVM tests y ejemplos rapidos.
 								</div>
-								<a class="card-link-mask" href="docs-page.html#section-9"></a>
-							</div><!--//card-body-->
-						</div><!--//card-->
-					</div><!--//col-->
+									<a class="card-link-mask" href="docs-page.html#section-9"></a>
+								</div><!--//card-body-->
+							</div><!--//card-->
+						</div><!--//col-->
+
+						<div class="col-12 col-lg-4 py-3">
+							<div class="card shadow-sm">
+								<div class="card-body">
+									<h5 class="card-title mb-3">
+										<span class="theme-icon-holder card-icon-holder me-2">
+											<i class="fas fa-shield-alt fa-fw"></i>
+										</span>
+										<span class="card-title-text">Desafios Criticos</span>
+									</h5>
+									<div class="card-text">
+										Estado consolidado de los 8 desafios: try/catch, analisis estatico, concurrencia
+										basica, bridge externo y mejoras de AOT.
+									</div>
+									<a class="card-link-mask" href="docs-page.html#section-10"></a>
+								</div><!--//card-body-->
+							</div><!--//card-->
+						</div><!--//col-->
 
 				</div><!--//row-->
 			</div><!--//container-->
@@ -242,12 +260,12 @@
 	<section class="cta-section text-center py-5 theme-bg-dark position-relative">
 		<div class="theme-bg-shapes-right"></div>
 		<div class="theme-bg-shapes-left"></div>
-		<div class="container">
-			<h3 class="mb-2 text-white mb-3">El lenguaje de programacion Clot</h3>
-			<div class="section-intro text-white mb-3 single-col-max mx-auto">
-				Clot es un lenguaje con interprete AST y compilacion LLVM. Soporta AOT puro y runtime bridge para
-				cobertura completa del lenguaje.
-			</div>
+			<div class="container">
+				<h3 class="mb-2 text-white mb-3">El lenguaje de programacion Clot</h3>
+				<div class="section-intro text-white mb-3 single-col-max mx-auto">
+					Clot combina interprete AST, compilacion LLVM, analisis estatico y runtime bridge (estatico o externo)
+					para cobertura completa del lenguaje.
+				</div>
 			<div class="pt-3 text-center">
 				<a class="btn btn-light" href="docs-page.html#section-1">Leer Documentacion <i
 						class="fas fa-arrow-alt-circle-right ml-2"></i></a>

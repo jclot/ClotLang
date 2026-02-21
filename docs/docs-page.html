@@ -111,7 +111,9 @@
 					<li class="nav-item"><a class="nav-link scrollto" href="#item-3-5">Listas y objetos</a></li>
 					<li class="nav-item"><a class="nav-link scrollto" href="#item-3-6">Modulos e import</a></li>
 					<li class="nav-item"><a class="nav-link scrollto" href="#item-3-7">Internacionalizacion</a></li>
-					<li class="nav-item"><a class="nav-link scrollto" href="#item-3-8">Comentarios y estilo</a></li>
+					<li class="nav-item"><a class="nav-link scrollto" href="#item-3-8">try/catch</a></li>
+					<li class="nav-item"><a class="nav-link scrollto" href="#item-3-9">Builtins de sistema</a></li>
+					<li class="nav-item"><a class="nav-link scrollto" href="#item-3-10">Comentarios y estilo</a></li>
 
 					<li class="nav-item section-title mt-3">
 						<a class="nav-link scrollto" href="#section-4">
@@ -167,6 +169,13 @@
 					<li class="nav-item"><a class="nav-link scrollto" href="#item-9-2">Validacion recomendada (WSL)</a>
 					</li>
 
+					<li class="nav-item section-title mt-3">
+						<a class="nav-link scrollto" href="#section-10">
+							<span class="theme-icon-holder me-2"><i class="fas fa-shield-alt"></i></span>Desafios Criticos
+						</a>
+					</li>
+					<li class="nav-item"><a class="nav-link scrollto" href="#item-10-1">Estado y soluciones</a></li>
+
 				</ul>
 			</nav><!--//docs-nav-->
 		</div><!--//docs-sidebar-->
@@ -179,7 +188,7 @@
 				<!-- ============================================================ -->
 				<article class="docs-article" id="section-1">
 					<header class="docs-header">
-						<h1 class="docs-heading">Beginner Guide <span class="docs-time">Actualizado: 2026-02-19</span>
+						<h1 class="docs-heading">Beginner Guide <span class="docs-time">Actualizado: 2026-02-20</span>
 						</h1>
 						<section class="docs-intro">
 							<p>Esta guia esta escrita para personas que nunca implementaron un lenguaje. El objetivo es
@@ -253,17 +262,24 @@ cmake --build --preset build-release</code></pre>
 						<ol>
 							<li>Tu archivo <code>.clot</code> se tokeniza linea por linea.</li>
 							<li>El parser arma AST con nodos de expresion y sentencia.</li>
-							<li>En <code>--mode run</code> AST se ejecuta directo en el interprete.</li>
+							<li>En <code>--mode interpret</code> AST se ejecuta directo en el interprete.</li>
+							<li>En <code>--mode analyze</code> se ejecutan chequeos estaticos antes de desplegar.</li>
 							<li>En <code>--mode compile</code> se intenta AOT LLVM.</li>
-							<li>Si el programa usa caracteristicas fuera del subset AOT, se genera runtime bridge y aun
-								asi compila.</li>
+							<li>Si el programa usa caracteristicas fuera del subset AOT, se genera runtime bridge
+								(estatico o externo) y aun asi compila.</li>
 						</ol>
 						<div class="docs-code-block">
 							<pre class="shadow-lg rounded"><code class="language-bash"># Interprete
 ./build/wsl-release/clot test.clot
 
+# Analisis estatico
+./build/wsl-release/clot test.clot --mode analyze
+
 # Compilacion LLVM
 ./build/wsl-release/clot test.clot --mode compile --emit exe -o /tmp/test
+
+# Runtime bridge externo (binario mas liviano)
+./build/wsl-release/clot test.clot --mode compile --emit exe -o /tmp/test_ext --runtime-bridge external
 
 # Compilacion LLVM en ingles
 ./build/wsl-release/clot test.clot --mode compile --emit exe -o /tmp/test_en --lang en
@@ -309,7 +325,7 @@ CLOT_LANG=en ./build/wsl-release/clot test.clot --mode compile --emit exe -o /tm
 										<td><code>long</code></td>
 										<td><code>long total = 9;</code></td>
 										<td>Entero largo (normalizado exacto)</td>
-										<td>Valida rango <code>[-2^63, 2^63]</code>. Si se sale, lanza error.</td>
+									<td>Valida rango <code>[-2^63, 2^63)</code>. Si se sale, lanza error.</td>
 									</tr>
 									<tr>
 										<td><code>byte</code></td>
@@ -460,7 +476,7 @@ print(user.stats.score);</code></pre>
 					</section><!--//docs-section-->
 
 					<section class="docs-section" id="item-3-6">
-						<h2 class="section-heading">6) Modulos e import</h2>
+						<h2 class="section-heading">6) Módulos e import</h2>
 						<div class="docs-code-block">
 							<pre class="shadow-lg rounded"><code class="language-bash">import math;
 import modules.utils;</code></pre>
@@ -468,12 +484,19 @@ import modules.utils;</code></pre>
 						<ul>
 							<li><code>math</code> es nativo y habilita <code>sum(a,b)</code>.</li>
 							<li><code>import a.b.c;</code> busca <code>a/b/c.clot</code>.</li>
+							<li><code>input</code> esta habilitado de forma nativa para capturar texto desde consola.</li>
+							<div class="docs-code-block">
+								<pre class="shadow-lg rounded"><code class="language-bash">name = input("What is your name?");
+// User Input: Julian
+print("My name is: " + name);
+// Output: My name is: Julian</code></pre>
+							</div>
 							<li>Se detectan importaciones circulares.</li>
 						</ul>
 					</section><!--//docs-section-->
 
 					<section class="docs-section" id="item-3-7">
-						<h2 class="section-heading">7) Internacionalizacion (es/en)</h2>
+						<h2 class="section-heading">7) Internacionalización (es/en)</h2>
 						<div class="docs-code-block">
 							<pre class="shadow-lg rounded"><code class="language-bash"># Interprete en ingles
 ./build/wsl-release/clot test.clot --lang en
@@ -493,7 +516,44 @@ CLOT_LANG=en /tmp/test_en</code></pre>
 					</section><!--//docs-section-->
 
 					<section class="docs-section" id="item-3-8">
-						<h2 class="section-heading">8) Comentarios y estilo recomendado</h2>
+						<h2 class="section-heading">8) try/catch para resiliencia</h2>
+						<div class="docs-code-block">
+							<pre class="shadow-lg rounded"><code class="language-bash">try:
+    nums = [1, 2];
+    print(nums[9]);
+catch(err):
+    print("captured");
+    print(err);
+endtry</code></pre>
+						</div>
+						<ul>
+							<li>Evita cierre abrupto del proceso en errores de runtime recuperables.</li>
+							<li><code>catch:</code> o <code>catch(err):</code> son validos.</li>
+							<li>El valor <code>err</code> (si se declara) contiene el mensaje de error.</li>
+						</ul>
+					</section><!--//docs-section-->
+
+					<section class="docs-section" id="item-3-9">
+						<h2 class="section-heading">9) Builtins de sistema y concurrencia basica</h2>
+						<div class="docs-code-block">
+							<pre class="shadow-lg rounded"><code class="language-bash">write_file("/tmp/data.txt", "hola");
+task = async_read_file("/tmp/data.txt");
+print(task_ready(task));
+print(await(task));
+append_file("/tmp/data.txt", "!");
+print(read_file("/tmp/data.txt"));
+print(file_exists("/tmp/data.txt"));
+print(now_ms());</code></pre>
+						</div>
+						<ul>
+							<li>I/O: <code>read_file</code>, <code>write_file</code>, <code>append_file</code>, <code>file_exists</code>.</li>
+							<li>Tiempo: <code>now_ms</code>, <code>sleep_ms</code>.</li>
+							<li>Concurrencia basica: <code>async_read_file</code>, <code>task_ready</code>, <code>await</code>.</li>
+						</ul>
+					</section><!--//docs-section-->
+
+					<section class="docs-section" id="item-3-10">
+						<h2 class="section-heading">10) Comentarios y estilo recomendado</h2>
 						<div class="docs-code-block">
 							<pre class="shadow-lg rounded"><code class="language-bash">// Comentario de linea
 long score = 10; // comentario al final</code></pre>
@@ -566,7 +626,7 @@ long score = 10; // comentario al final</code></pre>
 									<span class="callout-icon-holder me-1"><i class="fas fa-info-circle"></i></span>
 									Cobertura del walkthrough
 								</h4>
-								<p class="mb-0">Actualizada con refactor 2026-02-19 (split parser + split backend LLVM).
+								<p class="mb-0">Actualizada con refactor 2026-02-20 (split parser + split backend LLVM).
 								</p>
 							</div>
 						</div>
@@ -576,11 +636,11 @@ long score = 10; // comentario al final</code></pre>
 
 
 				<!-- ============================================================ -->
-				<!-- SECTION 5: ESTADO REFACTOR 2026-02-19                        -->
+				<!-- SECTION 5: ESTADO REFACTOR 2026-02-20                        -->
 				<!-- ============================================================ -->
 				<article class="docs-article" id="section-5">
 					<header class="docs-header">
-						<h1 class="docs-heading">Estado Refactor 2026-02-19</h1>
+						<h1 class="docs-heading">Estado Refactor 2026-02-20</h1>
 						<section class="docs-intro">
 							<p>El proyecto fue migrado a una arquitectura modular: parser dividido por responsabilidades
 								y backend LLVM separado por fases. Esta es la estructura vigente del codigo fuente. Si
@@ -600,27 +660,29 @@ long score = 10; // comentario al final</code></pre>
 									fue reescrito contra la estructura split actual.</p>
 							</div>
 						</div>
-						<ul>
-							<li><code>src/frontend/parser_core.cpp</code>: ciclo principal y despacho de sentencias.
-							</li>
-							<li><code>src/frontend/parser_statements.cpp</code>:
-								assignment/if/func/import/mutation/return.</li>
-							<li><code>src/frontend/parser_expression.cpp</code>: precedencia de expresiones y postfix.
-							</li>
-							<li><code>src/frontend/parser_support.hpp</code>: utilidades internas compartidas.</li>
-						</ul>
+							<ul>
+								<li><code>src/frontend/parser_core.cpp</code>: ciclo principal y despacho de sentencias.
+								</li>
+								<li><code>src/frontend/parser_statements.cpp</code>:
+									assignment/if/func/import/try-catch/mutation/return.</li>
+								<li><code>src/frontend/parser_expression.cpp</code>: precedencia de expresiones y postfix.
+								</li>
+								<li><code>src/frontend/static_analyzer.cpp</code>: chequeos estaticos para <code>--mode analyze</code>.</li>
+								<li><code>src/frontend/parser_support.hpp</code>: utilidades internas compartidas.</li>
+							</ul>
 					</section><!--//docs-section-->
 
 					<section class="docs-section" id="item-5-2">
 						<h2 class="section-heading">Backend LLVM (Codegen Split)</h2>
-						<ul>
-							<li><code>src/codegen/llvm_compiler.cpp</code>: facade publica y pipeline de compilacion.
-							</li>
-							<li><code>src/codegen/llvm_aot_support.cpp</code>: analisis de soporte AOT.</li>
-							<li><code>src/codegen/llvm_emitter.cpp</code>: lowering AST a LLVM IR/obj.</li>
-							<li><code>src/codegen/llvm_linker.cpp</code>: enlazado y runtime bridge.</li>
-							<li><code>src/codegen/llvm_backend_internal.hpp</code>: contratos internos.</li>
-						</ul>
+							<ul>
+								<li><code>src/codegen/llvm_compiler.cpp</code>: facade publica y pipeline de compilacion.
+								</li>
+								<li><code>src/codegen/llvm_aot_support.cpp</code>: analisis de soporte AOT.</li>
+								<li><code>src/codegen/llvm_emitter.cpp</code>: lowering AST a LLVM IR/obj.</li>
+								<li><code>src/codegen/llvm_linker.cpp</code>: enlazado y runtime bridge (estatico/external).</li>
+								<li><code>src/codegen/runtime_bridge_external.cpp</code>: runtime bridge liviano via CLI externo.</li>
+								<li><code>src/codegen/llvm_backend_internal.hpp</code>: contratos internos.</li>
+							</ul>
 						<p>Build + validacion (WSL):</p>
 						<div class="docs-code-block">
 							<pre class="shadow-lg rounded"><code class="language-bash"># Build + validacion (WSL)
@@ -653,7 +715,7 @@ tests/llvm_smoke.sh ./build/wsl-release/clot</code></pre>
 								<div class="card h-100 text-center">
 									<div class="card-body">
 										<h5 class="card-title">Headers publicos</h5>
-										<p class="display-6 mb-0 fw-bold">9</p>
+										<p class="display-6 mb-0 fw-bold">10</p>
 									</div>
 								</div>
 							</div>
@@ -661,7 +723,7 @@ tests/llvm_smoke.sh ./build/wsl-release/clot</code></pre>
 								<div class="card h-100 text-center">
 									<div class="card-body">
 										<h5 class="card-title">Fuentes C++</h5>
-										<p class="display-6 mb-0 fw-bold">15</p>
+										<p class="display-6 mb-0 fw-bold">17</p>
 									</div>
 								</div>
 							</div>
@@ -694,12 +756,12 @@ tests/llvm_smoke.sh ./build/wsl-release/clot</code></pre>
 									</tr>
 								</thead>
 								<tbody>
-									<tr>
-										<td><code>src/cli/main.cpp</code></td>
-										<td>CLI</td>
-										<td>Parsea argumentos, selecciona modo interpret/compile y coordina ejecucion.
-										</td>
-									</tr>
+										<tr>
+											<td><code>src/cli/main.cpp</code></td>
+											<td>CLI</td>
+											<td>Parsea argumentos, selecciona modo interpret/compile/analyze y coordina ejecucion.
+											</td>
+										</tr>
 									<tr>
 										<td><code>src/frontend/tokenizer.cpp</code></td>
 										<td>Frontend</td>
@@ -710,23 +772,28 @@ tests/llvm_smoke.sh ./build/wsl-release/clot</code></pre>
 										<td>Frontend</td>
 										<td>Ciclo principal del parser, bloques y despacho de sentencias.</td>
 									</tr>
-									<tr>
-										<td><code>src/frontend/parser_statements.cpp</code></td>
-										<td>Frontend</td>
-										<td>Parseo de assignment, if, func, import, mutation, return y expression
-											statements.</td>
-									</tr>
+										<tr>
+											<td><code>src/frontend/parser_statements.cpp</code></td>
+											<td>Frontend</td>
+											<td>Parseo de assignment, if, func, import, try/catch, mutation, return y expression
+												statements.</td>
+										</tr>
 									<tr>
 										<td><code>src/frontend/parser_expression.cpp</code></td>
 										<td>Frontend</td>
 										<td>Parser de expresiones por precedencia, llamadas, indexacion y literales
 											complejos.</td>
 									</tr>
-									<tr>
-										<td><code>src/frontend/source_loader.cpp</code></td>
-										<td>Frontend</td>
-										<td>Carga archivos fuente y normaliza errores de lectura.</td>
-									</tr>
+										<tr>
+											<td><code>src/frontend/source_loader.cpp</code></td>
+											<td>Frontend</td>
+											<td>Carga archivos fuente y normaliza errores de lectura.</td>
+										</tr>
+										<tr>
+											<td><code>src/frontend/static_analyzer.cpp</code></td>
+											<td>Frontend</td>
+											<td>Chequeos estaticos de simbolos, llamadas y rangos para <code>--mode analyze</code>.</td>
+										</tr>
 									<tr>
 										<td><code>src/interpreter/interpreter.cpp</code></td>
 										<td>Interpreter</td>
@@ -762,11 +829,16 @@ tests/llvm_smoke.sh ./build/wsl-release/clot</code></pre>
 										<td>Codegen LLVM</td>
 										<td>Link con <code>clang++</code> y ensamblado runtime bridge.</td>
 									</tr>
-									<tr>
-										<td><code>src/codegen/runtime_bridge.cpp</code></td>
-										<td>Codegen LLVM</td>
-										<td>Entry runtime para ejecutar source completo desde binario compilado.</td>
-									</tr>
+										<tr>
+											<td><code>src/codegen/runtime_bridge.cpp</code></td>
+											<td>Codegen LLVM</td>
+											<td>Entry runtime para ejecutar source completo desde binario compilado.</td>
+										</tr>
+										<tr>
+											<td><code>src/codegen/runtime_bridge_external.cpp</code></td>
+											<td>Codegen LLVM</td>
+											<td>Runtime bridge externo para binarios livianos (requiere <code>clot</code> en PATH).</td>
+										</tr>
 									<tr>
 										<td><code>src/runtime/i18n.cpp</code></td>
 										<td>Runtime</td>
@@ -809,11 +881,16 @@ tests/llvm_smoke.sh ./build/wsl-release/clot</code></pre>
 										<td><code>Parser</code></td>
 										<td>Construccion de <code>Program</code> + diagnosticos.</td>
 									</tr>
-									<tr>
-										<td><code>include/clot/frontend/source_loader.hpp</code></td>
-										<td>Loader</td>
-										<td>Lectura segura de fuente desde disco.</td>
-									</tr>
+										<tr>
+											<td><code>include/clot/frontend/source_loader.hpp</code></td>
+											<td>Loader</td>
+											<td>Lectura segura de fuente desde disco.</td>
+										</tr>
+										<tr>
+											<td><code>include/clot/frontend/static_analyzer.hpp</code></td>
+											<td><code>StaticAnalyzer</code></td>
+											<td>API de analisis estatico para <code>--mode analyze</code>.</td>
+										</tr>
 									<tr>
 										<td><code>include/clot/interpreter/interpreter.hpp</code></td>
 										<td><code>Interpreter</code></td>
@@ -861,11 +938,12 @@ tests/llvm_smoke.sh ./build/wsl-release/clot</code></pre>
 						</p>
 						<ul>
 							<li>Interpreta argumentos: archivo de entrada, <code>--mode</code>, <code>--emit</code>,
-								<code>--lang</code>, salida.
+								<code>--runtime-bridge</code>, <code>--lang</code>, salida.
 							</li>
 							<li>Resuelve idioma activo con prioridad CLI -&gt; variable <code>CLOT_LANG</code> -&gt;
 								default.</li>
 							<li>En modo interpret: tokeniza + parsea + ejecuta AST.</li>
+							<li>En modo analyze: tokeniza + parsea + ejecuta chequeos estaticos.</li>
 							<li>En modo compile: tokeniza + parsea + delega en <code>LlvmCompiler</code>.</li>
 							<li>Centraliza impresion de errores traducidos.</li>
 						</ul>
@@ -875,6 +953,12 @@ tests/llvm_smoke.sh ./build/wsl-release/clot</code></pre>
 
 # Compilar (exe)
 ./build/wsl-release/clot programa.clot --mode compile --emit exe -o programa
+
+# Analisis estatico
+./build/wsl-release/clot programa.clot --mode analyze
+
+# Compilar con runtime bridge externo
+./build/wsl-release/clot programa.clot --mode compile --emit exe -o programa_ext --runtime-bridge external
 
 # Compilar en ingles
 ./build/wsl-release/clot programa.clot --mode compile --emit exe -o programa --lang en</code></pre>
@@ -908,6 +992,7 @@ tests/llvm_smoke.sh ./build/wsl-release/clot</code></pre>
 							<li><code>ParseFunctionDeclaration</code>: parsea parametros (incluye <code>&amp;</code>) y
 								cuerpo hasta <code>endfunc</code>.</li>
 							<li><code>ParseImport</code>: formato estricto <code>import modulo;</code>.</li>
+							<li><code>ParseTry</code>: bloques <code>try/catch/endtry</code> con captura opcional de error.</li>
 							<li><code>ParseMutation</code>: mutaciones de variable/indexacion.</li>
 							<li><code>ParseReturn</code>: <code>return;</code> y <code>return expr;</code>.</li>
 						</ul>
@@ -925,6 +1010,12 @@ tests/llvm_smoke.sh ./build/wsl-release/clot</code></pre>
 						<p>
 							Helpers internos reutilizables (deteccion de tokens de control y operador de asignacion a
 							nivel superior).
+						</p>
+
+						<h5><code>src/frontend/static_analyzer.cpp</code></h5>
+						<p>
+							Analiza AST sin ejecutar el programa para detectar riesgos tempranos
+							(variables no definidas, aridad invalida y rangos obvios en <code>long/byte</code>).
 						</p>
 					</section><!--//docs-section-->
 
@@ -950,7 +1041,8 @@ tests/llvm_smoke.sh ./build/wsl-release/clot</code></pre>
 						<ul>
 							<li>Loop principal de sentencias.</li>
 							<li>Evaluacion de expresiones numericas, booleanas, strings, listas y objetos.</li>
-							<li>Llamadas a funciones de usuario y builtins.</li>
+							<li>Llamadas a funciones de usuario y builtins (I/O, tiempo y tareas async).</li>
+							<li>Manejo de errores recuperables con <code>try/catch/endtry</code>.</li>
 							<li>Control de <code>return</code> con propagacion entre bloques.</li>
 						</ul>
 
@@ -988,9 +1080,8 @@ tests/llvm_smoke.sh ./build/wsl-release/clot</code></pre>
 						<ul>
 							<li>Construye modulo LLVM y funcion <code>main</code>.</li>
 							<li>Emite statements/expresiones soportadas AOT.</li>
-							<li>En AOT puro mantiene numericos dinamicos y <code>byte</code>; declaraciones
-								<code>long</code> fuerzan runtime bridge para preservar semantica exacta.
-							</li>
+							<li>En AOT puro mantiene numericos dinamicos, <code>byte</code> y <code>long</code> en
+								rango seguro de double (|n| &lt;= 2^53-1).</li>
 							<li>Tambien activa runtime bridge si detecta literales enteros fuera del rango seguro de
 								<code>double</code> (|n| &gt; 2^53-1).
 							</li>
@@ -1001,7 +1092,8 @@ tests/llvm_smoke.sh ./build/wsl-release/clot</code></pre>
 						<h5><code>src/codegen/llvm_linker.cpp</code></h5>
 						<ul>
 							<li>Arma comando de <code>clang++</code> y enlaza ejecutable final.</li>
-							<li>Cuando aplica runtime bridge, agrega parser split + interpreter + i18n al link.</li>
+							<li>Runtime bridge estatico: agrega parser split + interpreter + i18n al link.</li>
+							<li>Runtime bridge externo: ejecutable liviano que delega en <code>clot</code> del sistema.</li>
 							<li>Soporta modo verbose para inspeccion del comando real.</li>
 						</ul>
 
@@ -1009,8 +1101,14 @@ tests/llvm_smoke.sh ./build/wsl-release/clot</code></pre>
 						<p>
 							Expone <code>clot_runtime_execute_source</code> para que un binario compilado ejecute
 							lenguaje completo
-							cuando el subset AOT no cubre todas las features del programa.
-						</p>
+								cuando el subset AOT no cubre todas las features del programa.
+							</p>
+
+							<h5><code>src/codegen/runtime_bridge_external.cpp</code></h5>
+							<p>
+								Implementa el bridge externo usado por <code>--runtime-bridge external</code> para minimizar
+								tamano del ejecutable cuando no aplica AOT puro.
+							</p>
 					</section><!--//docs-section-->
 
 				</article><!--//docs-article-->
@@ -1035,6 +1133,7 @@ tests/llvm_smoke.sh ./build/wsl-release/clot</code></pre>
 						<p>
 							Tipo <code>Value</code> para representar enteros exactos, number, string, bool, list y
 							object; incluye utilidades de conversion/inspeccion.
+							La liberacion de memoria se apoya en RAII de C++ (sin GC explicito del lenguaje).
 						</p>
 
 						<h5><code>src/runtime/i18n.cpp</code></h5>
@@ -1060,18 +1159,98 @@ tests/llvm_smoke.sh ./build/wsl-release/clot
 
 # Ejemplo rapido
 echo 'long x = 10; print(x + 2);' > /tmp/quick.clot
-./build/wsl-release/clot /tmp/quick.clot</code></pre>
+./build/wsl-release/clot /tmp/quick.clot
+
+# Analisis estatico
+./build/wsl-release/clot /tmp/quick.clot --mode analyze</code></pre>
 						</div>
-						<p>
-							Si las tres validaciones pasan, el pipeline completo del lenguaje queda verificado:
-							frontend, interpreter, backend LLVM y runtime bridge.
-						</p>
+							<p>
+								Si estas validaciones pasan, el pipeline completo queda verificado: frontend, analyzer,
+								interpreter, backend LLVM y runtime bridge.
+							</p>
 					</section><!--//docs-section-->
 
-				</article><!--//docs-article-->
+					</article><!--//docs-article-->
+
+					<!-- ============================================================ -->
+					<!-- SECTION 10: DESAFIOS CRITICOS                                -->
+					<!-- ============================================================ -->
+					<article class="docs-article" id="section-10">
+						<header class="docs-header">
+							<h1 class="docs-heading">Desafios Criticos (2026-02-20)</h1>
+							<section class="docs-intro">
+								<p>Estado tecnico consolidado de los 8 desafios de motor, seguridad, resiliencia y escalabilidad.</p>
+							</section>
+						</header>
+
+						<section class="docs-section" id="item-10-1">
+							<h2 class="section-heading">Estado y soluciones aplicadas</h2>
+							<div class="table-responsive">
+								<table class="table table-bordered table-sm align-middle">
+									<thead class="table-dark">
+										<tr>
+											<th>Desafio</th>
+											<th>Estado</th>
+											<th>Solucion en codigo</th>
+										</tr>
+									</thead>
+									<tbody>
+										<tr>
+											<td>Subset AOT restrictivo</td>
+											<td>Mitigado</td>
+											<td>El AOT ahora admite <code>long</code> en rango seguro y baja menos a bridge.</td>
+										</tr>
+										<tr>
+											<td>Peso del runtime bridge</td>
+											<td>Mitigado</td>
+											<td>Nuevo <code>--runtime-bridge external</code> para binarios mas livianos.</td>
+										</tr>
+										<tr>
+											<td>Duplicacion Interpreter vs LLVM</td>
+											<td>Mitigado</td>
+											<td>Se endurecio la frontera AOT en <code>llvm_aot_support</code> + pruebas de humo ampliadas.</td>
+										</tr>
+										<tr>
+											<td>Ambiguedad de tipado dinamico</td>
+											<td>Mitigado</td>
+											<td>Nuevo <code>--mode analyze</code> con chequeos previos de tipos/rangos y simbolos.</td>
+										</tr>
+										<tr>
+											<td>Falta de try/catch</td>
+											<td>Resuelto</td>
+											<td>Sintaxis <code>try/catch/endtry</code> con captura opcional de error.</td>
+										</tr>
+										<tr>
+											<td>Gestion de memoria</td>
+											<td>Aclarado</td>
+											<td>Modelo RAII + valores por tipo; se documenta comportamiento y limpieza automatica.</td>
+										</tr>
+										<tr>
+											<td>Ejecucion sin concurrencia</td>
+											<td>Mitigado</td>
+											<td>Builtins asincronos: <code>async_read_file</code>, <code>task_ready</code>, <code>await</code>.</td>
+										</tr>
+										<tr>
+											<td>Libreria estandar limitada</td>
+											<td>Mitigado</td>
+											<td>Builtins de I/O y tiempo: <code>read_file</code>, <code>write_file</code>, <code>append_file</code>, <code>file_exists</code>, <code>now_ms</code>, <code>sleep_ms</code>.</td>
+										</tr>
+									</tbody>
+								</table>
+							</div>
+							<div class="docs-code-block">
+								<pre class="shadow-lg rounded"><code class="language-bash"># Validacion recomendada
+tests/smoke.sh ./build/wsl-release/clot
+tests/llvm_smoke.sh ./build/wsl-release/clot
+
+# Analisis estatico previo a deploy
+./build/wsl-release/clot app.clot --mode analyze</code></pre>
+							</div>
+						</section>
+					</article>
 
 
-				<footer class="footer">
+					<footer class="footer">
 					<div class="container text-center py-5">
 						<small class="copyright">
 							<i class="fas fa-copyright"></i> Todos los derechos reservados –
@@ -1101,10 +1280,10 @@ echo 'long x = 10; print(x + 2);' > /tmp/quick.clot
 	<!-- Search Modal Overlay -->
 	<div id="clot-search-overlay" role="dialog" aria-modal="true" aria-label="Buscar en la documentacion">
 		<div id="clot-search-panel">
-			<div id="clot-search-input-wrap">
-				<i class="fas fa-search search-icon"></i>
-				<input id="clot-search-main-input" type="text" autocomplete="off" spellcheck="false"
-					placeholder="Buscar en toda la documentacion... (ej: ParseFunctionDeclaration, runtime bridge, byte)" />
+				<div id="clot-search-input-wrap">
+					<i class="fas fa-search search-icon"></i>
+					<input id="clot-search-main-input" type="text" autocomplete="off" spellcheck="false"
+						placeholder="Buscar en toda la documentacion... (ej: try/catch, runtime bridge external, analyze)" />
 				<span id="clot-search-kbd">ESC</span>
 			</div>
 			<div id="clot-search-results">
@@ -1139,17 +1318,18 @@ echo 'long x = 10; print(x + 2);' > /tmp/quick.clot
 		(function () {
 			'use strict';
 
-			const SECTION_ICONS = {
-				'section-1': 'fa-map-signs',
-				'section-2': 'fa-table',
-				'section-3': 'fa-book',
-				'section-4': 'fa-sitemap',
-				'section-5': 'fa-code-branch',
-				'section-6': 'fa-folder-open',
-				'section-7': 'fa-terminal',
-				'section-8': 'fa-cogs',
-				'section-9': 'fa-check-circle',
-			};
+				const SECTION_ICONS = {
+					'section-1': 'fa-map-signs',
+					'section-2': 'fa-table',
+					'section-3': 'fa-book',
+					'section-4': 'fa-sitemap',
+					'section-5': 'fa-code-branch',
+					'section-6': 'fa-folder-open',
+					'section-7': 'fa-terminal',
+					'section-8': 'fa-cogs',
+					'section-9': 'fa-check-circle',
+					'section-10': 'fa-shield-alt',
+				};
 
 			function buildIndex() {
 				const entries = [];
@@ -1315,17 +1495,18 @@ echo 'long x = 10; print(x + 2);' > /tmp/quick.clot
 
 				let html = '';
 				let totalShown = 0;
-				const SECTION_LABELS = {
-					'section-1': 'Beginner Guide',
-					'section-2': 'Tipos de Datos',
-					'section-3': 'Language Reference',
-					'section-4': 'Arquitectura',
-					'section-5': 'Estado Refactor 2026-02-19',
-					'section-6': 'Inventario Global de Codigo',
-					'section-7': 'Walkthrough: CLI & Frontend',
-					'section-8': 'Walkthrough: Interpreter & LLVM',
-					'section-9': 'Walkthrough: Runtime & Validacion',
-				};
+					const SECTION_LABELS = {
+						'section-1': 'Beginner Guide',
+						'section-2': 'Tipos de Datos',
+						'section-3': 'Language Reference',
+						'section-4': 'Arquitectura',
+						'section-5': 'Estado Refactor 2026-02-20',
+						'section-6': 'Inventario Global de Codigo',
+						'section-7': 'Walkthrough: CLI & Frontend',
+						'section-8': 'Walkthrough: Interpreter & LLVM',
+						'section-9': 'Walkthrough: Runtime & Validacion',
+						'section-10': 'Desafios Criticos',
+					};
 
 				groupOrder.forEach(function (gId) {
 					const items = grouped[gId];
