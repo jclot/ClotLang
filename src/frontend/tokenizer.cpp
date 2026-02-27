@@ -18,6 +18,9 @@ TokenKind KeywordToTokenKind(const std::string& text) {
     if (text == "print") {
         return TokenKind::KeywordPrint;
     }
+    if (text == "println") {
+        return TokenKind::KeywordPrintln;
+    }
     if (text == "if") {
         return TokenKind::KeywordIf;
     }
@@ -54,6 +57,12 @@ TokenKind KeywordToTokenKind(const std::string& text) {
     if (text == "endtry") {
         return TokenKind::KeywordEndTry;
     }
+    if (text == "while") {
+        return TokenKind::KeywordWhile;
+    }
+    if (text == "endwhile") {
+        return TokenKind::KeywordEndWhile;
+    }
     if (text == "true" || text == "false") {
         return TokenKind::Boolean;
     }
@@ -74,6 +83,8 @@ const char* ToString(TokenKind kind) {
         return "Boolean";
     case TokenKind::KeywordPrint:
         return "print";
+    case TokenKind::KeywordPrintln:
+        return "println";
     case TokenKind::KeywordIf:
         return "if";
     case TokenKind::KeywordElse:
@@ -98,6 +109,10 @@ const char* ToString(TokenKind kind) {
         return "catch";
     case TokenKind::KeywordEndTry:
         return "endtry";
+    case TokenKind::KeywordWhile:
+        return "while";
+    case TokenKind::KeywordEndWhile:
+        return "endwhile";
     case TokenKind::Assign:
         return "=";
     case TokenKind::PlusEqual:

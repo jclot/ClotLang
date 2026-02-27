@@ -93,6 +93,13 @@ private:
             return;
         }
 
+        if (const auto* while_stmt = dynamic_cast<const WhileStmt*>(statement)) {
+            for (const auto& nested : while_stmt->body) {
+                CollectFunctionsAndImportsInStatement(nested.get());
+            }
+            return;
+        }
+
         if (const auto* try_catch = dynamic_cast<const TryCatchStmt*>(statement)) {
             for (const auto& nested : try_catch->try_branch) {
                 CollectFunctionsAndImportsInStatement(nested.get());
@@ -128,7 +135,17 @@ private:
         }
 
         if (const auto* print = dynamic_cast<const PrintStmt*>(&statement)) {
-            (void)InferExpression(*print->expr, statement_id, *symbols);
+            if (print->expr != nullptr) {
+                (void)InferExpression(*print->expr, statement_id, *symbols);
+            }
+            return;
+        }
+
+        if (const auto* while_stmt = dynamic_cast<const WhileStmt*>(&statement)) {
+            (void)InferExpression(*while_stmt->condition, statement_id, *symbols);
+
+            SymbolTable loop_symbols = *symbols;
+            AnalyzeStatements(while_stmt->body, &loop_symbols);
             return;
         }
 
@@ -295,6 +312,10 @@ private:
         }
 
         if (const auto* variable = dynamic_cast<const VariableExpr*>(&expression)) {
+            if (variable->name == "endl") {
+                return ExpressionFacts{TypeHint::String, false, 0.0};
+            }
+
             std::string lookup_name = variable->name;
             const std::size_t dot = lookup_name.find('.');
             if (dot != std::string::npos) {
@@ -448,6 +469,20 @@ private:
                 AddError(statement_id, "input() acepta 0 o 1 argumento.");
             }
             return ExpressionFacts{TypeHint::String, false, 0.0};
+        }
+
+        if (call.callee == "println") {
+            if (call.arguments.size() > 1) {
+                AddError(statement_id, "println() acepta 0 o 1 argumento.");
+            }
+            return ExpressionFacts{TypeHint::Unknown, false, 0.0};
+        }
+
+        if (call.callee == "printf") {
+            if (call.arguments.empty()) {
+                AddError(statement_id, "printf(format, ...args) requiere al menos 1 argumento.");
+            }
+            return ExpressionFacts{TypeHint::Number, false, 0.0};
         }
 
         if (call.callee == "read_file") {

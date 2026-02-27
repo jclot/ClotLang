@@ -10,11 +10,20 @@
 namespace clot::frontend::internal {
 
 inline bool IsControlToken(const std::vector<Token>& tokens) {
-    if (tokens.empty()) {
+    if (tokens.empty())
+        return false;
+
+    switch (tokens[0].kind) {
+    case TokenKind::KeywordElse:
+    case TokenKind::KeywordEndIf:
+    case TokenKind::KeywordEndWhile:
+    case TokenKind::KeywordEndFunc:
+    case TokenKind::KeywordCatch:
+    case TokenKind::KeywordEndTry:
+        return true;
+    default:
         return false;
     }
-
-    return tokens[0].kind == TokenKind::KeywordElse || tokens[0].kind == TokenKind::KeywordEndIf;
 }
 
 inline bool TokenToAssignmentOp(TokenKind token_kind, AssignmentOp* out_op) {
@@ -40,10 +49,8 @@ inline bool TokenToAssignmentOp(TokenKind token_kind, AssignmentOp* out_op) {
     return false;
 }
 
-inline bool FindTopLevelAssignmentOperator(
-    const std::vector<Token>& tokens,
-    std::size_t* out_operator_index,
-    AssignmentOp* out_op) {
+inline bool FindTopLevelAssignmentOperator(const std::vector<Token>& tokens, std::size_t* out_operator_index,
+                                           AssignmentOp* out_op) {
     if (tokens.empty()) {
         return false;
     }
@@ -96,6 +103,6 @@ inline bool FindTopLevelAssignmentOperator(
     return false;
 }
 
-}  // namespace clot::frontend::internal
+} // namespace clot::frontend::internal
 
-#endif  // CLOT_FRONTEND_PARSER_SUPPORT_HPP
+#endif // CLOT_FRONTEND_PARSER_SUPPORT_HPP

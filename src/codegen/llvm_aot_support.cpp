@@ -208,7 +208,7 @@ bool IsAotSupportedStatement(
 
     if (const auto* print = dynamic_cast<const frontend::PrintStmt*>(&statement)) {
         if (print->expr == nullptr) {
-            return false;
+            return print->append_newline;
         }
         if (dynamic_cast<const frontend::StringExpr*>(print->expr.get()) != nullptr) {
             return true;

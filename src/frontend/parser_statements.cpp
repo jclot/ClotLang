@@ -10,11 +10,8 @@
 
 namespace clot::frontend {
 
-bool Parser::ParseAssignment(
-    std::size_t* line_index,
-    const std::vector<Token>& tokens,
-    std::vector<std::unique_ptr<Statement>>* out_statements,
-    Diagnostic* out_error) const {
+bool Parser::ParseAssignment(std::size_t* line_index, const std::vector<Token>& tokens,
+                             std::vector<std::unique_ptr<Statement>>* out_statements, Diagnostic* out_error) const {
     DeclarationType declaration_type = DeclarationType::Inferred;
     std::size_t cursor = 0;
 
@@ -76,33 +73,29 @@ bool Parser::ParseAssignment(
         return false;
     }
 
-    out_statements->push_back(std::make_unique<AssignmentStmt>(
-        variable_name,
-        assignment_op,
-        declaration_type,
-        std::move(expression)));
+    out_statements->push_back(
+        std::make_unique<AssignmentStmt>(variable_name, assignment_op, declaration_type, std::move(expression)));
 
     ++(*line_index);
     return true;
 }
 
-bool Parser::ParsePrint(
-    std::size_t* line_index,
-    const std::vector<Token>& tokens,
-    std::vector<std::unique_ptr<Statement>>* out_statements,
-    Diagnostic* out_error) const {
-    if (tokens.size() < 5) {
-        *out_error = MakeError(*line_index + 1, tokens[0].column, "Instruccion print incompleta.");
+bool Parser::ParsePrint(std::size_t* line_index, const std::vector<Token>& tokens,
+                        std::vector<std::unique_ptr<Statement>>* out_statements, Diagnostic* out_error) const {
+    const bool append_newline = tokens[0].kind == TokenKind::KeywordPrintln;
+
+    if (tokens.size() < 4) {
+        *out_error = MakeError(*line_index + 1, tokens[0].column, "Instruccion de salida incompleta.");
         return false;
     }
 
     if (tokens[1].kind != TokenKind::LeftParen) {
-        *out_error = MakeError(*line_index + 1, tokens[1].column, "Se esperaba '(' despues de print.");
+        *out_error = MakeError(*line_index + 1, tokens[1].column, "Se esperaba '(' despues de la instruccion de salida.");
         return false;
     }
 
     if (tokens.back().kind != TokenKind::Semicolon) {
-        *out_error = MakeError(*line_index + 1, tokens.back().column, "Falta ';' al final de print.");
+        *out_error = MakeError(*line_index + 1, tokens.back().column, "Falta ';' al final de la instruccion de salida.");
         return false;
     }
 
@@ -121,32 +114,32 @@ bool Parser::ParsePrint(
     }
 
     if (closing_paren_index == tokens.size() || closing_paren_index != tokens.size() - 2) {
-        *out_error = MakeError(*line_index + 1, tokens.back().column, "print requiere cerrar ')' antes de ';'.");
+        *out_error = MakeError(*line_index + 1, tokens.back().column,
+                               "La instruccion de salida requiere cerrar ')' antes de ';'.");
         return false;
     }
 
-    if (closing_paren_index <= 2) {
+    if (!append_newline && closing_paren_index <= 2) {
         *out_error = MakeError(*line_index + 1, tokens[1].column, "print requiere una expresion interna.");
         return false;
     }
 
-    std::vector<Token> expression_tokens(tokens.begin() + 2, tokens.begin() + static_cast<std::ptrdiff_t>(closing_paren_index));
-
     std::unique_ptr<Expr> expression;
-    if (!ParseExpression(*line_index + 1, std::move(expression_tokens), &expression, out_error)) {
-        return false;
+    if (closing_paren_index > 2) {
+        std::vector<Token> expression_tokens(tokens.begin() + 2,
+                                             tokens.begin() + static_cast<std::ptrdiff_t>(closing_paren_index));
+        if (!ParseExpression(*line_index + 1, std::move(expression_tokens), &expression, out_error)) {
+            return false;
+        }
     }
 
-    out_statements->push_back(std::make_unique<PrintStmt>(std::move(expression)));
+    out_statements->push_back(std::make_unique<PrintStmt>(std::move(expression), append_newline));
     ++(*line_index);
     return true;
 }
 
-bool Parser::ParseIf(
-    std::size_t* line_index,
-    const std::vector<Token>& tokens,
-    std::vector<std::unique_ptr<Statement>>* out_statements,
-    Diagnostic* out_error) const {
+bool Parser::ParseIf(std::size_t* line_index, const std::vector<Token>& tokens,
+                     std::vector<std::unique_ptr<Statement>>* out_statements, Diagnostic* out_error) const {
     if (tokens.size() < 3) {
         *out_error = MakeError(*line_index + 1, tokens[0].column, "Instruccion if incompleta.");
         return false;
@@ -214,11 +207,9 @@ bool Parser::ParseIf(
     return true;
 }
 
-bool Parser::ParseFunctionDeclaration(
-    std::size_t* line_index,
-    const std::vector<Token>& tokens,
-    std::vector<std::unique_ptr<Statement>>* out_statements,
-    Diagnostic* out_error) const {
+bool Parser::ParseFunctionDeclaration(std::size_t* line_index, const std::vector<Token>& tokens,
+                                      std::vector<std::unique_ptr<Statement>>* out_statements,
+                                      Diagnostic* out_error) const {
     if (tokens.size() < 6) {
         *out_error = MakeError(*line_index + 1, tokens[0].column, "Declaracion de funcion incompleta.");
         return false;
@@ -235,7 +226,8 @@ bool Parser::ParseFunctionDeclaration(
     }
 
     if (tokens.back().kind != TokenKind::Colon) {
-        *out_error = MakeError(*line_index + 1, tokens.back().column, "Falta ':' al final de la declaracion de funcion.");
+        *out_error =
+            MakeError(*line_index + 1, tokens.back().column, "Falta ':' al final de la declaracion de funcion.");
         return false;
     }
 
@@ -257,7 +249,8 @@ bool Parser::ParseFunctionDeclaration(
 
         if (cursor >= tokens.size() || tokens[cursor].kind != TokenKind::Identifier) {
             const std::size_t error_cursor = cursor < tokens.size() ? cursor : tokens.size() - 1;
-            *out_error = MakeError(*line_index + 1, tokens[error_cursor].column, "Parametro invalido en declaracion de funcion.");
+            *out_error = MakeError(*line_index + 1, tokens[error_cursor].column,
+                                   "Parametro invalido en declaracion de funcion.");
             return false;
         }
 
@@ -277,18 +270,21 @@ bool Parser::ParseFunctionDeclaration(
             break;
         }
 
-        *out_error = MakeError(*line_index + 1, tokens[cursor].column, "Se esperaba ',' o ')' en parametros de funcion.");
+        *out_error =
+            MakeError(*line_index + 1, tokens[cursor].column, "Se esperaba ',' o ')' en parametros de funcion.");
         return false;
     }
 
     if (cursor >= tokens.size() || tokens[cursor].kind != TokenKind::Colon) {
         const std::size_t error_cursor = cursor < tokens.size() ? cursor : tokens.size() - 1;
-        *out_error = MakeError(*line_index + 1, tokens[error_cursor].column, "Declaracion de funcion invalida: falta ':' final.");
+        *out_error = MakeError(*line_index + 1, tokens[error_cursor].column,
+                               "Declaracion de funcion invalida: falta ':' final.");
         return false;
     }
 
     if (cursor != tokens.size() - 1) {
-        *out_error = MakeError(*line_index + 1, tokens[cursor + 1].column, "Tokens extra despues de declaracion de funcion.");
+        *out_error =
+            MakeError(*line_index + 1, tokens[cursor + 1].column, "Tokens extra despues de declaracion de funcion.");
         return false;
     }
 
@@ -304,11 +300,13 @@ bool Parser::ParseFunctionDeclaration(
 
         if (body_tokens[0].kind == TokenKind::KeywordEndFunc) {
             if (body_tokens.size() != 1) {
-                *out_error = MakeError(*line_index + 1, body_tokens[1].column, "'endfunc' no acepta tokens adicionales.");
+                *out_error =
+                    MakeError(*line_index + 1, body_tokens[1].column, "'endfunc' no acepta tokens adicionales.");
                 return false;
             }
 
-            out_statements->push_back(std::make_unique<FunctionDeclStmt>(function_name, std::move(params), std::move(body)));
+            out_statements->push_back(
+                std::make_unique<FunctionDeclStmt>(function_name, std::move(params), std::move(body)));
             ++(*line_index);
             return true;
         }
@@ -322,11 +320,8 @@ bool Parser::ParseFunctionDeclaration(
     return false;
 }
 
-bool Parser::ParseImport(
-    std::size_t* line_index,
-    const std::vector<Token>& tokens,
-    std::vector<std::unique_ptr<Statement>>* out_statements,
-    Diagnostic* out_error) const {
+bool Parser::ParseImport(std::size_t* line_index, const std::vector<Token>& tokens,
+                         std::vector<std::unique_ptr<Statement>>* out_statements, Diagnostic* out_error) const {
     if (tokens.size() != 3 || tokens[1].kind != TokenKind::Identifier || tokens[2].kind != TokenKind::Semicolon) {
         *out_error = MakeError(*line_index + 1, tokens[0].column, "Formato invalido en import. Use: import modulo;");
         return false;
@@ -337,11 +332,8 @@ bool Parser::ParseImport(
     return true;
 }
 
-bool Parser::ParseTry(
-    std::size_t* line_index,
-    const std::vector<Token>& tokens,
-    std::vector<std::unique_ptr<Statement>>* out_statements,
-    Diagnostic* out_error) const {
+bool Parser::ParseTry(std::size_t* line_index, const std::vector<Token>& tokens,
+                      std::vector<std::unique_ptr<Statement>>* out_statements, Diagnostic* out_error) const {
     if (tokens.size() != 2 || tokens[1].kind != TokenKind::Colon) {
         *out_error = MakeError(*line_index + 1, tokens[0].column, "Formato invalido en try. Use: try:");
         return false;
@@ -358,10 +350,8 @@ bool Parser::ParseTry(
         }
 
         if (branch_tokens[0].kind == TokenKind::Unknown) {
-            *out_error = MakeError(
-                *line_index + 1,
-                branch_tokens[0].column,
-                "Token no reconocido: '" + branch_tokens[0].lexeme + "'.");
+            *out_error = MakeError(*line_index + 1, branch_tokens[0].column,
+                                   "Token no reconocido: '" + branch_tokens[0].lexeme + "'.");
             return false;
         }
 
@@ -394,17 +384,12 @@ bool Parser::ParseTry(
     std::string error_binding;
     if (control_tokens.size() == 2) {
         // catch:
-    } else if (
-        control_tokens.size() == 5 &&
-        control_tokens[1].kind == TokenKind::LeftParen &&
-        control_tokens[2].kind == TokenKind::Identifier &&
-        control_tokens[3].kind == TokenKind::RightParen) {
+    } else if (control_tokens.size() == 5 && control_tokens[1].kind == TokenKind::LeftParen &&
+               control_tokens[2].kind == TokenKind::Identifier && control_tokens[3].kind == TokenKind::RightParen) {
         error_binding = control_tokens[2].lexeme;
     } else {
-        *out_error = MakeError(
-            *line_index + 1,
-            control_tokens[0].column,
-            "Formato invalido en catch. Use: catch: o catch(error):");
+        *out_error = MakeError(*line_index + 1, control_tokens[0].column,
+                               "Formato invalido en catch. Use: catch: o catch(error):");
         return false;
     }
 
@@ -419,10 +404,8 @@ bool Parser::ParseTry(
         }
 
         if (branch_tokens[0].kind == TokenKind::Unknown) {
-            *out_error = MakeError(
-                *line_index + 1,
-                branch_tokens[0].column,
-                "Token no reconocido: '" + branch_tokens[0].lexeme + "'.");
+            *out_error = MakeError(*line_index + 1, branch_tokens[0].column,
+                                   "Token no reconocido: '" + branch_tokens[0].lexeme + "'.");
             return false;
         }
 
@@ -431,7 +414,8 @@ bool Parser::ParseTry(
         }
 
         if (branch_tokens[0].kind == TokenKind::KeywordCatch) {
-            *out_error = MakeError(*line_index + 1, branch_tokens[0].column, "Solo se permite un catch por bloque try.");
+            *out_error =
+                MakeError(*line_index + 1, branch_tokens[0].column, "Solo se permite un catch por bloque try.");
             return false;
         }
 
@@ -457,19 +441,64 @@ bool Parser::ParseTry(
         return false;
     }
 
-    out_statements->push_back(std::make_unique<TryCatchStmt>(
-        std::move(try_branch),
-        std::move(error_binding),
-        std::move(catch_branch)));
+    out_statements->push_back(
+        std::make_unique<TryCatchStmt>(std::move(try_branch), std::move(error_binding), std::move(catch_branch)));
     ++(*line_index);
     return true;
 }
 
-bool Parser::ParseMutation(
-    std::size_t* line_index,
-    const std::vector<Token>& tokens,
-    std::vector<std::unique_ptr<Statement>>* out_statements,
-    Diagnostic* out_error) const {
+bool Parser::ParseWhile(std::size_t* line_index, const std::vector<Token>& tokens,
+                        std::vector<std::unique_ptr<Statement>>* out_statements, Diagnostic* out_error) const {
+
+    if (tokens.size() < 3) {
+        *out_error = MakeError(*line_index + 1, tokens[0].column, "Instruccion while incompleta.");
+        return false;
+    }
+
+    if (tokens.back().kind != TokenKind::Colon) {
+        *out_error = MakeError(*line_index + 1, tokens.back().column, "Falta ':' al final del while.");
+        return false;
+    }
+
+    std::vector<Token> condition_tokens(tokens.begin() + 1, tokens.end() - 1);
+    std::unique_ptr<Expr> condition;
+    if (!ParseExpression(*line_index + 1, std::move(condition_tokens), &condition, out_error)) {
+        return false;
+    }
+
+    std::vector<std::unique_ptr<Statement>> body;
+
+    ++(*line_index);
+
+    if (!ParseBlock(line_index, true, &body, out_error)) {
+        return false;
+    }
+
+    if (*line_index >= lines_.size()) {
+        *out_error = MakeError(*line_index, 1, "Falta 'endwhile' para cerrar el bloque while.");
+        return false;
+    }
+
+    std::vector<Token> control_tokens = Tokenizer::TokenizeLine(lines_[*line_index]);
+    if (control_tokens.empty() || control_tokens[0].kind != TokenKind::KeywordEndWhile) {
+        const std::size_t column = control_tokens.empty() ? 1 : control_tokens[0].column;
+        *out_error = MakeError(*line_index + 1, column, "Se esperaba 'endwhile' para cerrar el bucle.");
+        return false;
+    }
+
+    if (control_tokens.size() > 1) {
+        *out_error = MakeError(*line_index + 1, control_tokens[1].column, "Tokens extra despues de 'endwhile'.");
+        return false;
+    }
+
+    out_statements->push_back(std::make_unique<WhileStmt>(std::move(condition), std::move(body)));
+
+    ++(*line_index);
+    return true;
+}
+
+bool Parser::ParseMutation(std::size_t* line_index, const std::vector<Token>& tokens,
+                           std::vector<std::unique_ptr<Statement>>* out_statements, Diagnostic* out_error) const {
     if (tokens.size() < 4) {
         *out_error = MakeError(*line_index + 1, tokens[0].column, "Asignacion de mutacion incompleta.");
         return false;
@@ -483,19 +512,19 @@ bool Parser::ParseMutation(
     std::size_t operator_index = 0;
     AssignmentOp assignment_op = AssignmentOp::Set;
     if (!internal::FindTopLevelAssignmentOperator(tokens, &operator_index, &assignment_op)) {
-        *out_error = MakeError(*line_index + 1, tokens[0].column, "No se encontro operador de asignacion para mutacion.");
+        *out_error =
+            MakeError(*line_index + 1, tokens[0].column, "No se encontro operador de asignacion para mutacion.");
         return false;
     }
 
     if (operator_index == 0 || operator_index + 1 >= tokens.size() - 1) {
-        *out_error = MakeError(*line_index + 1, tokens[operator_index].column, "Mutacion invalida: falta expresion en un lado de la asignacion.");
+        *out_error = MakeError(*line_index + 1, tokens[operator_index].column,
+                               "Mutacion invalida: falta expresion en un lado de la asignacion.");
         return false;
     }
 
     std::vector<Token> target_tokens(tokens.begin(), tokens.begin() + static_cast<std::ptrdiff_t>(operator_index));
-    std::vector<Token> value_tokens(
-        tokens.begin() + static_cast<std::ptrdiff_t>(operator_index + 1),
-        tokens.end() - 1);
+    std::vector<Token> value_tokens(tokens.begin() + static_cast<std::ptrdiff_t>(operator_index + 1), tokens.end() - 1);
 
     std::unique_ptr<Expr> target_expression;
     if (!ParseExpression(*line_index + 1, std::move(target_tokens), &target_expression, out_error)) {
@@ -509,28 +538,22 @@ bool Parser::ParseMutation(
 
     if (dynamic_cast<VariableExpr*>(target_expression.get()) == nullptr &&
         dynamic_cast<IndexExpr*>(target_expression.get()) == nullptr) {
-        *out_error = MakeError(
-            *line_index + 1,
-            tokens[0].column,
-            "El lado izquierdo de una mutacion debe ser variable o indexacion.");
+        *out_error = MakeError(*line_index + 1, tokens[0].column,
+                               "El lado izquierdo de una mutacion debe ser variable o indexacion.");
         return false;
     }
 
-    out_statements->push_back(std::make_unique<MutationStmt>(
-        std::move(target_expression),
-        assignment_op,
-        std::move(value_expression)));
+    out_statements->push_back(
+        std::make_unique<MutationStmt>(std::move(target_expression), assignment_op, std::move(value_expression)));
     ++(*line_index);
     return true;
 }
 
-bool Parser::ParseReturn(
-    std::size_t* line_index,
-    const std::vector<Token>& tokens,
-    std::vector<std::unique_ptr<Statement>>* out_statements,
-    Diagnostic* out_error) const {
+bool Parser::ParseReturn(std::size_t* line_index, const std::vector<Token>& tokens,
+                         std::vector<std::unique_ptr<Statement>>* out_statements, Diagnostic* out_error) const {
     if (tokens.size() < 2 || tokens.back().kind != TokenKind::Semicolon) {
-        *out_error = MakeError(*line_index + 1, tokens[0].column, "Formato invalido en return. Use: return; o return expr;");
+        *out_error =
+            MakeError(*line_index + 1, tokens[0].column, "Formato invalido en return. Use: return; o return expr;");
         return false;
     }
 
@@ -547,11 +570,9 @@ bool Parser::ParseReturn(
     return true;
 }
 
-bool Parser::ParseExpressionStatement(
-    std::size_t* line_index,
-    const std::vector<Token>& tokens,
-    std::vector<std::unique_ptr<Statement>>* out_statements,
-    Diagnostic* out_error) const {
+bool Parser::ParseExpressionStatement(std::size_t* line_index, const std::vector<Token>& tokens,
+                                      std::vector<std::unique_ptr<Statement>>* out_statements,
+                                      Diagnostic* out_error) const {
     std::vector<Token> expression_tokens = tokens;
     if (!expression_tokens.empty() && expression_tokens.back().kind == TokenKind::Semicolon) {
         expression_tokens.pop_back();
@@ -572,4 +593,4 @@ bool Parser::ParseExpressionStatement(
     return true;
 }
 
-}  // namespace clot::frontend
+} // namespace clot::frontend

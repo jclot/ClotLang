@@ -60,7 +60,7 @@ bool Parser::ParseStatement(
     const std::vector<Token>& tokens,
     std::vector<std::unique_ptr<Statement>>* out_statements,
     Diagnostic* out_error) const {
-    if (tokens[0].kind == TokenKind::KeywordPrint) {
+    if (tokens[0].kind == TokenKind::KeywordPrint || tokens[0].kind == TokenKind::KeywordPrintln) {
         return ParsePrint(line_index, tokens, out_statements, out_error);
     }
 
@@ -80,6 +80,10 @@ bool Parser::ParseStatement(
         return ParseTry(line_index, tokens, out_statements, out_error);
     }
 
+    if (tokens[0].kind == TokenKind::KeywordWhile) {
+        return ParseWhile(line_index, tokens, out_statements, out_error);
+    }
+
     if (tokens[0].kind == TokenKind::KeywordReturn) {
         return ParseReturn(line_index, tokens, out_statements, out_error);
     }
@@ -88,6 +92,7 @@ bool Parser::ParseStatement(
         tokens[0].kind == TokenKind::KeywordEndIf ||
         tokens[0].kind == TokenKind::KeywordCatch ||
         tokens[0].kind == TokenKind::KeywordEndTry ||
+        tokens[0].kind == TokenKind::KeywordEndWhile ||
         tokens[0].kind == TokenKind::KeywordEndFunc) {
         *out_error = MakeError(
             *line_index + 1,

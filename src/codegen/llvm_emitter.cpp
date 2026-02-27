@@ -33,16 +33,12 @@ auto ObjectFileKind() {
 #endif
 }
 
-}  // namespace
+} // namespace
 
 LlvmEmitter::LlvmEmitter(std::string module_name)
-    : module_(std::make_unique<llvm::Module>(module_name, context_)),
-      builder_(context_) {}
+    : module_(std::make_unique<llvm::Module>(module_name, context_)), builder_(context_) {}
 
-bool LlvmEmitter::EmitProgram(
-    const frontend::Program& program,
-    const CompileOptions& options,
-    std::string* out_error) {
+bool LlvmEmitter::EmitProgram(const frontend::Program& program, const CompileOptions& options, std::string* out_error) {
     use_runtime_bridge_ = !IsAotSupportedProgram(program);
 
     if (use_runtime_bridge_) {
@@ -113,16 +109,13 @@ bool LlvmEmitter::EmitIRFile(const std::string& output_path, std::string* out_er
     return true;
 }
 
-bool LlvmEmitter::EmitObjectFile(
-    const std::string& output_path,
-    const std::string& requested_target,
-    std::string* out_error) {
+bool LlvmEmitter::EmitObjectFile(const std::string& output_path, const std::string& requested_target,
+                                 std::string* out_error) {
     llvm::InitializeNativeTarget();
     llvm::InitializeNativeTargetAsmPrinter();
     llvm::InitializeNativeTargetAsmParser();
 
-    const std::string target_triple =
-        requested_target.empty() ? llvm::sys::getDefaultTargetTriple() : requested_target;
+    const std::string target_triple = requested_target.empty() ? llvm::sys::getDefaultTargetTriple() : requested_target;
 
     std::string target_error;
     const llvm::Target* target = llvm::TargetRegistry::lookupTarget(target_triple, target_error);
@@ -151,11 +144,7 @@ bool LlvmEmitter::EmitObjectFile(
     }
 
     llvm::legacy::PassManager pass_manager;
-    const bool cannot_emit = target_machine->addPassesToEmitFile(
-        pass_manager,
-        destination,
-        nullptr,
-        ObjectFileKind());
+    const bool cannot_emit = target_machine->addPassesToEmitFile(pass_manager, destination, nullptr, ObjectFileKind());
 
     if (cannot_emit) {
         *out_error = "El backend LLVM no puede emitir archivo objeto para ese target.";
@@ -181,13 +170,9 @@ bool LlvmEmitter::EmitRuntimeBridgeProgram(const CompileOptions& options) {
     runtime_params.push_back(llvm::PointerType::getUnqual(builder_.getInt8Ty()));
     runtime_params.push_back(llvm::PointerType::getUnqual(builder_.getInt8Ty()));
 
-    llvm::FunctionType* runtime_type = llvm::FunctionType::get(
-        builder_.getInt32Ty(),
-        runtime_params,
-        false);
+    llvm::FunctionType* runtime_type = llvm::FunctionType::get(builder_.getInt32Ty(), runtime_params, false);
 
-    llvm::FunctionCallee runtime_entry =
-        module_->getOrInsertFunction("clot_runtime_execute_source", runtime_type);
+    llvm::FunctionCallee runtime_entry = module_->getOrInsertFunction("clot_runtime_execute_source", runtime_type);
 
     llvm::Value* source_literal = builder_.CreateGlobalStringPtr(options.source_text);
     llvm::Value* source_path_literal = builder_.CreateGlobalStringPtr(options.input_path);
@@ -209,11 +194,7 @@ bool LlvmEmitter::EmitRuntimeBridgeProgram(const CompileOptions& options) {
 
 bool LlvmEmitter::CreateMainFunction() {
     llvm::FunctionType* main_type = llvm::FunctionType::get(builder_.getInt32Ty(), false);
-    main_function_ = llvm::Function::Create(
-        main_type,
-        llvm::Function::ExternalLinkage,
-        "main",
-        module_.get());
+    main_function_ = llvm::Function::Create(main_type, llvm::Function::ExternalLinkage, "main", module_.get());
 
     if (main_function_ == nullptr) {
         error_ = "No se pudo crear la funcion main.";
@@ -235,10 +216,7 @@ bool LlvmEmitter::EnsurePrintfFunction() {
 
     std::vector<llvm::Type*> printf_params;
     printf_params.push_back(llvm::PointerType::getUnqual(builder_.getInt8Ty()));
-    llvm::FunctionType* printf_type = llvm::FunctionType::get(
-        builder_.getInt32Ty(),
-        printf_params,
-        true);
+    llvm::FunctionType* printf_type = llvm::FunctionType::get(builder_.getInt32Ty(), printf_params, true);
 
     printf_function_ = module_->getOrInsertFunction("printf", printf_type);
     return true;
@@ -249,10 +227,7 @@ bool LlvmEmitter::EnsureExitFunction() {
         return true;
     }
 
-    llvm::FunctionType* exit_type = llvm::FunctionType::get(
-        builder_.getVoidTy(),
-        {builder_.getInt32Ty()},
-        false);
+    llvm::FunctionType* exit_type = llvm::FunctionType::get(builder_.getVoidTy(), {builder_.getInt32Ty()}, false);
     exit_function_ = module_->getOrInsertFunction("exit", exit_type);
     return true;
 }
@@ -287,11 +262,8 @@ bool LlvmEmitter::DeclareUserFunctions(const frontend::Program& program) {
         }
 
         llvm::FunctionType* function_type = llvm::FunctionType::get(builder_.getVoidTy(), params, false);
-        llvm::Function* llvm_function = llvm::Function::Create(
-            function_type,
-            llvm::Function::ExternalLinkage,
-            MangleFunctionName(function_decl->name),
-            module_.get());
+        llvm::Function* llvm_function = llvm::Function::Create(function_type, llvm::Function::ExternalLinkage,
+                                                               MangleFunctionName(function_decl->name), module_.get());
 
         if (llvm_function == nullptr) {
             error_ = "No se pudo crear la funcion LLVM para '" + function_decl->name + "'.";
@@ -340,10 +312,7 @@ bool LlvmEmitter::EmitUserFunction(const UserFunctionInfo& function_info) {
     variables_.clear();
     variable_kinds_.clear();
 
-    llvm::BasicBlock* entry = llvm::BasicBlock::Create(
-        context_,
-        "entry",
-        function_info.llvm_function);
+    llvm::BasicBlock* entry = llvm::BasicBlock::Create(context_, "entry", function_info.llvm_function);
     builder_.SetInsertPoint(entry);
 
     if (!EnsurePrintfFunction()) {
@@ -409,6 +378,10 @@ bool LlvmEmitter::EmitStatement(const frontend::Statement& statement, bool allow
 
     if (const auto* conditional = dynamic_cast<const frontend::IfStmt*>(&statement)) {
         return EmitIf(*conditional);
+    }
+
+    if (const auto* while_stmt = dynamic_cast<const frontend::WhileStmt*>(&statement)) {
+        return EmitWhile(*while_stmt);
     }
 
     if (const auto* import_stmt = dynamic_cast<const frontend::ImportStmt*>(&statement)) {
@@ -489,8 +462,7 @@ bool LlvmEmitter::EmitAssignment(const frontend::AssignmentStmt& statement) {
         }
     }
 
-    if (statement.op == frontend::AssignmentOp::AddAssign ||
-        statement.op == frontend::AssignmentOp::SubAssign) {
+    if (statement.op == frontend::AssignmentOp::AddAssign || statement.op == frontend::AssignmentOp::SubAssign) {
         auto existing = variables_.find(statement.name);
         if (existing == variables_.end()) {
             error_ = "Variable no definida para asignacion compuesta: " + statement.name;
@@ -536,8 +508,17 @@ bool LlvmEmitter::EmitPrint(const frontend::PrintStmt& statement) {
         return false;
     }
 
+    if (statement.expr == nullptr) {
+        if (statement.append_newline) {
+            llvm::Value* format = builder_.CreateGlobalStringPtr("%s");
+            llvm::Value* text = builder_.CreateGlobalStringPtr("\n");
+            builder_.CreateCall(printf_function_, {format, text});
+        }
+        return true;
+    }
+
     if (const auto* literal = dynamic_cast<const frontend::StringExpr*>(statement.expr.get())) {
-        llvm::Value* format = builder_.CreateGlobalStringPtr("%s\n");
+        llvm::Value* format = builder_.CreateGlobalStringPtr(statement.append_newline ? "%s\n" : "%s");
         llvm::Value* text = builder_.CreateGlobalStringPtr(literal->value);
         builder_.CreateCall(printf_function_, {format, text});
         return true;
@@ -548,8 +529,42 @@ bool LlvmEmitter::EmitPrint(const frontend::PrintStmt& statement) {
         return false;
     }
 
-    llvm::Value* format = builder_.CreateGlobalStringPtr("%.15g\n");
+    llvm::Value* format = builder_.CreateGlobalStringPtr(statement.append_newline ? "%.15g\n" : "%.15g");
     builder_.CreateCall(printf_function_, {format, numeric_value});
+    return true;
+}
+
+bool LlvmEmitter::EmitWhile(const frontend::WhileStmt& statement) {
+    llvm::Function* function = builder_.GetInsertBlock()->getParent();
+
+    llvm::BasicBlock* cond_block = llvm::BasicBlock::Create(context_, "while.cond", function);
+    llvm::BasicBlock* body_block = llvm::BasicBlock::Create(context_, "while.body", function);
+    llvm::BasicBlock* end_block = llvm::BasicBlock::Create(context_, "while.end", function);
+
+    builder_.CreateBr(cond_block);
+
+    builder_.SetInsertPoint(cond_block);
+    llvm::Value* condition_value = EmitNumericExpr(*statement.condition);
+    if (condition_value == nullptr) {
+        return false;
+    }
+
+    llvm::Value* zero = llvm::ConstantFP::get(builder_.getDoubleTy(), 0.0);
+    llvm::Value* cond_bool = builder_.CreateFCmpONE(condition_value, zero, "while.cond.bool");
+
+    builder_.CreateCondBr(cond_bool, body_block, end_block);
+
+    builder_.SetInsertPoint(body_block);
+    for (const auto& nested : statement.body) {
+        if (nested == nullptr || !EmitStatement(*nested, false)) {
+            return false;
+        }
+    }
+    if (builder_.GetInsertBlock()->getTerminator() == nullptr) {
+        builder_.CreateBr(cond_block);
+    }
+
+    builder_.SetInsertPoint(end_block);
     return true;
 }
 
@@ -704,10 +719,8 @@ llvm::Value* LlvmEmitter::EmitBuiltinSumCall(const frontend::CallExpr& call) {
     return builder_.CreateFAdd(lhs, rhs, "sum.call");
 }
 
-bool LlvmEmitter::EmitUserFunctionCall(
-    const frontend::CallExpr& call,
-    bool require_numeric_result,
-    llvm::Value** out_value) {
+bool LlvmEmitter::EmitUserFunctionCall(const frontend::CallExpr& call, bool require_numeric_result,
+                                       llvm::Value** out_value) {
     const auto function_it = user_functions_.find(call.callee);
     if (function_it == user_functions_.end()) {
         error_ = "Funcion no definida en modo compile LLVM AOT: " + call.callee;
@@ -870,10 +883,8 @@ llvm::Value* LlvmEmitter::EmitNumericExpr(const frontend::Expr& expression) {
         case frontend::BinaryOp::Modulo:
             return builder_.CreateFRem(lhs, rhs, "mod");
         case frontend::BinaryOp::Power: {
-            llvm::Function* pow_fn = llvm::Intrinsic::getDeclaration(
-                module_.get(),
-                llvm::Intrinsic::pow,
-                {builder_.getDoubleTy()});
+            llvm::Function* pow_fn =
+                llvm::Intrinsic::getDeclaration(module_.get(), llvm::Intrinsic::pow, {builder_.getDoubleTy()});
             return builder_.CreateCall(pow_fn, {lhs, rhs}, "pow");
         }
         case frontend::BinaryOp::Equal:
@@ -913,6 +924,6 @@ std::string LlvmEmitter::MangleFunctionName(const std::string& name) const {
     return "clot_fn_" + name;
 }
 
-}  // namespace clot::codegen::internal
+} // namespace clot::codegen::internal
 
-#endif  // CLOT_HAS_LLVM
+#endif // CLOT_HAS_LLVM

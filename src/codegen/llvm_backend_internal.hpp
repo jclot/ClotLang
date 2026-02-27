@@ -32,26 +32,21 @@ bool ContainsMathImportInStatement(const frontend::Statement& statement);
 bool CollectAotSupportContext(const frontend::Program& program, AotSupportContext* out_context);
 bool IsAotSupportedExpr(const frontend::Expr& expression, const AotSupportContext& context);
 bool IsAotSupportedCallStatement(const frontend::CallExpr& call, const AotSupportContext& context);
-bool IsAotSupportedStatement(
-    const frontend::Statement& statement,
-    const AotSupportContext& context,
-    bool inside_function);
+bool IsAotSupportedStatement(const frontend::Statement& statement, const AotSupportContext& context,
+                             bool inside_function);
 bool IsAotSupportedProgram(const frontend::Program& program);
 
 class LlvmEmitter {
-public:
+  public:
     explicit LlvmEmitter(std::string module_name);
 
     bool EmitProgram(const frontend::Program& program, const CompileOptions& options, std::string* out_error);
     bool UsedRuntimeBridge() const;
 
     bool EmitIRFile(const std::string& output_path, std::string* out_error);
-    bool EmitObjectFile(
-        const std::string& output_path,
-        const std::string& requested_target,
-        std::string* out_error);
+    bool EmitObjectFile(const std::string& output_path, const std::string& requested_target, std::string* out_error);
 
-private:
+  private:
     enum class VariableNumericKind {
         Dynamic,
         Long,
@@ -74,6 +69,7 @@ private:
     bool EmitAssignment(const frontend::AssignmentStmt& statement);
     bool EmitPrint(const frontend::PrintStmt& statement);
     bool EmitIf(const frontend::IfStmt& statement);
+    bool EmitWhile(const frontend::WhileStmt& statement);
     bool EmitCallStatement(const frontend::CallExpr& call);
 
     llvm::AllocaInst* CreateEntryBlockAlloca(llvm::Function* function, const std::string& name);
@@ -81,10 +77,7 @@ private:
     bool EmitRangeCheckOrAbort(llvm::Value* out_of_range, const char* message);
     llvm::Value* NormalizeForKind(llvm::Value* value, VariableNumericKind kind);
     llvm::Value* EmitBuiltinSumCall(const frontend::CallExpr& call);
-    bool EmitUserFunctionCall(
-        const frontend::CallExpr& call,
-        bool require_numeric_result,
-        llvm::Value** out_value);
+    bool EmitUserFunctionCall(const frontend::CallExpr& call, bool require_numeric_result, llvm::Value** out_value);
     llvm::Value* EmitNumericExpr(const frontend::Expr& expression);
     llvm::Value* BoolToNumber(llvm::Value* bool_value);
 
@@ -108,16 +101,11 @@ private:
     std::string error_;
 };
 
-bool LinkExecutable(
-    const std::string& object_path,
-    const std::string& executable_path,
-    bool use_runtime_bridge,
-    const CompileOptions& options,
-    bool verbose,
-    std::string* out_error);
+bool LinkExecutable(const std::string& object_path, const std::string& executable_path, bool use_runtime_bridge,
+                    const CompileOptions& options, bool verbose, std::string* out_error);
 
-}  // namespace clot::codegen::internal
+} // namespace clot::codegen::internal
 
-#endif  // CLOT_HAS_LLVM
+#endif // CLOT_HAS_LLVM
 
-#endif  // CLOT_CODEGEN_LLVM_BACKEND_INTERNAL_HPP
+#endif // CLOT_CODEGEN_LLVM_BACKEND_INTERNAL_HPP
