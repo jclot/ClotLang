@@ -19,14 +19,14 @@ byte delta = 2;
 func bump(&value, amount):
     value += sum(amount, 3);
     if(value > 20):
-        print("alto");
+        println("alto");
     else:
-        print("bajo");
+        println("bajo");
     endif
 endfunc
 
 bump(max, delta);
-print(max);
+println(max);
 PROG
 
 AOT_EXE="$TMP_DIR/aot_functions"
@@ -194,8 +194,8 @@ func inc(&value):
 endfunc
 
 inc(max);
-print(sum(max, 5));
-print(user.name + " total=" + user.total);
+println(sum(max, 5));
+println(user.name + " total=" + user.total);
 PROG
 
 OUTPUT_EXE="$TMP_DIR/full_compile"
@@ -231,10 +231,10 @@ PROG
 cat > "$TMP_DIR/full_bridge.clot" <<'PROG'
 import mods.helpers;
 long base = 4;
-print(inc_and_get(base));
+println(inc_and_get(base));
 obj = {items: [1, 2, 3]};
 obj.items[1] += 8;
-print(obj.items[1]);
+println(obj.items[1]);
 PROG
 
 FULL_BRIDGE_EXE="$TMP_DIR/full_bridge"
@@ -255,6 +255,32 @@ if [[ "$ACTUAL_BRIDGE" != "$EXPECTED_BRIDGE" ]]; then
     printf '%s\n' "$EXPECTED_BRIDGE" >&2
     echo "Actual:" >&2
     printf '%s\n' "$ACTUAL_BRIDGE" >&2
+    exit 1
+fi
+
+cat > "$TMP_DIR/printf_bridge.clot" <<'PROG'
+printf("hex=%X num=%d", 255, 7);
+println();
+PROG
+
+PRINTF_BRIDGE_EXE="$TMP_DIR/printf_bridge"
+PRINTF_BRIDGE_LOG="$TMP_DIR/printf_bridge.log"
+"$BIN_PATH" "$TMP_DIR/printf_bridge.clot" --mode compile --emit exe -o "$PRINTF_BRIDGE_EXE" --verbose >"$PRINTF_BRIDGE_LOG" 2>&1
+
+if ! grep -q "runtime bridge LLVM activado" "$PRINTF_BRIDGE_LOG"; then
+    echo "Fallo llvm_smoke: printf_bridge debe usar runtime bridge." >&2
+    cat "$PRINTF_BRIDGE_LOG" >&2
+    exit 1
+fi
+
+EXPECTED_PRINTF_BRIDGE=$'hex=FF num=7'
+ACTUAL_PRINTF_BRIDGE="$($PRINTF_BRIDGE_EXE)"
+if [[ "$ACTUAL_PRINTF_BRIDGE" != "$EXPECTED_PRINTF_BRIDGE" ]]; then
+    echo "Fallo llvm_smoke (printf_bridge)" >&2
+    echo "Esperado:" >&2
+    printf '%s\n' "$EXPECTED_PRINTF_BRIDGE" >&2
+    echo "Actual:" >&2
+    printf '%s\n' "$ACTUAL_PRINTF_BRIDGE" >&2
     exit 1
 fi
 

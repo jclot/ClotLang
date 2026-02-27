@@ -14,11 +14,11 @@ trap 'rm -rf "$TMP_DIR"' EXIT
 cat > "$TMP_DIR/arithmetic.clot" <<'PROG'
 a = 2;
 a += 5;
-print(a);
+println(a);
 if(a == 7):
-    print("ok");
+    println("ok");
 else:
-    print("bad");
+    println("bad");
 endif
 PROG
 
@@ -53,17 +53,17 @@ cat > "$TMP_DIR/migration.clot" <<'PROG'
 import math;
 a = 5;
 b = 7;
-print(sum(a, b));
+println(sum(a, b));
 nums = [1, 2, a + b];
 user = {name: "Ada", active: true, total: nums[2]};
-print(user.name + " total=" + user.total);
+println(user.name + " total=" + user.total);
 
 func inc(&value):
     value += 1;
 endfunc
 
 inc(a);
-print(a);
+println(a);
 PROG
 
 EXPECTED_THREE=$'12\nAda total=12\n6'
@@ -89,13 +89,13 @@ PROG
 cat > "$TMP_DIR/modules_return_mutation.clot" <<'PROG'
 import mods.helpers;
 long base = 7;
-print(inc_and_get(base));
-print(base);
+println(inc_and_get(base));
+println(base);
 
 obj = {items: [1, 2, 3]};
 obj.items[1] = 10;
 obj.items[1] += 5;
-print(obj.items[1]);
+println(obj.items[1]);
 PROG
 
 EXPECTED_FOUR=$'8\n8\n15'
@@ -208,12 +208,12 @@ fi
 cat > "$TMP_DIR/try_catch.clot" <<'PROG'
 try:
     nums = [1, 2];
-    print(nums[5]);
+    println(nums[5]);
 catch(err):
-    print("captured");
-    print(err);
+    println("captured");
+    println(err);
 endtry
-print("after");
+println("after");
 PROG
 
 EXPECTED_TRY_CATCH=$'captured\nIndice fuera de rango en lista.\nafter'
@@ -242,10 +242,10 @@ IO_FILE="$TMP_DIR/io_data.txt"
 cat > "$TMP_DIR/async_io.clot" <<PROG
 write_file("$IO_FILE", "hola");
 task = async_read_file("$IO_FILE");
-print(await(task));
+println(await(task));
 append_file("$IO_FILE", "!");
-print(read_file("$IO_FILE"));
-print(file_exists("$IO_FILE"));
+println(read_file("$IO_FILE"));
+println(file_exists("$IO_FILE"));
 PROG
 
 EXPECTED_ASYNC_IO=$'hola\nhola!\ntrue'
@@ -263,6 +263,41 @@ cat > "$TMP_DIR/analyze_fail.clot" <<'PROG'
 long x = "texto";
 print(y);
 PROG
+
+cat > "$TMP_DIR/print_no_newline.clot" <<'PROG'
+print("A");
+print("B");
+println("C");
+println();
+println("D");
+PROG
+
+EXPECTED_PRINT_NO_NL=$'ABC\n\nD'
+ACTUAL_PRINT_NO_NL="$($BIN_PATH "$TMP_DIR/print_no_newline.clot")"
+if [[ "$ACTUAL_PRINT_NO_NL" != "$EXPECTED_PRINT_NO_NL" ]]; then
+    echo "Fallo test print_no_newline" >&2
+    echo "Esperado:" >&2
+    printf '%s\n' "$EXPECTED_PRINT_NO_NL" >&2
+    echo "Actual:" >&2
+    printf '%s\n' "$ACTUAL_PRINT_NO_NL" >&2
+    exit 1
+fi
+
+cat > "$TMP_DIR/printf_formats.clot" <<'PROG'
+printf("%i|%u|%x|%X|%f|%c|%s|%%", -7, 7, 255, 255, 2.5, "Z", "hola");
+println();
+PROG
+
+EXPECTED_PRINTF=$'-7|7|ff|FF|2.500000|Z|hola|%'
+ACTUAL_PRINTF="$($BIN_PATH "$TMP_DIR/printf_formats.clot")"
+if [[ "$ACTUAL_PRINTF" != "$EXPECTED_PRINTF" ]]; then
+    echo "Fallo test printf_formats" >&2
+    echo "Esperado:" >&2
+    printf '%s\n' "$EXPECTED_PRINTF" >&2
+    echo "Actual:" >&2
+    printf '%s\n' "$ACTUAL_PRINTF" >&2
+    exit 1
+fi
 
 set +e
 "$BIN_PATH" "$TMP_DIR/analyze_fail.clot" --mode analyze >"$TMP_DIR/analyze_fail.out" 2>"$TMP_DIR/analyze_fail.err"
