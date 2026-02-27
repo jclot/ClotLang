@@ -111,9 +111,11 @@
 					<li class="nav-item"><a class="nav-link scrollto" href="#item-3-5">Listas y objetos</a></li>
 					<li class="nav-item"><a class="nav-link scrollto" href="#item-3-6">Modulos e import</a></li>
 					<li class="nav-item"><a class="nav-link scrollto" href="#item-3-7">Internacionalizacion</a></li>
-					<li class="nav-item"><a class="nav-link scrollto" href="#item-3-8">try/catch</a></li>
-					<li class="nav-item"><a class="nav-link scrollto" href="#item-3-9">Builtins de sistema</a></li>
-					<li class="nav-item"><a class="nav-link scrollto" href="#item-3-10">Comentarios y estilo</a></li>
+						<li class="nav-item"><a class="nav-link scrollto" href="#item-3-8">try/catch</a></li>
+						<li class="nav-item"><a class="nav-link scrollto" href="#item-3-9">Builtins de sistema</a></li>
+						<li class="nav-item"><a class="nav-link scrollto" href="#item-3-10">Comentarios y estilo</a></li>
+						<li class="nav-item"><a class="nav-link scrollto" href="#item-3-11">while (nuevo)</a></li>
+						<li class="nav-item"><a class="nav-link scrollto" href="#item-3-12">print / println / printf</a></li>
 
 					<li class="nav-item section-title mt-3">
 						<a class="nav-link scrollto" href="#section-4">
@@ -188,7 +190,7 @@
 				<!-- ============================================================ -->
 				<article class="docs-article" id="section-1">
 					<header class="docs-header">
-						<h1 class="docs-heading">Beginner Guide <span class="docs-time">Actualizado: 2026-02-20</span>
+							<h1 class="docs-heading">Beginner Guide <span class="docs-time">Actualizado: 2026-02-21</span>
 						</h1>
 						<section class="docs-intro">
 							<p>Esta guia esta escrita para personas que nunca implementaron un lenguaje. El objetivo es
@@ -406,15 +408,15 @@ a -= 2;</code></pre>
 					<section class="docs-section" id="item-3-2">
 						<h2 class="section-heading">2) Expresiones y operadores</h2>
 						<div class="docs-code-block">
-							<pre class="shadow-lg rounded"><code class="language-bash">print(2 + 3);
-print(10 / 2);
-print(10 % 3);
-print(2 ^ 4);
-print(5 > 2);
-print(5 == 5);
-print(true &amp;&amp; false);
-print(true || false);
-print(!false);</code></pre>
+								<pre class="shadow-lg rounded"><code class="language-bash">println(2 + 3);
+	println(10 / 2);
+	println(10 % 3);
+	println(2 ^ 4);
+	println(5 > 2);
+	println(5 == 5);
+	println(true &amp;&amp; false);
+	println(true || false);
+	println(!false);</code></pre>
 						</div>
 						<p>
 							Soporte de precedencia en parser:
@@ -425,10 +427,10 @@ print(!false);</code></pre>
 					<section class="docs-section" id="item-3-3">
 						<h2 class="section-heading">3) Condicionales</h2>
 						<div class="docs-code-block">
-							<pre class="shadow-lg rounded"><code class="language-bash">if(a > 10):
-    print("Mayor");
+								<pre class="shadow-lg rounded"><code class="language-bash">if(a > 10):
+    println("Mayor");
 else:
-    print("No mayor");
+    println("No mayor");
 endif</code></pre>
 						</div>
 						<p>
@@ -446,8 +448,8 @@ endif</code></pre>
 endfunc
 
 x = 7;
-print(inc_and_get(x));
-print(x);</code></pre>
+println(inc_and_get(x));
+println(x);</code></pre>
 						</div>
 						<ul>
 							<li><code>&amp;param</code> en declaracion indica paso por referencia. (Tambien hay
@@ -466,8 +468,8 @@ user = {name: "Ada", stats: {score: 7}};
 nums[1] = 10;
 nums[1] += 4;
 user.stats.score += 3;
-print(nums[1]);
-print(user.stats.score);</code></pre>
+println(nums[1]);
+println(user.stats.score);</code></pre>
 						</div>
 						<p>
 							El runtime resuelve rutas anidadas y permite mutar valores internos.
@@ -485,12 +487,12 @@ import modules.utils;</code></pre>
 							<li><code>math</code> es nativo y habilita <code>sum(a,b)</code>.</li>
 							<li><code>import a.b.c;</code> busca <code>a/b/c.clot</code>.</li>
 							<li><code>input</code> esta habilitado de forma nativa para capturar texto desde consola.</li>
-							<div class="docs-code-block">
-								<pre class="shadow-lg rounded"><code class="language-bash">name = input("What is your name?");
-// User Input: Julian
-print("My name is: " + name);
-// Output: My name is: Julian</code></pre>
-							</div>
+								<div class="docs-code-block">
+									<pre class="shadow-lg rounded"><code class="language-bash">name = input("What is your name?");
+	// User Input: Julian
+	println("My name is: " + name);
+	// Output: My name is: Julian</code></pre>
+								</div>
 							<li>Se detectan importaciones circulares.</li>
 						</ul>
 					</section><!--//docs-section-->
@@ -515,17 +517,17 @@ CLOT_LANG=en /tmp/test_en</code></pre>
 						</p>
 					</section><!--//docs-section-->
 
-					<section class="docs-section" id="item-3-8">
-						<h2 class="section-heading">8) try/catch para resiliencia</h2>
-						<div class="docs-code-block">
-							<pre class="shadow-lg rounded"><code class="language-bash">try:
+						<section class="docs-section" id="item-3-8">
+							<h2 class="section-heading">8) try/catch para resiliencia</h2>
+							<div class="docs-code-block">
+								<pre class="shadow-lg rounded"><code class="language-bash">try:
     nums = [1, 2];
-    print(nums[9]);
+    println(nums[9]);
 catch(err):
-    print("captured");
-    print(err);
+    println("captured");
+    println(err);
 endtry</code></pre>
-						</div>
+							</div>
 						<ul>
 							<li>Evita cierre abrupto del proceso en errores de runtime recuperables.</li>
 							<li><code>catch:</code> o <code>catch(err):</code> son validos.</li>
@@ -533,18 +535,18 @@ endtry</code></pre>
 						</ul>
 					</section><!--//docs-section-->
 
-					<section class="docs-section" id="item-3-9">
-						<h2 class="section-heading">9) Builtins de sistema y concurrencia basica</h2>
-						<div class="docs-code-block">
-							<pre class="shadow-lg rounded"><code class="language-bash">write_file("/tmp/data.txt", "hola");
+						<section class="docs-section" id="item-3-9">
+							<h2 class="section-heading">9) Builtins de sistema y concurrencia basica</h2>
+							<div class="docs-code-block">
+								<pre class="shadow-lg rounded"><code class="language-bash">write_file("/tmp/data.txt", "hola");
 task = async_read_file("/tmp/data.txt");
-print(task_ready(task));
-print(await(task));
+println(task_ready(task));
+println(await(task));
 append_file("/tmp/data.txt", "!");
-print(read_file("/tmp/data.txt"));
-print(file_exists("/tmp/data.txt"));
-print(now_ms());</code></pre>
-						</div>
+println(read_file("/tmp/data.txt"));
+println(file_exists("/tmp/data.txt"));
+println(now_ms());</code></pre>
+							</div>
 						<ul>
 							<li>I/O: <code>read_file</code>, <code>write_file</code>, <code>append_file</code>, <code>file_exists</code>.</li>
 							<li>Tiempo: <code>now_ms</code>, <code>sleep_ms</code>.</li>
@@ -552,8 +554,8 @@ print(now_ms());</code></pre>
 						</ul>
 					</section><!--//docs-section-->
 
-					<section class="docs-section" id="item-3-10">
-						<h2 class="section-heading">10) Comentarios y estilo recomendado</h2>
+						<section class="docs-section" id="item-3-10">
+							<h2 class="section-heading">10) Comentarios y estilo recomendado</h2>
 						<div class="docs-code-block">
 							<pre class="shadow-lg rounded"><code class="language-bash">// Comentario de linea
 long score = 10; // comentario al final</code></pre>
@@ -562,10 +564,44 @@ long score = 10; // comentario al final</code></pre>
 							<li>El tokenizer corta la linea cuando ve <code>//</code>.</li>
 							<li>Usa comentarios para explicar "por que", no para repetir codigo.</li>
 							<li>Mantener comentarios cortos facilita lectura para novatos.</li>
-						</ul>
-					</section><!--//docs-section-->
+							</ul>
+						</section><!--//docs-section-->
 
-				</article><!--//docs-article-->
+						<section class="docs-section" id="item-3-11">
+							<h2 class="section-heading">11) while (nuevo)</h2>
+							<div class="docs-code-block">
+								<pre class="shadow-lg rounded"><code class="language-bash">i = 0;
+while(i < 3):
+    println("i=" + i);
+    i += 1;
+endwhile</code></pre>
+							</div>
+							<ul>
+								<li>Evalua la condicion antes de cada iteracion.</li>
+								<li>El bloque se cierra con <code>endwhile</code>.</li>
+								<li>Si la condicion es falsa, el bucle termina.</li>
+							</ul>
+						</section><!--//docs-section-->
+
+						<section class="docs-section" id="item-3-12">
+							<h2 class="section-heading">12) Salida: print, println, printf y endl</h2>
+							<div class="docs-code-block">
+								<pre class="shadow-lg rounded"><code class="language-bash">print("Hola");          // sin salto
+print(endl);            // salto explicito
+println(" Mundo");      // con salto
+println();              // linea en blanco
+printf("id=%d hex=%X pi=%f %s%%", 7, 255, 3.5, "ok");
+println();</code></pre>
+							</div>
+							<ul>
+								<li><code>print(expr);</code> no agrega salto de linea.</li>
+								<li><code>println(expr);</code> agrega salto de linea. Tambien admite <code>println();</code>.</li>
+								<li><code>endl</code> es una constante builtin con valor <code>"\n"</code>.</li>
+								<li><code>printf(format, ...args)</code> soporta: <code>%d</code>, <code>%i</code>, <code>%u</code>, <code>%f</code>, <code>%c</code>, <code>%s</code>, <code>%x</code>, <code>%X</code> y <code>%%</code>.</li>
+							</ul>
+						</section><!--//docs-section-->
+
+					</article><!--//docs-article-->
 
 
 				<!-- ============================================================ -->
@@ -660,13 +696,13 @@ long score = 10; // comentario al final</code></pre>
 									fue reescrito contra la estructura split actual.</p>
 							</div>
 						</div>
-							<ul>
-								<li><code>src/frontend/parser_core.cpp</code>: ciclo principal y despacho de sentencias.
-								</li>
-								<li><code>src/frontend/parser_statements.cpp</code>:
-									assignment/if/func/import/try-catch/mutation/return.</li>
-								<li><code>src/frontend/parser_expression.cpp</code>: precedencia de expresiones y postfix.
-								</li>
+								<ul>
+									<li><code>src/frontend/parser_core.cpp</code>: ciclo principal y despacho de sentencias.
+									</li>
+									<li><code>src/frontend/parser_statements.cpp</code>:
+										assignment/if/while/func/import/try-catch/mutation/return + print/println.</li>
+									<li><code>src/frontend/parser_expression.cpp</code>: precedencia de expresiones y postfix.
+									</li>
 								<li><code>src/frontend/static_analyzer.cpp</code>: chequeos estaticos para <code>--mode analyze</code>.</li>
 								<li><code>src/frontend/parser_support.hpp</code>: utilidades internas compartidas.</li>
 							</ul>
@@ -772,12 +808,12 @@ tests/llvm_smoke.sh ./build/wsl-release/clot</code></pre>
 										<td>Frontend</td>
 										<td>Ciclo principal del parser, bloques y despacho de sentencias.</td>
 									</tr>
-										<tr>
-											<td><code>src/frontend/parser_statements.cpp</code></td>
-											<td>Frontend</td>
-											<td>Parseo de assignment, if, func, import, try/catch, mutation, return y expression
-												statements.</td>
-										</tr>
+											<tr>
+												<td><code>src/frontend/parser_statements.cpp</code></td>
+												<td>Frontend</td>
+												<td>Parseo de assignment, if, while, func, import, try/catch, mutation, return y expression
+													statements.</td>
+											</tr>
 									<tr>
 										<td><code>src/frontend/parser_expression.cpp</code></td>
 										<td>Frontend</td>
@@ -1158,7 +1194,7 @@ tests/smoke.sh ./build/wsl-release/clot
 tests/llvm_smoke.sh ./build/wsl-release/clot
 
 # Ejemplo rapido
-echo 'long x = 10; print(x + 2);' > /tmp/quick.clot
+echo 'long x = 10; println(x + 2);' > /tmp/quick.clot
 ./build/wsl-release/clot /tmp/quick.clot
 
 # Analisis estatico
@@ -1283,7 +1319,7 @@ tests/llvm_smoke.sh ./build/wsl-release/clot
 				<div id="clot-search-input-wrap">
 					<i class="fas fa-search search-icon"></i>
 					<input id="clot-search-main-input" type="text" autocomplete="off" spellcheck="false"
-						placeholder="Buscar en toda la documentacion... (ej: try/catch, runtime bridge external, analyze)" />
+						placeholder="Buscar en toda la documentacion... (ej: while, println, printf, runtime bridge external)" />
 				<span id="clot-search-kbd">ESC</span>
 			</div>
 			<div id="clot-search-results">
