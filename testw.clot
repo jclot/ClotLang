@@ -1,0 +1,15 @@
+
+i = 1;
+suma = 0;
+
+println("Calculando la suma del 1 al 10...");
+while i <= 10:
+    suma += i;
+    print(i + " ");
+    i += 1;
+endwhile
+println(endl + "El resultado final es: ");
+println(suma);
+
+// Agregar soporte i18n a los mensajes del while. 
+//Y arreglar el problema del path en runtime-bridge external.

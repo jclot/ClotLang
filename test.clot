@@ -16,33 +16,33 @@ user.stats.score += 3;
 func adjust(&value, extra):
     value += sum(extra, 3);
     if(value > 20):
-        print("alto");
+        println("alto");
     else:
-        print("normal");
+        println("normal");
     endif
     return value;
 endfunc
 
-print(inc_and_get(counter));
-print(counter);
+println(inc_and_get(counter));
+println(counter);
 
 result = adjust(counter, level);
-print(result);
+println(result);
 
 bump_index(nums, 1, 4);
-print(nums[1]);
+println(nums[1]);
 
 if(flag && counter > 10):
-    print(user.name + " score=" + user.stats.score);
+    println(user.name + " score=" + user.stats.score);
 else:
-    print("disabled");
+    println("disabled");
 endif
 
 
 try:
     nums = [1, 2];
-    print(nums[9]);
+    println(nums[9]);
 catch(err):
-    print("Error capturado");
-    print(err);
+    println("Error capturado");
+    println(err);
 endtry
