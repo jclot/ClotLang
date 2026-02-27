@@ -153,8 +153,12 @@ struct AssignmentStmt final : Statement {
 };
 
 struct PrintStmt final : Statement {
-    explicit PrintStmt(std::unique_ptr<Expr> in_expr) : expr(std::move(in_expr)) {}
+    PrintStmt(std::unique_ptr<Expr> in_expr, bool in_append_newline)
+        : expr(std::move(in_expr)),
+          append_newline(in_append_newline) {}
+
     std::unique_ptr<Expr> expr;
+    bool append_newline = true;
 };
 
 struct IfStmt final : Statement {
@@ -177,6 +181,20 @@ struct TryCatchStmt final : Statement {
     std::vector<std::unique_ptr<Statement>> try_branch;
     std::string error_binding;
     std::vector<std::unique_ptr<Statement>> catch_branch;
+};
+
+struct WhileStmt final : Statement {
+    WhileStmt(
+        std::unique_ptr<Expr> in_condition,
+        std::vector<std::unique_ptr<Statement>> in_body)
+        : condition(std::move(in_condition)),
+          body(std::move(in_body)) {}
+
+    // Condición que evalúa antes de cada iter. 
+    std::unique_ptr<Expr> condition;
+
+    // Se ejecutan las sentencias si la condición es verdadera. 
+    std::vector<std::unique_ptr<Statement>> body;
 };
 
 struct FunctionParam {

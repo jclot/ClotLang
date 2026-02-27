@@ -13,6 +13,7 @@ enum class TokenKind {
     Boolean,
 
     KeywordPrint,
+    KeywordPrintln,
     KeywordIf,
     KeywordElse,
     KeywordEndIf,
@@ -25,6 +26,8 @@ enum class TokenKind {
     KeywordTry,
     KeywordCatch,
     KeywordEndTry,
+    KeywordWhile,
+    KeywordEndWhile,
 
     Assign,
     PlusEqual,

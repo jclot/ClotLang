@@ -71,6 +71,12 @@ private:
         std::vector<std::unique_ptr<Statement>>* out_statements,
         Diagnostic* out_error) const;
 
+    bool ParseWhile(
+        std::size_t* line_index,
+        const std::vector<Token>& tokens,
+        std::vector<std::unique_ptr<Statement>>* out_statements,
+        Diagnostic* out_error) const;
+
     bool ParseMutation(
         std::size_t* line_index,
         const std::vector<Token>& tokens,
