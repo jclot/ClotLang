@@ -4,6 +4,7 @@
 #include <cmath>
 #include <filesystem>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <limits>
 #include <sstream>
@@ -70,10 +71,8 @@ bool ReadListIndex(const runtime::Value& value, std::size_t* out_index, std::str
         return false;
     }
 
-    if (!std::isfinite(numeric_index) ||
-        std::trunc(numeric_index) != numeric_index ||
-        numeric_index < 0.0 ||
-        numeric_index >= 9223372036854775808.0) {  // 2^63
+    if (!std::isfinite(numeric_index) || std::trunc(numeric_index) != numeric_index || numeric_index < 0.0 ||
+        numeric_index >= 9223372036854775808.0) { // 2^63
         if (out_error != nullptr) {
             *out_error = "El indice de lista debe ser un entero finito.";
         }
@@ -120,11 +119,7 @@ bool ReadFileToString(const std::string& path, std::string* out_text, std::strin
     return true;
 }
 
-bool WriteStringToFile(
-    const std::string& path,
-    const std::string& text,
-    bool append,
-    std::string* out_error) {
+bool WriteStringToFile(const std::string& path, const std::string& text, bool append, std::string* out_error) {
     std::ofstream output;
     if (append) {
         output.open(path, std::ios::binary | std::ios::app);
@@ -150,7 +145,156 @@ bool WriteStringToFile(
     return true;
 }
 
-}  // namespace
+bool RenderPrintfFormat(const std::string& format,
+                        const std::vector<runtime::Value>& arguments,
+                        std::string* out_text,
+                        std::string* out_error) {
+    if (out_text == nullptr) {
+        if (out_error != nullptr) {
+            *out_error = "Error interno: salida nula en printf.";
+        }
+        return false;
+    }
+
+    out_text->clear();
+    std::size_t argument_index = 0;
+
+    for (std::size_t i = 0; i < format.size(); ++i) {
+        const char current = format[i];
+        if (current != '%') {
+            out_text->push_back(current);
+            continue;
+        }
+
+        if (i + 1 >= format.size()) {
+            if (out_error != nullptr) {
+                *out_error = "printf: formato invalido, '%' sin especificador.";
+            }
+            return false;
+        }
+
+        const char specifier = format[++i];
+        if (specifier == '%') {
+            out_text->push_back('%');
+            continue;
+        }
+
+        if (argument_index >= arguments.size()) {
+            if (out_error != nullptr) {
+                *out_error = "printf: faltan argumentos para el formato.";
+            }
+            return false;
+        }
+
+        const runtime::Value& argument = arguments[argument_index++];
+        switch (specifier) {
+        case 'd':
+        case 'i': {
+            bool ok = false;
+            const long long integer = argument.AsInteger(&ok);
+            if (!ok) {
+                if (out_error != nullptr) {
+                    *out_error = "printf: %d/%i requiere entero.";
+                }
+                return false;
+            }
+            *out_text += std::to_string(integer);
+            break;
+        }
+        case 'u': {
+            bool ok = false;
+            const long long integer = argument.AsInteger(&ok);
+            if (!ok || integer < 0) {
+                if (out_error != nullptr) {
+                    *out_error = "printf: %u requiere entero sin signo (>= 0).";
+                }
+                return false;
+            }
+            *out_text += std::to_string(static_cast<unsigned long long>(integer));
+            break;
+        }
+        case 'f': {
+            bool ok = false;
+            const double number = argument.AsNumber(&ok);
+            if (!ok) {
+                if (out_error != nullptr) {
+                    *out_error = "printf: %f requiere valor numerico.";
+                }
+                return false;
+            }
+            std::ostringstream stream;
+            stream << std::fixed << std::setprecision(6) << number;
+            *out_text += stream.str();
+            break;
+        }
+        case 'c': {
+            bool emitted = false;
+            if (argument.IsString()) {
+                const std::string text = argument.ToString();
+                if (text.size() == 1) {
+                    out_text->push_back(text[0]);
+                    emitted = true;
+                }
+            }
+
+            if (!emitted) {
+                bool ok = false;
+                const long long integer = argument.AsInteger(&ok);
+                if (ok && integer >= 0 && integer <= 255) {
+                    out_text->push_back(static_cast<char>(static_cast<unsigned char>(integer)));
+                    emitted = true;
+                }
+            }
+
+            if (!emitted) {
+                if (out_error != nullptr) {
+                    *out_error = "printf: %c requiere char (string de longitud 1 o entero ASCII 0-255).";
+                }
+                return false;
+            }
+            break;
+        }
+        case 's':
+            *out_text += argument.ToString();
+            break;
+        case 'x':
+        case 'X': {
+            bool ok = false;
+            const long long integer = argument.AsInteger(&ok);
+            if (!ok || integer < 0) {
+                if (out_error != nullptr) {
+                    *out_error = "printf: %x/%X requiere entero sin signo (>= 0).";
+                }
+                return false;
+            }
+
+            std::ostringstream stream;
+            if (specifier == 'X') {
+                stream << std::uppercase;
+            }
+            stream << std::hex << static_cast<unsigned long long>(integer);
+            *out_text += stream.str();
+            break;
+        }
+        default:
+            if (out_error != nullptr) {
+                *out_error = std::string("printf: especificador no soportado '%") + specifier + "'.";
+            }
+            return false;
+        }
+    }
+
+    if (argument_index != arguments.size()) {
+        if (out_error != nullptr) {
+            *out_error = "printf: sobran argumentos para el formato.";
+        }
+        return false;
+    }
+
+    return true;
+}
+
+} // namespace
 
 void Interpreter::SetEntryFilePath(const std::string& file_path) {
     entry_file_path_ = std::filesystem::path(file_path);
@@ -185,9 +329,8 @@ bool Interpreter::Execute(const frontend::Program& program, std::string* out_err
     return true;
 }
 
-bool Interpreter::ExecuteBlock(
-    const std::vector<std::unique_ptr<frontend::Statement>>& statements,
-    std::string* out_error) {
+bool Interpreter::ExecuteBlock(const std::vector<std::unique_ptr<frontend::Statement>>& statements,
+                               std::string* out_error) {
     for (const auto& statement : statements) {
         if (!ExecuteStatement(*statement, out_error)) {
             return false;
@@ -224,12 +367,36 @@ bool Interpreter::ExecuteStatement(const frontend::Statement& statement, std::st
     }
 
     if (const auto* print = dynamic_cast<const frontend::PrintStmt*>(&statement)) {
-        runtime::Value value;
-        if (!EvaluateExpression(*print->expr, &value, out_error)) {
-            return false;
+        if (print->expr != nullptr) {
+            runtime::Value value;
+            if (!EvaluateExpression(*print->expr, &value, out_error)) {
+                return false;
+            }
+            std::cout << value.ToString();
         }
 
-        std::cout << value.ToString() << std::endl;
+        if (print->append_newline) {
+            std::cout << std::endl;
+        } else {
+            std::cout << std::flush;
+        }
+        return true;
+    }
+
+    if (const auto* while_stmt = dynamic_cast<const frontend::WhileStmt*>(&statement)) {
+        while (true) {
+            runtime::Value condition;
+            if (!EvaluateExpression(*while_stmt->condition, &condition, out_error))
+                return false;
+            if (!condition.AsBool())
+                break;
+
+            if (!ExecuteBlock(while_stmt->body, out_error))
+                return false;
+
+            if (!return_stack_.empty() && return_stack_.back().has_value())
+                return true;
+        }
         return true;
     }
 
@@ -358,10 +525,8 @@ bool Interpreter::ExecuteTryCatch(const frontend::TryCatchStmt& statement, std::
     return true;
 }
 
-bool Interpreter::EvaluateExpression(
-    const frontend::Expr& expression,
-    runtime::Value* out_value,
-    std::string* out_error) {
+bool Interpreter::EvaluateExpression(const frontend::Expr& expression, runtime::Value* out_value,
+                                     std::string* out_error) {
     if (const auto* number = dynamic_cast<const frontend::NumberExpr*>(&expression)) {
         if (number->exact_integer.has_value()) {
             *out_value = runtime::Value(*number->exact_integer);
@@ -477,11 +642,8 @@ bool Interpreter::EvaluateExpression(
     return false;
 }
 
-bool Interpreter::EvaluateUnary(
-    frontend::UnaryOp op,
-    const runtime::Value& operand,
-    runtime::Value* out_value,
-    std::string* out_error) const {
+bool Interpreter::EvaluateUnary(frontend::UnaryOp op, const runtime::Value& operand, runtime::Value* out_value,
+                                std::string* out_error) const {
     if (op == frontend::UnaryOp::LogicalNot) {
         *out_value = runtime::Value(!operand.AsBool());
         return true;
@@ -516,12 +678,8 @@ bool Interpreter::EvaluateUnary(
     return true;
 }
 
-bool Interpreter::EvaluateBinary(
-    frontend::BinaryOp op,
-    const runtime::Value& lhs,
-    const runtime::Value& rhs,
-    runtime::Value* out_value,
-    std::string* out_error) const {
+bool Interpreter::EvaluateBinary(frontend::BinaryOp op, const runtime::Value& lhs, const runtime::Value& rhs,
+                                 runtime::Value* out_value, std::string* out_error) const {
     if (op == frontend::BinaryOp::Add && (lhs.IsString() || rhs.IsString())) {
         *out_value = runtime::Value(lhs.ToString() + rhs.ToString());
         return true;
@@ -658,11 +816,8 @@ bool Interpreter::EvaluateBinary(
     return false;
 }
 
-bool Interpreter::ExecuteCall(
-    const frontend::CallExpr& call,
-    bool require_return_value,
-    runtime::Value* out_value,
-    std::string* out_error) {
+bool Interpreter::ExecuteCall(const frontend::CallExpr& call, bool require_return_value, runtime::Value* out_value,
+                              std::string* out_error) {
     bool was_builtin = false;
     if (!ExecuteBuiltinCall(call, &was_builtin, out_value, out_error)) {
         return false;
@@ -680,11 +835,8 @@ bool Interpreter::ExecuteCall(
     return ExecuteUserFunction(*function_it->second, call, require_return_value, out_value, out_error);
 }
 
-bool Interpreter::ExecuteBuiltinCall(
-    const frontend::CallExpr& call,
-    bool* out_was_builtin,
-    runtime::Value* out_value,
-    std::string* out_error) {
+bool Interpreter::ExecuteBuiltinCall(const frontend::CallExpr& call, bool* out_was_builtin, runtime::Value* out_value,
+                                     std::string* out_error) {
     *out_was_builtin = false;
 
     if (call.callee == "sum" && imported_modules_.count("math") > 0) {
@@ -734,6 +886,62 @@ bool Interpreter::ExecuteBuiltinCall(
         std::string line;
         std::getline(std::cin, line);
         *out_value = runtime::Value(line);
+        return true;
+    }
+
+    if (call.callee == "println") {
+        *out_was_builtin = true;
+
+        if (call.arguments.size() > 1) {
+            *out_error = "println() acepta 0 o 1 argumento.";
+            return false;
+        }
+
+        if (call.arguments.size() == 1) {
+            runtime::Value value;
+            if (!EvaluateExpression(*call.arguments[0].value, &value, out_error)) {
+                return false;
+            }
+            std::cout << value.ToString();
+        }
+
+        std::cout << std::endl;
+        *out_value = runtime::Value(0.0);
+        return true;
+    }
+
+    if (call.callee == "printf") {
+        *out_was_builtin = true;
+
+        if (call.arguments.empty()) {
+            *out_error = "printf(format, ...args) requiere al menos 1 argumento.";
+            return false;
+        }
+
+        runtime::Value format_value;
+        if (!EvaluateExpression(*call.arguments[0].value, &format_value, out_error)) {
+            return false;
+        }
+
+        const std::string format = format_value.ToString();
+        std::vector<runtime::Value> format_arguments;
+        format_arguments.reserve(call.arguments.size() - 1);
+
+        for (std::size_t i = 1; i < call.arguments.size(); ++i) {
+            runtime::Value evaluated;
+            if (!EvaluateExpression(*call.arguments[i].value, &evaluated, out_error)) {
+                return false;
+            }
+            format_arguments.push_back(std::move(evaluated));
+        }
+
+        std::string rendered;
+        if (!RenderPrintfFormat(format, format_arguments, &rendered, out_error)) {
+            return false;
+        }
+
+        std::cout << rendered << std::flush;
+        *out_value = runtime::Value(static_cast<long long>(rendered.size()));
         return true;
     }
 
@@ -851,20 +1059,21 @@ bool Interpreter::ExecuteBuiltinCall(
         const std::string path = path_value.ToString();
         const long long task_id = next_async_task_id_++;
         async_tasks_[task_id] = AsyncTaskState{
-            std::async(std::launch::async, [path]() -> AsyncTaskResult {
-                AsyncTaskResult result;
-                std::string text;
-                std::string error;
-                if (!ReadFileToString(path, &text, &error)) {
-                    result.ok = false;
-                    result.error = std::move(error);
-                    return result;
-                }
+            std::async(std::launch::async,
+                       [path]() -> AsyncTaskResult {
+                           AsyncTaskResult result;
+                           std::string text;
+                           std::string error;
+                           if (!ReadFileToString(path, &text, &error)) {
+                               result.ok = false;
+                               result.error = std::move(error);
+                               return result;
+                           }
 
-                result.ok = true;
-                result.value = runtime::Value(std::move(text));
-                return result;
-            }),
+                           result.ok = true;
+                           result.value = runtime::Value(std::move(text));
+                           return result;
+                       }),
         };
 
         *out_value = runtime::Value(task_id);
@@ -937,12 +1146,8 @@ bool Interpreter::ExecuteBuiltinCall(
     return true;
 }
 
-bool Interpreter::ExecuteUserFunction(
-    const frontend::FunctionDeclStmt& function,
-    const frontend::CallExpr& call,
-    bool require_return_value,
-    runtime::Value* out_value,
-    std::string* out_error) {
+bool Interpreter::ExecuteUserFunction(const frontend::FunctionDeclStmt& function, const frontend::CallExpr& call,
+                                      bool require_return_value, runtime::Value* out_value, std::string* out_error) {
     if (call.arguments.size() != function.params.size()) {
         *out_error = "Numero incorrecto de argumentos para funcion '" + function.name + "'.";
         return false;
@@ -1037,4 +1242,4 @@ bool Interpreter::ExecuteUserFunction(
     return true;
 }
 
-}  // namespace clot::interpreter
+} // namespace clot::interpreter

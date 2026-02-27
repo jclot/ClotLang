@@ -53,6 +53,10 @@ bool Interpreter::ResolveVariable(
     if (dot == std::string::npos) {
         const auto found = environment_.find(name);
         if (found == environment_.end()) {
+            if (name == "endl") {
+                *out_value = runtime::Value("\n");
+                return true;
+            }
             *out_error = "Variable no definida: " + name;
             return false;
         }
