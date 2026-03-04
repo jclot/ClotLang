@@ -8,17 +8,27 @@
 #include <utility>
 #include <vector>
 
+#include "clot/runtime/bigint.hpp"
+
 namespace clot::frontend {
 
 namespace {
+
+using BigInt = runtime::BigInt;
 
 enum class TypeHint {
     Unknown,
     Number,
     String,
     Bool,
+    Char,
     List,
+    Tuple,
+    Set,
+    Map,
     Object,
+    Null,
+    Function,
 };
 
 struct SymbolInfo {
@@ -31,10 +41,47 @@ struct FunctionInfo {
 };
 
 struct ExpressionFacts {
+    ExpressionFacts() = default;
+    ExpressionFacts(TypeHint in_hint, bool in_is_constant_numeric, double in_constant_numeric)
+        : hint(in_hint),
+          is_constant_numeric(in_is_constant_numeric),
+          constant_numeric(in_constant_numeric) {}
+
     TypeHint hint = TypeHint::Unknown;
     bool is_constant_numeric = false;
     double constant_numeric = 0.0;
+    bool is_constant_integer_literal = false;
+    std::string constant_integer_lexeme;
 };
+
+bool TryParseBigIntLiteral(const std::string& text, BigInt* out_integer) {
+    if (out_integer == nullptr || text.empty()) {
+        return false;
+    }
+
+    std::size_t index = 0;
+    bool negative = false;
+    if (text[index] == '+' || text[index] == '-') {
+        negative = text[index] == '-';
+        ++index;
+    }
+    if (index >= text.size()) {
+        return false;
+    }
+
+    BigInt value = 0;
+    for (; index < text.size(); ++index) {
+        const char digit = text[index];
+        if (digit < '0' || digit > '9') {
+            return false;
+        }
+        value *= 10;
+        value += static_cast<unsigned>(digit - '0');
+    }
+
+    *out_integer = negative ? -value : value;
+    return true;
+}
 
 using SymbolTable = std::unordered_map<std::string, SymbolInfo>;
 using FunctionTable = std::unordered_map<std::string, FunctionInfo>;
@@ -176,6 +223,14 @@ private:
             return;
         }
 
+        if (const auto* enum_decl = dynamic_cast<const EnumDeclStmt*>(&statement)) {
+            SymbolInfo info;
+            info.declaration_type = DeclarationType::Inferred;
+            info.hint = TypeHint::Object;
+            (*symbols)[enum_decl->name] = info;
+            return;
+        }
+
         if (const auto* expression_stmt = dynamic_cast<const ExpressionStmt*>(&statement)) {
             (void)InferExpression(*expression_stmt->expr, statement_id, *symbols);
             return;
@@ -243,8 +298,23 @@ private:
 
         SymbolInfo updated;
         updated.declaration_type = effective_type;
-        if (effective_type == DeclarationType::Long || effective_type == DeclarationType::Byte) {
+        if (effective_type == DeclarationType::Int ||
+            effective_type == DeclarationType::Double ||
+            effective_type == DeclarationType::Float ||
+            effective_type == DeclarationType::Decimal ||
+            effective_type == DeclarationType::Long ||
+            effective_type == DeclarationType::Byte) {
             updated.hint = TypeHint::Number;
+        } else if (effective_type == DeclarationType::Char) {
+            updated.hint = TypeHint::Char;
+        } else if (effective_type == DeclarationType::Tuple) {
+            updated.hint = TypeHint::Tuple;
+        } else if (effective_type == DeclarationType::Set) {
+            updated.hint = TypeHint::Set;
+        } else if (effective_type == DeclarationType::Map) {
+            updated.hint = TypeHint::Map;
+        } else if (effective_type == DeclarationType::Function) {
+            updated.hint = TypeHint::Function;
         } else if (assignment.op == AssignmentOp::AddAssign || assignment.op == AssignmentOp::SubAssign) {
             updated.hint = TypeHint::Number;
         } else {
@@ -295,7 +365,16 @@ private:
         std::size_t statement_id,
         const SymbolTable& symbols) {
         if (const auto* number = dynamic_cast<const NumberExpr*>(&expression)) {
-            return ExpressionFacts{TypeHint::Number, true, number->value};
+            ExpressionFacts facts;
+            facts.hint = TypeHint::Number;
+            facts.is_constant_numeric = true;
+            facts.constant_numeric = number->value;
+            facts.is_constant_integer_literal = number->is_integer_literal;
+            facts.constant_integer_lexeme = number->lexeme;
+            if (number->exact_integer64.has_value()) {
+                facts.constant_numeric = static_cast<double>(*number->exact_integer64);
+            }
+            return facts;
         }
 
         if (const auto* text = dynamic_cast<const StringExpr*>(&expression)) {
@@ -311,6 +390,15 @@ private:
             };
         }
 
+        if (const auto* character = dynamic_cast<const CharExpr*>(&expression)) {
+            (void)character;
+            return ExpressionFacts{TypeHint::Char, false, 0.0};
+        }
+
+        if (dynamic_cast<const NullExpr*>(&expression) != nullptr) {
+            return ExpressionFacts{TypeHint::Null, false, 0.0};
+        }
+
         if (const auto* variable = dynamic_cast<const VariableExpr*>(&expression)) {
             if (variable->name == "endl") {
                 return ExpressionFacts{TypeHint::String, false, 0.0};
@@ -324,11 +412,18 @@ private:
 
             const auto found = symbols.find(lookup_name);
             if (found == symbols.end()) {
+                if (functions_.find(lookup_name) != functions_.end()) {
+                    return ExpressionFacts{TypeHint::Function, false, 0.0};
+                }
                 AddError(statement_id, "Variable potencialmente no definida: '" + lookup_name + "'.");
                 return ExpressionFacts{TypeHint::Unknown, false, 0.0};
             }
 
-            if (found->second.declaration_type == DeclarationType::Long ||
+            if (found->second.declaration_type == DeclarationType::Int ||
+                found->second.declaration_type == DeclarationType::Double ||
+                found->second.declaration_type == DeclarationType::Float ||
+                found->second.declaration_type == DeclarationType::Decimal ||
+                found->second.declaration_type == DeclarationType::Long ||
                 found->second.declaration_type == DeclarationType::Byte) {
                 return ExpressionFacts{TypeHint::Number, false, 0.0};
             }
@@ -464,6 +559,101 @@ private:
             return ExpressionFacts{TypeHint::Number, false, 0.0};
         }
 
+        if (call.callee == "factorial") {
+            if (!math_imported_) {
+                AddWarning(statement_id, "factorial(a) requiere import math para evitar fallo en runtime.");
+            }
+            if (call.arguments.size() != 1) {
+                AddError(statement_id, "factorial(a) requiere 1 argumento.");
+            }
+            return ExpressionFacts{TypeHint::Number, false, 0.0};
+        }
+
+        if (call.callee == "sqrt" ||
+            call.callee == "pow" ||
+            call.callee == "log" ||
+            call.callee == "ln" ||
+            call.callee == "exp" ||
+            call.callee == "abs" ||
+            call.callee == "sin" ||
+            call.callee == "cos" ||
+            call.callee == "tan" ||
+            call.callee == "asin" ||
+            call.callee == "acos" ||
+            call.callee == "atan" ||
+            call.callee == "gcd" ||
+            call.callee == "lcm") {
+            if (!math_imported_) {
+                AddWarning(statement_id, call.callee + "() requiere import math para evitar fallo en runtime.");
+            }
+
+            if (call.callee == "pow" || call.callee == "gcd" || call.callee == "lcm") {
+                if (call.arguments.size() != 2) {
+                    AddError(statement_id, call.callee + "() requiere 2 argumentos.");
+                }
+            } else if (call.callee == "log") {
+                if (call.arguments.size() != 1 && call.arguments.size() != 2) {
+                    AddError(statement_id, "log() requiere 1 o 2 argumentos.");
+                }
+            } else {
+                if (call.arguments.size() != 1) {
+                    AddError(statement_id, call.callee + "() requiere 1 argumento.");
+                }
+            }
+
+            return ExpressionFacts{TypeHint::Number, false, 0.0};
+        }
+
+        if (call.callee == "type") {
+            if (call.arguments.size() != 1) {
+                AddError(statement_id, "type(value) requiere 1 argumento.");
+            }
+            return ExpressionFacts{TypeHint::String, false, 0.0};
+        }
+
+        if (call.callee == "tuple") {
+            return ExpressionFacts{TypeHint::Tuple, false, 0.0};
+        }
+
+        if (call.callee == "set") {
+            return ExpressionFacts{TypeHint::Set, false, 0.0};
+        }
+
+        if (call.callee == "map") {
+            if ((call.arguments.size() % 2) != 0) {
+                AddError(statement_id, "map(key, value, ...) requiere cantidad par de argumentos.");
+            }
+            return ExpressionFacts{TypeHint::Map, false, 0.0};
+        }
+
+        if (call.callee == "enum_name") {
+            if (call.arguments.size() != 2) {
+                AddError(statement_id, "enum_name(enum_obj, value) requiere 2 argumentos.");
+            }
+            return ExpressionFacts{TypeHint::String, false, 0.0};
+        }
+
+        if (call.callee == "enum_value") {
+            if (call.arguments.size() != 2) {
+                AddError(statement_id, "enum_value(enum_obj, name) requiere 2 argumentos.");
+            }
+            return ExpressionFacts{TypeHint::Number, false, 0.0};
+        }
+
+        if (call.callee == "cast") {
+            if (call.arguments.size() != 2) {
+                AddError(statement_id, "cast(value, type_name) requiere 2 argumentos.");
+            }
+            return ExpressionFacts{TypeHint::Unknown, false, 0.0};
+        }
+
+        if (call.callee == "assert") {
+            if (call.arguments.size() != 1 && call.arguments.size() != 2) {
+                AddError(statement_id, "assert(cond) o assert(cond, mensaje) requiere 1 o 2 argumentos.");
+            }
+            return ExpressionFacts{TypeHint::Bool, false, 0.0};
+        }
+
         if (call.callee == "input") {
             if (call.arguments.size() > 1) {
                 AddError(statement_id, "input() acepta 0 o 1 argumento.");
@@ -543,6 +733,10 @@ private:
 
         const auto function_it = functions_.find(call.callee);
         if (function_it == functions_.end()) {
+            const auto symbol_it = symbols.find(call.callee);
+            if (symbol_it != symbols.end() && symbol_it->second.hint == TypeHint::Function) {
+                return ExpressionFacts{TypeHint::Unknown, false, 0.0};
+            }
             AddError(statement_id, "Llamada a funcion no definida: '" + call.callee + "'.");
             return ExpressionFacts{TypeHint::Unknown, false, 0.0};
         }
@@ -587,15 +781,100 @@ private:
         const ExpressionFacts& rhs,
         std::size_t statement_id,
         const std::string& variable_name) {
-        if (declaration_type != DeclarationType::Long && declaration_type != DeclarationType::Byte) {
+        if (declaration_type == DeclarationType::Char) {
+            if (rhs.hint != TypeHint::Unknown &&
+                rhs.hint != TypeHint::Char &&
+                rhs.hint != TypeHint::String &&
+                rhs.hint != TypeHint::Number) {
+                AddError(statement_id, "Asignacion potencialmente invalida para char en '" + variable_name + "'.");
+            }
+            return;
+        }
+
+        if (declaration_type == DeclarationType::Tuple) {
+            if (rhs.hint != TypeHint::Unknown &&
+                rhs.hint != TypeHint::Tuple &&
+                rhs.hint != TypeHint::List &&
+                rhs.hint != TypeHint::Set) {
+                AddError(statement_id, "Asignacion potencialmente invalida para tuple en '" + variable_name + "'.");
+            }
+            return;
+        }
+
+        if (declaration_type == DeclarationType::Set) {
+            if (rhs.hint != TypeHint::Unknown &&
+                rhs.hint != TypeHint::Set &&
+                rhs.hint != TypeHint::List &&
+                rhs.hint != TypeHint::Tuple) {
+                AddError(statement_id, "Asignacion potencialmente invalida para set en '" + variable_name + "'.");
+            }
+            return;
+        }
+
+        if (declaration_type == DeclarationType::Map) {
+            if (rhs.hint != TypeHint::Unknown &&
+                rhs.hint != TypeHint::Map &&
+                rhs.hint != TypeHint::Object) {
+                AddError(statement_id, "Asignacion potencialmente invalida para map en '" + variable_name + "'.");
+            }
+            return;
+        }
+
+        if (declaration_type == DeclarationType::Function) {
+            if (rhs.hint != TypeHint::Unknown && rhs.hint != TypeHint::Function) {
+                AddError(statement_id, "Asignacion potencialmente invalida para function en '" + variable_name + "'.");
+            }
+            return;
+        }
+
+        if (declaration_type != DeclarationType::Int &&
+            declaration_type != DeclarationType::Double &&
+            declaration_type != DeclarationType::Float &&
+            declaration_type != DeclarationType::Decimal &&
+            declaration_type != DeclarationType::Long &&
+            declaration_type != DeclarationType::Byte) {
             return;
         }
 
         if (rhs.hint == TypeHint::String ||
             rhs.hint == TypeHint::Bool ||
+            rhs.hint == TypeHint::Char ||
             rhs.hint == TypeHint::List ||
-            rhs.hint == TypeHint::Object) {
+            rhs.hint == TypeHint::Tuple ||
+            rhs.hint == TypeHint::Set ||
+            rhs.hint == TypeHint::Map ||
+            rhs.hint == TypeHint::Object ||
+            rhs.hint == TypeHint::Null ||
+            rhs.hint == TypeHint::Function) {
             AddError(statement_id, "Asignacion potencialmente invalida para variable tipada: '" + variable_name + "'.");
+            return;
+        }
+
+        if (declaration_type == DeclarationType::Double ||
+            declaration_type == DeclarationType::Float ||
+            declaration_type == DeclarationType::Decimal ||
+            declaration_type == DeclarationType::Int) {
+            return;
+        }
+
+        if (rhs.is_constant_integer_literal) {
+            BigInt integer;
+            if (!TryParseBigIntLiteral(rhs.constant_integer_lexeme, &integer)) {
+                return;
+            }
+
+            if (declaration_type == DeclarationType::Long) {
+                static const BigInt kLongMin = BigInt(std::numeric_limits<long long>::min());
+                static const BigInt kLongMax = BigInt(std::numeric_limits<long long>::max());
+                if (integer < kLongMin || integer > kLongMax) {
+                    AddError(statement_id, "Constante fuera de rango para long en '" + variable_name + "'.");
+                }
+                return;
+            }
+
+            if (integer < 0 || integer > 255) {
+                AddError(statement_id, "Constante fuera de rango para byte en '" + variable_name + "'.");
+            }
             return;
         }
 

@@ -1,13 +1,17 @@
 #include "clot/interpreter/interpreter.hpp"
 
+#include <iomanip>
 #include <cmath>
 #include <limits>
+#include <sstream>
 #include <string>
 #include <utility>
 
 namespace clot::interpreter {
 
 namespace {
+
+using BigInt = runtime::Value::BigInt;
 
 bool ReadNumeric(const runtime::Value& value, double* out_number, std::string* out_error) {
     bool ok = false;
@@ -23,23 +27,45 @@ bool ReadNumeric(const runtime::Value& value, double* out_number, std::string* o
     return true;
 }
 
-bool ReadListIndex(const runtime::Value& value, std::size_t* out_index, std::string* out_error) {
-    double numeric_index = 0.0;
-    if (!ReadNumeric(value, &numeric_index, out_error)) {
+bool TruncateDoubleToBigInt(double value, BigInt* out_integer) {
+    if (out_integer == nullptr || !std::isfinite(value)) {
         return false;
     }
 
-    if (!std::isfinite(numeric_index) ||
-        std::trunc(numeric_index) != numeric_index ||
-        numeric_index < 0.0 ||
-        numeric_index >= 9223372036854775808.0) {  // 2^63
+    std::ostringstream stream;
+    stream << std::fixed << std::setprecision(0) << std::trunc(value);
+    return runtime::Value::TryParseBigInt(stream.str(), out_integer);
+}
+
+bool ReadListIndex(const runtime::Value& value, std::size_t* out_index, std::string* out_error) {
+    BigInt integer_index;
+    if (!value.AsBigInt(&integer_index)) {
         if (out_error != nullptr) {
             *out_error = "El indice de lista debe ser un entero finito.";
         }
         return false;
     }
 
-    *out_index = static_cast<std::size_t>(static_cast<long long>(numeric_index));
+    if (integer_index < 0) {
+        if (out_error != nullptr) {
+            *out_error = "El indice de lista debe ser un entero finito.";
+        }
+        return false;
+    }
+
+    static const BigInt kMaxIndex = [] {
+        BigInt parsed;
+        (void)BigInt::TryParse(std::to_string(std::numeric_limits<std::size_t>::max()), &parsed);
+        return parsed;
+    }();
+    if (integer_index > kMaxIndex) {
+        if (out_error != nullptr) {
+            *out_error = "El indice de lista debe ser un entero finito.";
+        }
+        return false;
+    }
+
+    *out_index = integer_index.convert_to<std::size_t>();
     return true;
 }
 
@@ -56,6 +82,29 @@ bool Interpreter::ResolveVariable(
             if (name == "endl") {
                 *out_value = runtime::Value("\n");
                 return true;
+            }
+            const auto function = functions_.find(name);
+            if (function != functions_.end()) {
+                *out_value = runtime::Value(runtime::Value::FunctionRef{name});
+                return true;
+            }
+            if (imported_modules_.count("math") > 0) {
+                if (name == "PI" || name == "pi") {
+                    *out_value = runtime::Value(3.14159265358979323846);
+                    return true;
+                }
+                if (name == "E" || name == "e") {
+                    *out_value = runtime::Value(2.71828182845904523536);
+                    return true;
+                }
+                if (name == "TAU" || name == "tau") {
+                    *out_value = runtime::Value(6.28318530717958647693);
+                    return true;
+                }
+                if (name == "PHI" || name == "phi") {
+                    *out_value = runtime::Value(1.61803398874989484820);
+                    return true;
+                }
             }
             *out_error = "Variable no definida: " + name;
             return false;
@@ -195,24 +244,55 @@ bool Interpreter::ResolveMutableTarget(
             return false;
         }
 
-        runtime::Value::List* list = collection->MutableList();
-        if (list == nullptr) {
-            *out_error = "Solo se puede mutar una lista con [].";
+        if (runtime::Value::List* list = collection->MutableList()) {
+            std::size_t integer_index = 0;
+            if (!ReadListIndex(index_value, &integer_index, out_error)) {
+                return false;
+            }
+
+            if (integer_index >= list->size()) {
+                *out_error = "Indice fuera de rango en lista.";
+                return false;
+            }
+
+            *out_value = &(*list)[integer_index];
+            return true;
+        }
+
+        if (collection->AsTuple() != nullptr) {
+            *out_error = "No se puede mutar un tuple con [].";
             return false;
         }
 
-        std::size_t integer_index = 0;
-        if (!ReadListIndex(index_value, &integer_index, out_error)) {
-            return false;
+        if (collection->IsMap()) {
+            if (create_missing_property) {
+                *out_value = collection->EnsureMapValue(index_value);
+            } else {
+                *out_value = collection->GetMutableMapValue(index_value);
+            }
+            if (*out_value == nullptr) {
+                *out_error = "Clave no encontrada en map.";
+                return false;
+            }
+            return true;
         }
 
-        if (integer_index >= list->size()) {
-            *out_error = "Indice fuera de rango en lista.";
-            return false;
+        if (collection->IsObject()) {
+            const std::string key = index_value.ToString();
+            if (create_missing_property) {
+                *out_value = collection->EnsureObjectProperty(key);
+            } else {
+                *out_value = collection->GetMutableObjectProperty(key);
+            }
+            if (*out_value == nullptr) {
+                *out_error = "Propiedad no encontrada: " + key;
+                return false;
+            }
+            return true;
         }
 
-        *out_value = &(*list)[integer_index];
-        return true;
+        *out_error = "Solo se puede mutar list, map u object con [].";
+        return false;
     }
 
     *out_error = "El lado izquierdo de una mutacion debe ser variable o indexacion.";
@@ -232,48 +312,206 @@ bool Interpreter::NormalizeValueForKind(
     }
 
     runtime::Value normalized = value;
-    if (kind == runtime::VariableKind::Long || kind == runtime::VariableKind::Byte) {
-        bool integer_ok = false;
-        const long long integer = value.AsInteger(&integer_ok);
-        if (integer_ok) {
-            if (kind == runtime::VariableKind::Long) {
-                normalized = runtime::Value(integer);
-            } else {
-                if (integer < 0 || integer > 255) {
-                    *out_error = "Valor fuera de rango para byte (0-255).";
-                    return false;
-                }
-                normalized = runtime::Value(static_cast<long long>(static_cast<unsigned char>(integer)));
-            }
-            *out_value = std::move(normalized);
-            return true;
-        }
+    if (kind == runtime::VariableKind::Dynamic) {
+        *out_value = std::move(normalized);
+        return true;
+    }
 
+    if (kind == runtime::VariableKind::Double) {
         double numeric = 0.0;
         if (!ReadNumeric(value, &numeric, out_error)) {
             return false;
         }
+        if (!std::isfinite(numeric)) {
+            *out_error = "Valor no finito para double.";
+            return false;
+        }
+        normalized = runtime::Value(numeric);
+        *out_value = std::move(normalized);
+        return true;
+    }
 
-        if (kind == runtime::VariableKind::Long) {
-            constexpr double kLongMin = static_cast<double>(std::numeric_limits<long long>::min());
-            constexpr double kLongUpperExclusive = 9223372036854775808.0;  // 2^63
-            if (!std::isfinite(numeric) ||
-                numeric < kLongMin ||
-                numeric >= kLongUpperExclusive) {
-                *out_error = "Valor fuera de rango para long.";
+    if (kind == runtime::VariableKind::Float) {
+        double numeric = 0.0;
+        if (!ReadNumeric(value, &numeric, out_error)) {
+            return false;
+        }
+        if (!std::isfinite(numeric) ||
+            numeric < -static_cast<double>(std::numeric_limits<float>::max()) ||
+            numeric > static_cast<double>(std::numeric_limits<float>::max())) {
+            *out_error = "Valor fuera de rango para float.";
+            return false;
+        }
+        normalized = runtime::Value(static_cast<float>(numeric));
+        *out_value = std::move(normalized);
+        return true;
+    }
+
+    if (kind == runtime::VariableKind::Decimal) {
+        runtime::Value::Decimal decimal;
+        if (!value.AsDecimal(&decimal)) {
+            *out_error = "La expresion requiere un decimal.";
+            return false;
+        }
+        normalized = runtime::Value(std::move(decimal));
+        *out_value = std::move(normalized);
+        return true;
+    }
+
+    if (kind == runtime::VariableKind::Char) {
+        if (value.IsChar()) {
+            *out_value = value;
+            return true;
+        }
+
+        if (value.IsString()) {
+            const std::string text = value.ToString();
+            if (text.size() != 1) {
+                *out_error = "Valor invalido para char (requiere longitud 1).";
                 return false;
             }
-            const long long integer_value = static_cast<long long>(std::trunc(numeric));
-            normalized = runtime::Value(integer_value);
-        } else {
-            if (!std::isfinite(numeric) || numeric < 0.0 || numeric > 255.0) {
-                *out_error = "Valor fuera de rango para byte (0-255).";
-                return false;
+            *out_value = runtime::Value(text[0]);
+            return true;
+        }
+
+        BigInt integer;
+        if (value.AsBigInt(&integer) && integer >= 0 && integer <= 255) {
+            *out_value = runtime::Value(static_cast<char>(static_cast<unsigned char>(integer.convert_to<unsigned>())));
+            return true;
+        }
+
+        *out_error = "Valor invalido para char.";
+        return false;
+    }
+
+    if (kind == runtime::VariableKind::Tuple) {
+        if (const auto* tuple = value.AsTuple()) {
+            *out_value = runtime::Value(runtime::Value::Tuple{*tuple});
+            return true;
+        }
+        if (const auto* list = value.AsList()) {
+            *out_value = runtime::Value(runtime::Value::Tuple{*list});
+            return true;
+        }
+        if (const auto* set = value.AsSet()) {
+            *out_value = runtime::Value(runtime::Value::Tuple{*set});
+            return true;
+        }
+
+        *out_error = "Valor invalido para tuple.";
+        return false;
+    }
+
+    if (kind == runtime::VariableKind::Set) {
+        runtime::Value::Set result;
+        auto insert_unique = [&result](const runtime::Value& candidate) {
+            for (const auto& existing : result.elements) {
+                if (existing.Equals(candidate)) {
+                    return;
+                }
             }
-            const long long integer_value = static_cast<long long>(std::trunc(numeric));
-            normalized = runtime::Value(static_cast<long long>(static_cast<unsigned char>(integer_value)));
+            result.elements.push_back(candidate);
+        };
+
+        if (const auto* set = value.AsSet()) {
+            for (const auto& element : *set) {
+                insert_unique(element);
+            }
+            *out_value = runtime::Value(std::move(result));
+            return true;
+        }
+        if (const auto* list = value.AsList()) {
+            for (const auto& element : *list) {
+                insert_unique(element);
+            }
+            *out_value = runtime::Value(std::move(result));
+            return true;
+        }
+        if (const auto* tuple = value.AsTuple()) {
+            for (const auto& element : *tuple) {
+                insert_unique(element);
+            }
+            *out_value = runtime::Value(std::move(result));
+            return true;
+        }
+
+        insert_unique(value);
+        *out_value = runtime::Value(std::move(result));
+        return true;
+    }
+
+    if (kind == runtime::VariableKind::Map) {
+        if (const auto* map = value.AsMap()) {
+            *out_value = runtime::Value(runtime::Value::Map{*map});
+            return true;
+        }
+
+        if (const auto* object = value.AsObject()) {
+            runtime::Value::Map map;
+            map.entries.reserve(object->size());
+            for (const auto& entry : *object) {
+                map.entries.push_back({runtime::Value(entry.first), entry.second});
+            }
+            *out_value = runtime::Value(std::move(map));
+            return true;
+        }
+
+        *out_error = "Valor invalido para map.";
+        return false;
+    }
+
+    if (kind == runtime::VariableKind::Function) {
+        if (value.IsFunctionRef()) {
+            *out_value = value;
+            return true;
+        }
+
+        if (value.IsString()) {
+            const std::string function_name = value.ToString();
+            if (functions_.find(function_name) != functions_.end()) {
+                *out_value = runtime::Value(runtime::Value::FunctionRef{function_name});
+                return true;
+            }
+        }
+
+        *out_error = "Valor invalido para function.";
+        return false;
+    }
+
+    BigInt integer;
+    if (!value.AsBigInt(&integer)) {
+        double numeric = 0.0;
+        if (!ReadNumeric(value, &numeric, out_error)) {
+            return false;
+        }
+        if (!TruncateDoubleToBigInt(numeric, &integer)) {
+            *out_error = "No se pudo convertir el valor numerico a entero.";
+            return false;
         }
     }
+
+    if (kind == runtime::VariableKind::Int) {
+        normalized = runtime::Value(std::move(integer));
+        *out_value = std::move(normalized);
+        return true;
+    }
+
+    if (kind == runtime::VariableKind::Long) {
+        long long integer64 = 0;
+        if (!runtime::Value::TryBigIntToInt64(integer, &integer64)) {
+            *out_error = "Valor fuera de rango para long.";
+            return false;
+        }
+        normalized = runtime::Value(integer64);
+        *out_value = std::move(normalized);
+        return true;
+    }
+
+    if (integer < 0 || integer > 255) {
+        *out_error = "Valor fuera de rango para byte (0-255).";
+        return false;
+    }
+    normalized = runtime::Value(std::move(integer));
 
     *out_value = std::move(normalized);
     return true;
@@ -285,7 +523,7 @@ bool Interpreter::AssignValue(
     std::string* out_error) {
     if (statement.name.find('.') != std::string::npos) {
         if (statement.declaration_type != frontend::DeclarationType::Inferred) {
-            *out_error = "No se puede declarar tipo long/byte sobre una propiedad de objeto.";
+            *out_error = "No se puede declarar tipo explicito sobre una propiedad de objeto.";
             return false;
         }
 
@@ -304,10 +542,28 @@ bool Interpreter::AssignValue(
         target_kind = existing->second.kind;
     }
 
-    if (statement.declaration_type == frontend::DeclarationType::Long) {
+    if (statement.declaration_type == frontend::DeclarationType::Int) {
+        target_kind = runtime::VariableKind::Int;
+    } else if (statement.declaration_type == frontend::DeclarationType::Double) {
+        target_kind = runtime::VariableKind::Double;
+    } else if (statement.declaration_type == frontend::DeclarationType::Float) {
+        target_kind = runtime::VariableKind::Float;
+    } else if (statement.declaration_type == frontend::DeclarationType::Decimal) {
+        target_kind = runtime::VariableKind::Decimal;
+    } else if (statement.declaration_type == frontend::DeclarationType::Long) {
         target_kind = runtime::VariableKind::Long;
     } else if (statement.declaration_type == frontend::DeclarationType::Byte) {
         target_kind = runtime::VariableKind::Byte;
+    } else if (statement.declaration_type == frontend::DeclarationType::Char) {
+        target_kind = runtime::VariableKind::Char;
+    } else if (statement.declaration_type == frontend::DeclarationType::Tuple) {
+        target_kind = runtime::VariableKind::Tuple;
+    } else if (statement.declaration_type == frontend::DeclarationType::Set) {
+        target_kind = runtime::VariableKind::Set;
+    } else if (statement.declaration_type == frontend::DeclarationType::Map) {
+        target_kind = runtime::VariableKind::Map;
+    } else if (statement.declaration_type == frontend::DeclarationType::Function) {
+        target_kind = runtime::VariableKind::Function;
     }
 
     runtime::Value normalized;

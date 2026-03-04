@@ -3,7 +3,6 @@
 #ifdef CLOT_HAS_LLVM
 
 #include <algorithm>
-#include <string_view>
 #include <utility>
 
 namespace clot::codegen::internal {
@@ -12,24 +11,31 @@ bool ContainsDot(const std::string& value) {
     return value.find('.') != std::string::npos;
 }
 
-bool IsUnsafeIntegerLiteralForDouble(const std::string& lexeme) {
-    if (ContainsDot(lexeme)) {
-        return false;
+bool IsAotMathBuiltinName(const std::string& callee) {
+    return callee == "sum" ||
+           callee == "factorial" ||
+           callee == "sqrt" ||
+           callee == "pow" ||
+           callee == "log" ||
+           callee == "ln" ||
+           callee == "exp" ||
+           callee == "abs" ||
+           callee == "sin" ||
+           callee == "cos" ||
+           callee == "tan" ||
+           callee == "asin" ||
+           callee == "acos" ||
+           callee == "atan";
+}
+
+bool IsAotMathBuiltinArityValid(const frontend::CallExpr& call) {
+    if (call.callee == "sum" || call.callee == "pow") {
+        return call.arguments.size() == 2;
     }
-
-    std::size_t first_non_zero = lexeme.find_first_not_of('0');
-    if (first_non_zero == std::string::npos) {
-        return false;
+    if (call.callee == "log") {
+        return call.arguments.size() == 1 || call.arguments.size() == 2;
     }
-
-    const std::string_view digits(lexeme.data() + first_non_zero, lexeme.size() - first_non_zero);
-    constexpr std::string_view kMaxSafeInteger = "9007199254740991";  // 2^53 - 1
-
-    if (digits.size() != kMaxSafeInteger.size()) {
-        return digits.size() > kMaxSafeInteger.size();
-    }
-
-    return digits > kMaxSafeInteger;
+    return call.arguments.size() == 1;
 }
 
 bool ContainsMathImportInStatement(const frontend::Statement& statement) {
@@ -94,16 +100,10 @@ bool CollectAotSupportContext(const frontend::Program& program, AotSupportContex
 
 bool IsAotSupportedExpr(const frontend::Expr& expression, const AotSupportContext& context) {
     if (const auto* number = dynamic_cast<const frontend::NumberExpr*>(&expression)) {
-        if (IsUnsafeIntegerLiteralForDouble(number->lexeme)) {
+        // The default numeric semantics are arbitrary-precision int. AOT stays in
+        // the explicit-double subset to preserve correctness.
+        if (number->is_integer_literal) {
             return false;
-        }
-
-        if (number->exact_integer.has_value()) {
-            constexpr long long kMaxSafeIntegerInDouble = 9007199254740991LL;  // 2^53 - 1
-            const long long integer = *number->exact_integer;
-            if (integer < -kMaxSafeIntegerInDouble || integer > kMaxSafeIntegerInDouble) {
-                return false;
-            }
         }
         return true;
     }
@@ -134,7 +134,7 @@ bool IsAotSupportedExpr(const frontend::Expr& expression, const AotSupportContex
     }
 
     if (const auto* call = dynamic_cast<const frontend::CallExpr*>(&expression)) {
-        if (call->callee != "sum" || call->arguments.size() != 2 || !context.math_module_imported) {
+        if (!context.math_module_imported || !IsAotMathBuiltinName(call->callee) || !IsAotMathBuiltinArityValid(*call)) {
             return false;
         }
 
@@ -160,7 +160,7 @@ bool IsAotSupportedExpr(const frontend::Expr& expression, const AotSupportContex
 }
 
 bool IsAotSupportedCallStatement(const frontend::CallExpr& call, const AotSupportContext& context) {
-    if (call.callee == "sum" && context.math_module_imported) {
+    if (context.math_module_imported && IsAotMathBuiltinName(call.callee) && IsAotMathBuiltinArityValid(call)) {
         return IsAotSupportedExpr(call, context);
     }
 
@@ -201,6 +201,10 @@ bool IsAotSupportedStatement(
     const AotSupportContext& context,
     bool inside_function) {
     if (const auto* assignment = dynamic_cast<const frontend::AssignmentStmt*>(&statement)) {
+        if (assignment->declaration_type != frontend::DeclarationType::Inferred &&
+            assignment->declaration_type != frontend::DeclarationType::Double) {
+            return false;
+        }
         return !ContainsDot(assignment->name) &&
                assignment->expr != nullptr &&
                IsAotSupportedExpr(*assignment->expr, context);
@@ -236,6 +240,19 @@ bool IsAotSupportedStatement(
             });
 
         return then_supported && else_supported;
+    }
+
+    if (const auto* while_stmt = dynamic_cast<const frontend::WhileStmt*>(&statement)) {
+        if (while_stmt->condition == nullptr || !IsAotSupportedExpr(*while_stmt->condition, context)) {
+            return false;
+        }
+
+        return std::all_of(
+            while_stmt->body.begin(),
+            while_stmt->body.end(),
+            [&context](const std::unique_ptr<frontend::Statement>& nested) {
+                return nested != nullptr && IsAotSupportedStatement(*nested, context, true);
+            });
     }
 
     if (const auto* import_stmt = dynamic_cast<const frontend::ImportStmt*>(&statement)) {

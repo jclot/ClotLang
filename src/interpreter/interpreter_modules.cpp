@@ -11,6 +11,73 @@
 
 namespace clot::interpreter {
 
+namespace {
+
+bool StartsWithPrefix(const std::string& text, const std::string& prefix) {
+    return text.size() >= prefix.size() && text.compare(0, prefix.size(), prefix) == 0;
+}
+
+std::filesystem::path WithClotExtension(std::filesystem::path path) {
+    if (path.extension().empty()) {
+        path += ".clot";
+    }
+    return path;
+}
+
+void AddUniqueCandidate(
+    std::vector<std::filesystem::path>* candidates,
+    const std::filesystem::path& candidate) {
+    if (candidates == nullptr) {
+        return;
+    }
+    for (const auto& existing : *candidates) {
+        if (existing == candidate) {
+            return;
+        }
+    }
+    candidates->push_back(candidate);
+}
+
+std::filesystem::path DotPathToFolderPath(std::string module_name) {
+    std::replace(module_name.begin(), module_name.end(), '.', std::filesystem::path::preferred_separator);
+    return std::filesystem::path(module_name);
+}
+
+std::vector<std::filesystem::path> DotPathToRelativeCandidates(std::string module_name) {
+    const std::filesystem::path folder_path = DotPathToFolderPath(std::move(module_name));
+    std::vector<std::filesystem::path> candidates;
+
+    // Canonical dotted import path: a.b.c -> a/b/c.clot
+    AddUniqueCandidate(&candidates, WithClotExtension(folder_path));
+    if (folder_path.has_filename()) {
+        // Folder module path: a.b.c -> a/b/c/c.clot
+        AddUniqueCandidate(&candidates, folder_path / WithClotExtension(folder_path.filename()));
+    }
+    return candidates;
+}
+
+void AddCandidatesWithRoot(
+    std::vector<std::filesystem::path>* candidates,
+    const std::filesystem::path& root,
+    const std::string& module_name) {
+    for (const auto& relative_candidate : DotPathToRelativeCandidates(module_name)) {
+        AddUniqueCandidate(candidates, root / relative_candidate);
+    }
+}
+
+void AddCandidatesWithPrefixedRoot(
+    std::vector<std::filesystem::path>* candidates,
+    const std::filesystem::path& root,
+    const std::string& module_name,
+    const std::string& prefix) {
+    if (!StartsWithPrefix(module_name, prefix)) {
+        return;
+    }
+    AddCandidatesWithRoot(candidates, root, module_name.substr(prefix.size()));
+}
+
+}  // namespace
+
 bool Interpreter::ImportModule(const std::string& module_name, std::string* out_error) {
     if (module_name == "math") {
         imported_modules_.insert(module_name);
@@ -72,14 +139,54 @@ bool Interpreter::ExecuteModuleFile(const std::filesystem::path& module_path, st
 }
 
 std::filesystem::path Interpreter::ResolveModulePath(const std::string& module_name) const {
-    std::string relative_module = module_name;
-    std::replace(relative_module.begin(), relative_module.end(), '.', std::filesystem::path::preferred_separator);
+    const std::filesystem::path current_dir = CurrentModuleBaseDir();
+    const std::filesystem::path project_dir =
+        entry_file_path_.empty() ? current_dir : entry_file_path_.parent_path();
+    std::vector<std::filesystem::path> candidates;
+    const auto relative_candidates = DotPathToRelativeCandidates(module_name);
 
-    std::filesystem::path candidate = CurrentModuleBaseDir() / relative_module;
-    if (candidate.extension().empty()) {
-        candidate += ".clot";
+    // 1) Direct relative imports (flat + folder module styles).
+    for (const auto& relative_candidate : relative_candidates) {
+        AddUniqueCandidate(&candidates, current_dir / relative_candidate);
     }
-    return candidate;
+
+    // 2) Namespace compatibility remaps.
+    AddCandidatesWithPrefixedRoot(
+        &candidates, project_dir / "clot" / "science", module_name, "modules.");
+    AddCandidatesWithPrefixedRoot(
+        &candidates, project_dir / "clot" / "core", module_name, "mods.");
+
+    // 3) Canonical package root: clot/{science,core,io,ml}.
+    AddCandidatesWithRoot(&candidates, project_dir / "clot", module_name);
+    AddCandidatesWithPrefixedRoot(&candidates, project_dir / "clot", module_name, "clot.");
+    AddCandidatesWithRoot(&candidates, project_dir / "clot" / "science", module_name);
+    AddCandidatesWithPrefixedRoot(
+        &candidates, project_dir / "clot" / "science", module_name, "science.");
+    AddCandidatesWithRoot(&candidates, project_dir / "clot" / "core", module_name);
+    AddCandidatesWithPrefixedRoot(
+        &candidates, project_dir / "clot" / "core", module_name, "core.");
+    AddCandidatesWithRoot(&candidates, project_dir / "clot" / "io", module_name);
+    AddCandidatesWithPrefixedRoot(
+        &candidates, project_dir / "clot" / "io", module_name, "io.");
+    AddCandidatesWithRoot(&candidates, project_dir / "clot" / "ml", module_name);
+    AddCandidatesWithPrefixedRoot(
+        &candidates, project_dir / "clot" / "ml", module_name, "ml.");
+
+    // 4) Backward compatibility roots.
+    AddCandidatesWithRoot(&candidates, project_dir / "modules", module_name);
+    AddCandidatesWithRoot(&candidates, project_dir / "mods", module_name);
+    AddCandidatesWithPrefixedRoot(&candidates, project_dir / "modules", module_name, "modules.");
+    AddCandidatesWithPrefixedRoot(&candidates, project_dir / "mods", module_name, "mods.");
+
+    for (const auto& candidate : candidates) {
+        if (std::filesystem::exists(candidate)) {
+            return candidate;
+        }
+    }
+
+    return candidates.empty()
+               ? current_dir / WithClotExtension(std::filesystem::path(module_name))
+               : candidates.front();
 }
 
 std::filesystem::path Interpreter::CurrentModuleBaseDir() const {

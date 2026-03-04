@@ -77,6 +77,7 @@ class LlvmEmitter {
     bool EmitRangeCheckOrAbort(llvm::Value* out_of_range, const char* message);
     llvm::Value* NormalizeForKind(llvm::Value* value, VariableNumericKind kind);
     llvm::Value* EmitBuiltinSumCall(const frontend::CallExpr& call);
+    llvm::Value* EmitBuiltinMathCall(const frontend::CallExpr& call);
     bool EmitUserFunctionCall(const frontend::CallExpr& call, bool require_numeric_result, llvm::Value** out_value);
     llvm::Value* EmitNumericExpr(const frontend::Expr& expression);
     llvm::Value* BoolToNumber(llvm::Value* bool_value);

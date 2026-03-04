@@ -1,0 +1,4 @@
+// Core helper package example
+func version_tag():
+    return "clot-core-v1";
+endfunc

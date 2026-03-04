@@ -76,6 +76,10 @@ bool Parser::ParseStatement(
         return ParseImport(line_index, tokens, out_statements, out_error);
     }
 
+    if (tokens[0].kind == TokenKind::KeywordEnum) {
+        return ParseEnum(line_index, tokens, out_statements, out_error);
+    }
+
     if (tokens[0].kind == TokenKind::KeywordTry) {
         return ParseTry(line_index, tokens, out_statements, out_error);
     }
@@ -101,7 +105,17 @@ bool Parser::ParseStatement(
         return false;
     }
 
-    if (tokens[0].kind == TokenKind::KeywordLong || tokens[0].kind == TokenKind::KeywordByte) {
+    if (tokens[0].kind == TokenKind::KeywordInt ||
+        tokens[0].kind == TokenKind::KeywordDouble ||
+        tokens[0].kind == TokenKind::KeywordFloat ||
+        tokens[0].kind == TokenKind::KeywordDecimal ||
+        tokens[0].kind == TokenKind::KeywordLong ||
+        tokens[0].kind == TokenKind::KeywordByte ||
+        tokens[0].kind == TokenKind::KeywordChar ||
+        tokens[0].kind == TokenKind::KeywordTuple ||
+        tokens[0].kind == TokenKind::KeywordSet ||
+        tokens[0].kind == TokenKind::KeywordMap ||
+        tokens[0].kind == TokenKind::KeywordFunctionType) {
         return ParseAssignment(line_index, tokens, out_statements, out_error);
     }
 

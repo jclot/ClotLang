@@ -40,8 +40,17 @@ enum class AssignmentOp {
 
 enum class DeclarationType {
     Inferred,
+    Int,
+    Double,
+    Float,
+    Decimal,
     Long,
     Byte,
+    Char,
+    Tuple,
+    Set,
+    Map,
+    Function,
 };
 
 struct Expr {
@@ -49,14 +58,20 @@ struct Expr {
 };
 
 struct NumberExpr final : Expr {
-    NumberExpr(double in_value, std::string in_lexeme, std::optional<long long> in_exact_integer)
+    NumberExpr(
+        double in_value,
+        std::string in_lexeme,
+        bool in_is_integer_literal,
+        std::optional<long long> in_exact_integer64)
         : value(in_value),
           lexeme(std::move(in_lexeme)),
-          exact_integer(std::move(in_exact_integer)) {}
+          is_integer_literal(in_is_integer_literal),
+          exact_integer64(std::move(in_exact_integer64)) {}
 
     double value = 0.0;
     std::string lexeme;
-    std::optional<long long> exact_integer;
+    bool is_integer_literal = false;
+    std::optional<long long> exact_integer64;
 };
 
 struct StringExpr final : Expr {
@@ -67,6 +82,14 @@ struct StringExpr final : Expr {
 struct BoolExpr final : Expr {
     explicit BoolExpr(bool in_value) : value(in_value) {}
     bool value = false;
+};
+
+struct CharExpr final : Expr {
+    explicit CharExpr(char in_value) : value(in_value) {}
+    char value = '\0';
+};
+
+struct NullExpr final : Expr {
 };
 
 struct VariableExpr final : Expr {
@@ -219,6 +242,15 @@ struct FunctionDeclStmt final : Statement {
 struct ImportStmt final : Statement {
     explicit ImportStmt(std::string in_module) : module_name(std::move(in_module)) {}
     std::string module_name;
+};
+
+struct EnumDeclStmt final : Statement {
+    EnumDeclStmt(std::string in_name, std::vector<std::string> in_members)
+        : name(std::move(in_name)),
+          members(std::move(in_members)) {}
+
+    std::string name;
+    std::vector<std::string> members;
 };
 
 struct ExpressionStmt final : Statement {

@@ -36,6 +36,7 @@ bool RuntimeBridgeSourcesExist(
     const std::filesystem::path& source_loader_source,
     const std::filesystem::path& tokenizer_source,
     const std::filesystem::path& interpreter_source,
+    const std::filesystem::path& interpreter_builtins_source,
     const std::filesystem::path& interpreter_state_source,
     const std::filesystem::path& interpreter_modules_source,
     const std::filesystem::path& i18n_source) {
@@ -47,6 +48,7 @@ bool RuntimeBridgeSourcesExist(
            std::filesystem::exists(source_loader_source) &&
            std::filesystem::exists(tokenizer_source) &&
            std::filesystem::exists(interpreter_source) &&
+           std::filesystem::exists(interpreter_builtins_source) &&
            std::filesystem::exists(interpreter_state_source) &&
            std::filesystem::exists(interpreter_modules_source) &&
            std::filesystem::exists(i18n_source);
@@ -81,6 +83,7 @@ bool LinkExecutable(
         const std::filesystem::path source_loader_source = root / "src" / "frontend" / "source_loader.cpp";
         const std::filesystem::path tokenizer_source = root / "src" / "frontend" / "tokenizer.cpp";
         const std::filesystem::path interpreter_source = root / "src" / "interpreter" / "interpreter.cpp";
+        const std::filesystem::path interpreter_builtins_source = root / "src" / "interpreter" / "interpreter_builtins.cpp";
         const std::filesystem::path interpreter_state_source = root / "src" / "interpreter" / "interpreter_state.cpp";
         const std::filesystem::path interpreter_modules_source = root / "src" / "interpreter" / "interpreter_modules.cpp";
         const std::filesystem::path i18n_source = root / "src" / "runtime" / "i18n.cpp";
@@ -100,6 +103,7 @@ bool LinkExecutable(
                        source_loader_source,
                        tokenizer_source,
                        interpreter_source,
+                       interpreter_builtins_source,
                        interpreter_state_source,
                        interpreter_modules_source,
                        i18n_source)) {
@@ -124,6 +128,7 @@ bool LinkExecutable(
             command += QuoteForShell(source_loader_source.string()) + " ";
             command += QuoteForShell(tokenizer_source.string()) + " ";
             command += QuoteForShell(interpreter_source.string()) + " ";
+            command += QuoteForShell(interpreter_builtins_source.string()) + " ";
             command += QuoteForShell(interpreter_state_source.string()) + " ";
             command += QuoteForShell(interpreter_modules_source.string()) + " ";
             command += QuoteForShell(i18n_source.string()) + " ";

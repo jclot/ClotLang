@@ -77,9 +77,9 @@ if [[ "$ACTUAL_THREE" != "$EXPECTED_THREE" ]]; then
     exit 1
 fi
 
-mkdir -p "$TMP_DIR/mods"
+mkdir -p "$TMP_DIR/clot/core/helpers"
 
-cat > "$TMP_DIR/mods/helpers.clot" <<'PROG'
+cat > "$TMP_DIR/clot/core/helpers/helpers.clot" <<'PROG'
 func inc_and_get(&value):
     value += 1;
     return value;
@@ -87,7 +87,7 @@ endfunc
 PROG
 
 cat > "$TMP_DIR/modules_return_mutation.clot" <<'PROG'
-import mods.helpers;
+import clot.core.helpers;
 long base = 7;
 println(inc_and_get(base));
 println(base);
@@ -106,6 +106,81 @@ if [[ "$ACTUAL_FOUR" != "$EXPECTED_FOUR" ]]; then
     printf '%s\n' "$EXPECTED_FOUR" >&2
     echo "Actual:" >&2
     printf '%s\n' "$ACTUAL_FOUR" >&2
+    exit 1
+fi
+
+mkdir -p "$TMP_DIR/clot/science/utils" "$TMP_DIR/clot/core/helpers"
+
+cat > "$TMP_DIR/clot/science/utils/utils.clot" <<'PROG'
+func root_tag():
+    return "clot-science";
+endfunc
+
+func util_value():
+    return 41;
+endfunc
+PROG
+
+cat > "$TMP_DIR/clot/core/helpers/helpers.clot" <<'PROG'
+import clot.science.utils;
+
+func helper_tag():
+    return "clot-core";
+endfunc
+
+func helper_plus_one():
+    return util_value() + 1;
+endfunc
+PROG
+
+cat > "$TMP_DIR/package_roots.clot" <<'PROG'
+import clot.science.utils;
+import clot.core.helpers;
+println(root_tag());
+println(helper_tag());
+PROG
+
+EXPECTED_PACKAGE_ROOTS=$'clot-science\nclot-core'
+ACTUAL_PACKAGE_ROOTS="$($BIN_PATH "$TMP_DIR/package_roots.clot")"
+if [[ "$ACTUAL_PACKAGE_ROOTS" != "$EXPECTED_PACKAGE_ROOTS" ]]; then
+    echo "Fallo test package_roots" >&2
+    echo "Esperado:" >&2
+    printf '%s\n' "$EXPECTED_PACKAGE_ROOTS" >&2
+    echo "Actual:" >&2
+    printf '%s\n' "$ACTUAL_PACKAGE_ROOTS" >&2
+    exit 1
+fi
+
+cat > "$TMP_DIR/package_aliases.clot" <<'PROG'
+import modules.utils;
+import mods.helpers;
+println(root_tag());
+println(helper_tag());
+PROG
+
+ACTUAL_PACKAGE_ALIASES="$($BIN_PATH "$TMP_DIR/package_aliases.clot")"
+if [[ "$ACTUAL_PACKAGE_ALIASES" != "$EXPECTED_PACKAGE_ROOTS" ]]; then
+    echo "Fallo test package_aliases" >&2
+    echo "Esperado:" >&2
+    printf '%s\n' "$EXPECTED_PACKAGE_ROOTS" >&2
+    echo "Actual:" >&2
+    printf '%s\n' "$ACTUAL_PACKAGE_ALIASES" >&2
+    exit 1
+fi
+
+cat > "$TMP_DIR/package_nested.clot" <<'PROG'
+import clot.core.helpers;
+println(helper_plus_one());
+PROG
+
+EXPECTED_PACKAGE_NESTED=$'42'
+ACTUAL_PACKAGE_NESTED="$($BIN_PATH "$TMP_DIR/package_nested.clot")"
+if [[ "$ACTUAL_PACKAGE_NESTED" != "$EXPECTED_PACKAGE_NESTED" ]]; then
+    echo "Fallo test package_nested" >&2
+    echo "Esperado:" >&2
+    printf '%s\n' "$EXPECTED_PACKAGE_NESTED" >&2
+    echo "Actual:" >&2
+    printf '%s\n' "$ACTUAL_PACKAGE_NESTED" >&2
     exit 1
 fi
 
@@ -299,6 +374,35 @@ if [[ "$ACTUAL_PRINTF" != "$EXPECTED_PRINTF" ]]; then
     exit 1
 fi
 
+cat > "$TMP_DIR/bigint_math_core.clot" <<'PROG'
+import math;
+a = 9223372036854775808;
+a += 5;
+println(a);
+
+double ratio = 2.5;
+println(ratio + 0.5);
+println(type(a));
+println(cast("42", "int"));
+println(sqrt(16.0));
+println(pow(2, 10));
+println(gcd(84, 30));
+println(lcm(21, 6));
+assert(a > 0);
+println("ok");
+PROG
+
+EXPECTED_BIGINT_MATH_CORE=$'9223372036854775813\n3\nint\n42\n4\n1024\n6\n42\nok'
+ACTUAL_BIGINT_MATH_CORE="$($BIN_PATH "$TMP_DIR/bigint_math_core.clot")"
+if [[ "$ACTUAL_BIGINT_MATH_CORE" != "$EXPECTED_BIGINT_MATH_CORE" ]]; then
+    echo "Fallo test bigint_math_core" >&2
+    echo "Esperado:" >&2
+    printf '%s\n' "$EXPECTED_BIGINT_MATH_CORE" >&2
+    echo "Actual:" >&2
+    printf '%s\n' "$ACTUAL_BIGINT_MATH_CORE" >&2
+    exit 1
+fi
+
 set +e
 "$BIN_PATH" "$TMP_DIR/analyze_fail.clot" --mode analyze >"$TMP_DIR/analyze_fail.out" 2>"$TMP_DIR/analyze_fail.err"
 STATUS_ANALYZE=$?
@@ -312,6 +416,131 @@ fi
 if ! grep -q "Analisis estatico" "$TMP_DIR/analyze_fail.err"; then
     echo "Fallo test analyze_fail: no se detectaron diagnosticos de analisis." >&2
     cat "$TMP_DIR/analyze_fail.err" >&2
+    exit 1
+fi
+
+cat > "$TMP_DIR/new_types.clot" <<'PROG'
+func id(x):
+    return x;
+endfunc
+
+enum Estado { ACTIVO, INACTIVO };
+char c = 'Z';
+float f = 1.5;
+decimal d = cast("12.34", "decimal");
+tuple t = tuple(1, 2, c);
+set s = set(1, 2, 2, 3);
+map m = map("a", 1, 2, "dos");
+function fn = id;
+
+println(type(Estado));
+println(Estado.ACTIVO);
+println(type(c));
+println(type(f));
+println(type(d));
+println(type(t));
+println(type(s));
+println(type(m));
+println(type(fn));
+println(type(null));
+println(m[2]);
+println(fn(10));
+PROG
+
+EXPECTED_NEW_TYPES=$'object\n0\nchar\nfloat\ndecimal\ntuple\nset\nmap\nfunction\nnull\ndos\n10'
+ACTUAL_NEW_TYPES="$($BIN_PATH "$TMP_DIR/new_types.clot")"
+if [[ "$ACTUAL_NEW_TYPES" != "$EXPECTED_NEW_TYPES" ]]; then
+    echo "Fallo test new_types" >&2
+    echo "Esperado:" >&2
+    printf '%s\n' "$EXPECTED_NEW_TYPES" >&2
+    echo "Actual:" >&2
+    printf '%s\n' "$ACTUAL_NEW_TYPES" >&2
+    exit 1
+fi
+
+cat > "$TMP_DIR/tuple_mutation_error.clot" <<'PROG'
+tuple t = tuple(1, 2);
+t[0] = 9;
+PROG
+
+set +e
+"$BIN_PATH" "$TMP_DIR/tuple_mutation_error.clot" --lang en >"$TMP_DIR/tuple_mutation_error.out" 2>"$TMP_DIR/tuple_mutation_error.err"
+STATUS_TUPLE_MUT=$?
+set -e
+
+if [[ "$STATUS_TUPLE_MUT" -eq 0 ]]; then
+    echo "Fallo test tuple_mutation_error: se esperaba error." >&2
+    exit 1
+fi
+
+if ! grep -q "Runtime error: Cannot mutate a tuple with \\[\\]." "$TMP_DIR/tuple_mutation_error.err"; then
+    echo "Fallo test tuple_mutation_error: mensaje esperado en ingles no encontrado." >&2
+    cat "$TMP_DIR/tuple_mutation_error.err" >&2
+    exit 1
+fi
+
+cat > "$TMP_DIR/function_no_params_and_enum_multiline.clot" <<'PROG'
+func prenderTV():
+    println("TV Encendida");
+endfunc
+
+enum Estado {
+    ACTIVO,
+    INACTIVO
+};
+
+prenderTV();
+println(enum_name(Estado, Estado.INACTIVO));
+println(enum_value(Estado, "ACTIVO"));
+PROG
+
+EXPECTED_FN_ENUM=$'TV Encendida\nINACTIVO\n0'
+ACTUAL_FN_ENUM="$($BIN_PATH "$TMP_DIR/function_no_params_and_enum_multiline.clot")"
+if [[ "$ACTUAL_FN_ENUM" != "$EXPECTED_FN_ENUM" ]]; then
+    echo "Fallo test function_no_params_and_enum_multiline" >&2
+    echo "Esperado:" >&2
+    printf '%s\n' "$EXPECTED_FN_ENUM" >&2
+    echo "Actual:" >&2
+    printf '%s\n' "$ACTUAL_FN_ENUM" >&2
+    exit 1
+fi
+
+cat > "$TMP_DIR/function_ref_with_parens.clot" <<'PROG'
+func prenderTV():
+    println("TV Encendida");
+endfunc
+
+function control = prenderTV();
+control();
+PROG
+
+EXPECTED_FUNCTION_REF_PARENS=$'TV Encendida'
+ACTUAL_FUNCTION_REF_PARENS="$($BIN_PATH "$TMP_DIR/function_ref_with_parens.clot")"
+if [[ "$ACTUAL_FUNCTION_REF_PARENS" != "$EXPECTED_FUNCTION_REF_PARENS" ]]; then
+    echo "Fallo test function_ref_with_parens" >&2
+    echo "Esperado:" >&2
+    printf '%s\n' "$EXPECTED_FUNCTION_REF_PARENS" >&2
+    echo "Actual:" >&2
+    printf '%s\n' "$ACTUAL_FUNCTION_REF_PARENS" >&2
+    exit 1
+fi
+
+cat > "$TMP_DIR/function_implicit_null.clot" <<'PROG'
+func prenderTV():
+    println("TV Encendida");
+endfunc
+
+println(prenderTV());
+PROG
+
+EXPECTED_FUNCTION_IMPLICIT_NULL=$'TV Encendida\nnull'
+ACTUAL_FUNCTION_IMPLICIT_NULL="$($BIN_PATH "$TMP_DIR/function_implicit_null.clot")"
+if [[ "$ACTUAL_FUNCTION_IMPLICIT_NULL" != "$EXPECTED_FUNCTION_IMPLICIT_NULL" ]]; then
+    echo "Fallo test function_implicit_null" >&2
+    echo "Esperado:" >&2
+    printf '%s\n' "$EXPECTED_FUNCTION_IMPLICIT_NULL" >&2
+    echo "Actual:" >&2
+    printf '%s\n' "$ACTUAL_FUNCTION_IMPLICIT_NULL" >&2
     exit 1
 fi
 

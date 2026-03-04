@@ -3,6 +3,7 @@
 #ifdef CLOT_HAS_LLVM
 
 #include <optional>
+#include <string>
 #include <utility>
 
 #include <llvm/Config/llvm-config.h>
@@ -31,6 +32,23 @@ auto ObjectFileKind() {
 #else
     return llvm::CGFT_ObjectFile;
 #endif
+}
+
+bool IsAotMathBuiltinName(const std::string& callee) {
+    return callee == "sum" ||
+           callee == "factorial" ||
+           callee == "sqrt" ||
+           callee == "pow" ||
+           callee == "log" ||
+           callee == "ln" ||
+           callee == "exp" ||
+           callee == "abs" ||
+           callee == "sin" ||
+           callee == "cos" ||
+           callee == "tan" ||
+           callee == "asin" ||
+           callee == "acos" ||
+           callee == "atan";
 }
 
 } // namespace
@@ -436,7 +454,21 @@ bool LlvmEmitter::EmitAssignment(const frontend::AssignmentStmt& statement) {
         target_kind = existing_kind->second;
     }
 
-    if (statement.declaration_type == frontend::DeclarationType::Long) {
+    if (statement.declaration_type == frontend::DeclarationType::Int) {
+        error_ = "Las variables int arbitrarias no se soportan en AOT LLVM; usa runtime bridge.";
+        return false;
+    } else if (statement.declaration_type == frontend::DeclarationType::Double) {
+        target_kind = VariableNumericKind::Dynamic;
+    } else if (statement.declaration_type == frontend::DeclarationType::Float ||
+               statement.declaration_type == frontend::DeclarationType::Decimal ||
+               statement.declaration_type == frontend::DeclarationType::Char ||
+               statement.declaration_type == frontend::DeclarationType::Tuple ||
+               statement.declaration_type == frontend::DeclarationType::Set ||
+               statement.declaration_type == frontend::DeclarationType::Map ||
+               statement.declaration_type == frontend::DeclarationType::Function) {
+        error_ = "Declaracion tipada no soportada en AOT LLVM; usa runtime bridge.";
+        return false;
+    } else if (statement.declaration_type == frontend::DeclarationType::Long) {
         target_kind = VariableNumericKind::Long;
     } else if (statement.declaration_type == frontend::DeclarationType::Byte) {
         target_kind = VariableNumericKind::Byte;
@@ -447,8 +479,8 @@ bool LlvmEmitter::EmitAssignment(const frontend::AssignmentStmt& statement) {
 
     if (statement.op == frontend::AssignmentOp::Set) {
         const auto* literal = dynamic_cast<const frontend::NumberExpr*>(statement.expr.get());
-        if (literal != nullptr && literal->exact_integer.has_value()) {
-            const long long integer_literal = *literal->exact_integer;
+        if (literal != nullptr && literal->exact_integer64.has_value()) {
+            const long long integer_literal = *literal->exact_integer64;
             if (target_kind == VariableNumericKind::Long) {
                 value_to_store = llvm::ConstantFP::get(builder_.getDoubleTy(), static_cast<double>(integer_literal));
                 skip_kind_normalization = true;
@@ -609,8 +641,12 @@ bool LlvmEmitter::EmitIf(const frontend::IfStmt& statement) {
 }
 
 bool LlvmEmitter::EmitCallStatement(const frontend::CallExpr& call) {
-    if (call.callee == "sum" && math_module_imported_) {
-        return EmitBuiltinSumCall(call) != nullptr;
+    if (IsAotMathBuiltinName(call.callee)) {
+        if (!math_module_imported_) {
+            error_ = call.callee + "() requiere 'import math;' en modo compile LLVM AOT.";
+            return false;
+        }
+        return EmitBuiltinMathCall(call) != nullptr;
     }
 
     const auto function_it = user_functions_.find(call.callee);
@@ -618,11 +654,7 @@ bool LlvmEmitter::EmitCallStatement(const frontend::CallExpr& call) {
         return EmitUserFunctionCall(call, false, nullptr);
     }
 
-    if (call.callee == "sum") {
-        error_ = "sum(a, b) requiere 'import math;' en modo compile LLVM AOT.";
-    } else {
-        error_ = "Funcion no soportada en modo compile LLVM AOT: " + call.callee;
-    }
+    error_ = "Funcion no soportada en modo compile LLVM AOT: " + call.callee;
     return false;
 }
 
@@ -719,6 +751,147 @@ llvm::Value* LlvmEmitter::EmitBuiltinSumCall(const frontend::CallExpr& call) {
     return builder_.CreateFAdd(lhs, rhs, "sum.call");
 }
 
+llvm::Value* LlvmEmitter::EmitBuiltinMathCall(const frontend::CallExpr& call) {
+    if (call.callee == "sum") {
+        return EmitBuiltinSumCall(call);
+    }
+
+    auto emit_argument = [&](std::size_t index) -> llvm::Value* {
+        if (index >= call.arguments.size()) {
+            error_ = "Error interno LLVM: indice de argumento invalido en builtin math.";
+            return nullptr;
+        }
+        const frontend::CallArgument& argument = call.arguments[index];
+        if (argument.by_reference || argument.value == nullptr) {
+            error_ = call.callee + "() no acepta argumentos por referencia.";
+            return nullptr;
+        }
+        return EmitNumericExpr(*argument.value);
+    };
+
+    auto emit_unary_intrinsic = [&](llvm::Intrinsic::ID intrinsic_id, const char* name) -> llvm::Value* {
+        if (call.arguments.size() != 1) {
+            error_ = call.callee + "(x) requiere 1 argumento.";
+            return nullptr;
+        }
+        llvm::Value* arg = emit_argument(0);
+        if (arg == nullptr) {
+            return nullptr;
+        }
+        llvm::Function* function = llvm::Intrinsic::getDeclaration(module_.get(), intrinsic_id, {builder_.getDoubleTy()});
+        return builder_.CreateCall(function, {arg}, name);
+    };
+
+    auto emit_unary_libm = [&](const char* function_name, const char* name) -> llvm::Value* {
+        if (call.arguments.size() != 1) {
+            error_ = call.callee + "(x) requiere 1 argumento.";
+            return nullptr;
+        }
+        llvm::Value* arg = emit_argument(0);
+        if (arg == nullptr) {
+            return nullptr;
+        }
+        llvm::FunctionType* function_type = llvm::FunctionType::get(builder_.getDoubleTy(), {builder_.getDoubleTy()}, false);
+        llvm::FunctionCallee function = module_->getOrInsertFunction(function_name, function_type);
+        return builder_.CreateCall(function, {arg}, name);
+    };
+
+    if (call.callee == "factorial") {
+        if (call.arguments.size() != 1) {
+            error_ = "factorial(x) requiere 1 argumento.";
+            return nullptr;
+        }
+        llvm::Value* arg = emit_argument(0);
+        if (arg == nullptr) {
+            return nullptr;
+        }
+
+        llvm::Value* one = llvm::ConstantFP::get(builder_.getDoubleTy(), 1.0);
+        llvm::Value* gamma_arg = builder_.CreateFAdd(arg, one, "factorial.gamma.arg");
+        llvm::FunctionType* tgamma_type = llvm::FunctionType::get(builder_.getDoubleTy(), {builder_.getDoubleTy()}, false);
+        llvm::FunctionCallee tgamma_fn = module_->getOrInsertFunction("tgamma", tgamma_type);
+        return builder_.CreateCall(tgamma_fn, {gamma_arg}, "factorial.call");
+    }
+
+    if (call.callee == "sqrt") {
+        return emit_unary_intrinsic(llvm::Intrinsic::sqrt, "sqrt.call");
+    }
+    if (call.callee == "ln") {
+        return emit_unary_intrinsic(llvm::Intrinsic::log, "ln.call");
+    }
+    if (call.callee == "exp") {
+        return emit_unary_intrinsic(llvm::Intrinsic::exp, "exp.call");
+    }
+    if (call.callee == "abs") {
+        return emit_unary_intrinsic(llvm::Intrinsic::fabs, "abs.call");
+    }
+    if (call.callee == "sin") {
+        return emit_unary_intrinsic(llvm::Intrinsic::sin, "sin.call");
+    }
+    if (call.callee == "cos") {
+        return emit_unary_intrinsic(llvm::Intrinsic::cos, "cos.call");
+    }
+    if (call.callee == "tan") {
+        return emit_unary_libm("tan", "tan.call");
+    }
+    if (call.callee == "asin") {
+        return emit_unary_libm("asin", "asin.call");
+    }
+    if (call.callee == "acos") {
+        return emit_unary_libm("acos", "acos.call");
+    }
+    if (call.callee == "atan") {
+        return emit_unary_libm("atan", "atan.call");
+    }
+
+    if (call.callee == "pow") {
+        if (call.arguments.size() != 2) {
+            error_ = "pow(a, b) requiere 2 argumentos.";
+            return nullptr;
+        }
+        llvm::Value* lhs = emit_argument(0);
+        llvm::Value* rhs = emit_argument(1);
+        if (lhs == nullptr || rhs == nullptr) {
+            return nullptr;
+        }
+        llvm::Function* pow_fn =
+            llvm::Intrinsic::getDeclaration(module_.get(), llvm::Intrinsic::pow, {builder_.getDoubleTy()});
+        return builder_.CreateCall(pow_fn, {lhs, rhs}, "pow.call");
+    }
+
+    if (call.callee == "log") {
+        if (call.arguments.size() != 1 && call.arguments.size() != 2) {
+            error_ = "log(x) o log(x, base) requiere 1 o 2 argumentos.";
+            return nullptr;
+        }
+
+        llvm::Value* x = emit_argument(0);
+        if (x == nullptr) {
+            return nullptr;
+        }
+
+        if (call.arguments.size() == 1) {
+            llvm::Function* log10_fn =
+                llvm::Intrinsic::getDeclaration(module_.get(), llvm::Intrinsic::log10, {builder_.getDoubleTy()});
+            return builder_.CreateCall(log10_fn, {x}, "log10.call");
+        }
+
+        llvm::Value* base = emit_argument(1);
+        if (base == nullptr) {
+            return nullptr;
+        }
+
+        llvm::Function* log_fn =
+            llvm::Intrinsic::getDeclaration(module_.get(), llvm::Intrinsic::log, {builder_.getDoubleTy()});
+        llvm::Value* numerator = builder_.CreateCall(log_fn, {x}, "log.num");
+        llvm::Value* denominator = builder_.CreateCall(log_fn, {base}, "log.den");
+        return builder_.CreateFDiv(numerator, denominator, "log.call");
+    }
+
+    error_ = "Builtin math no soportado en LLVM AOT: " + call.callee;
+    return nullptr;
+}
+
 bool LlvmEmitter::EmitUserFunctionCall(const frontend::CallExpr& call, bool require_numeric_result,
                                        llvm::Value** out_value) {
     const auto function_it = user_functions_.find(call.callee);
@@ -790,6 +963,14 @@ bool LlvmEmitter::EmitUserFunctionCall(const frontend::CallExpr& call, bool requ
 
 llvm::Value* LlvmEmitter::EmitNumericExpr(const frontend::Expr& expression) {
     if (const auto* number = dynamic_cast<const frontend::NumberExpr*>(&expression)) {
+        if (number->is_integer_literal) {
+            try {
+                return llvm::ConstantFP::get(builder_.getDoubleTy(), std::stod(number->lexeme));
+            } catch (...) {
+                error_ = "Numero entero no convertible a double en AOT LLVM: " + number->lexeme;
+                return nullptr;
+            }
+        }
         return llvm::ConstantFP::get(builder_.getDoubleTy(), number->value);
     }
 
@@ -832,8 +1013,12 @@ llvm::Value* LlvmEmitter::EmitNumericExpr(const frontend::Expr& expression) {
     }
 
     if (const auto* call = dynamic_cast<const frontend::CallExpr*>(&expression)) {
-        if (call->callee == "sum" && math_module_imported_) {
-            return EmitBuiltinSumCall(*call);
+        if (IsAotMathBuiltinName(call->callee)) {
+            if (!math_module_imported_) {
+                error_ = call->callee + "() requiere 'import math;' en modo compile LLVM AOT.";
+                return nullptr;
+            }
+            return EmitBuiltinMathCall(*call);
         }
 
         if (user_functions_.find(call->callee) != user_functions_.end()) {

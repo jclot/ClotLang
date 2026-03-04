@@ -312,19 +312,24 @@ private:
         const Token token = Advance();
 
         if (token.kind == TokenKind::Number) {
-            try {
-                std::optional<long long> exact_integer;
-                if (token.lexeme.find('.') == std::string::npos) {
-                    long long parsed = 0;
-                    const char* begin = token.lexeme.data();
-                    const char* end = begin + token.lexeme.size();
-                    const auto parsed_result = std::from_chars(begin, end, parsed);
-                    if (parsed_result.ec == std::errc() && parsed_result.ptr == end) {
-                        exact_integer = parsed;
-                    }
+            const bool is_integer_literal = token.lexeme.find('.') == std::string::npos;
+            if (is_integer_literal) {
+                std::optional<long long> exact_integer64;
+                long long parsed = 0;
+                const char* begin = token.lexeme.data();
+                const char* end = begin + token.lexeme.size();
+                const auto parsed_result = std::from_chars(begin, end, parsed);
+                if (parsed_result.ec == std::errc() && parsed_result.ptr == end) {
+                    exact_integer64 = parsed;
+                } else if (parsed_result.ec != std::errc::result_out_of_range) {
+                    Fail(token.column, "Numero invalido: '" + token.lexeme + "'.");
+                    return nullptr;
                 }
+                return std::make_unique<NumberExpr>(0.0, token.lexeme, true, exact_integer64);
+            }
 
-                return std::make_unique<NumberExpr>(std::stod(token.lexeme), token.lexeme, exact_integer);
+            try {
+                return std::make_unique<NumberExpr>(std::stod(token.lexeme), token.lexeme, false, std::nullopt);
             } catch (...) {
                 Fail(token.column, "Numero invalido: '" + token.lexeme + "'.");
                 return nullptr;
@@ -335,11 +340,29 @@ private:
             return std::make_unique<StringExpr>(token.lexeme);
         }
 
+        if (token.kind == TokenKind::Char) {
+            if (token.lexeme.size() != 1) {
+                Fail(token.column, "Literal char invalido.");
+                return nullptr;
+            }
+            return std::make_unique<CharExpr>(token.lexeme[0]);
+        }
+
         if (token.kind == TokenKind::Boolean) {
             return std::make_unique<BoolExpr>(token.lexeme == "true");
         }
 
+        if (token.kind == TokenKind::KeywordNull) {
+            return std::make_unique<NullExpr>();
+        }
+
         if (token.kind == TokenKind::Identifier) {
+            return std::make_unique<VariableExpr>(token.lexeme);
+        }
+
+        if (token.kind == TokenKind::KeywordTuple ||
+            token.kind == TokenKind::KeywordSet ||
+            token.kind == TokenKind::KeywordMap) {
             return std::make_unique<VariableExpr>(token.lexeme);
         }
 

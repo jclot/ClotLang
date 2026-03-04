@@ -30,11 +30,44 @@ TokenKind KeywordToTokenKind(const std::string& text) {
     if (text == "endif") {
         return TokenKind::KeywordEndIf;
     }
+    if (text == "int") {
+        return TokenKind::KeywordInt;
+    }
+    if (text == "double") {
+        return TokenKind::KeywordDouble;
+    }
+    if (text == "float") {
+        return TokenKind::KeywordFloat;
+    }
+    if (text == "decimal") {
+        return TokenKind::KeywordDecimal;
+    }
     if (text == "long") {
         return TokenKind::KeywordLong;
     }
     if (text == "byte") {
         return TokenKind::KeywordByte;
+    }
+    if (text == "char") {
+        return TokenKind::KeywordChar;
+    }
+    if (text == "tuple") {
+        return TokenKind::KeywordTuple;
+    }
+    if (text == "set") {
+        return TokenKind::KeywordSet;
+    }
+    if (text == "map") {
+        return TokenKind::KeywordMap;
+    }
+    if (text == "null") {
+        return TokenKind::KeywordNull;
+    }
+    if (text == "enum") {
+        return TokenKind::KeywordEnum;
+    }
+    if (text == "function") {
+        return TokenKind::KeywordFunctionType;
     }
     if (text == "func") {
         return TokenKind::KeywordFunc;
@@ -79,6 +112,8 @@ const char* ToString(TokenKind kind) {
         return "Number";
     case TokenKind::String:
         return "String";
+    case TokenKind::Char:
+        return "Char";
     case TokenKind::Boolean:
         return "Boolean";
     case TokenKind::KeywordPrint:
@@ -91,10 +126,32 @@ const char* ToString(TokenKind kind) {
         return "else";
     case TokenKind::KeywordEndIf:
         return "endif";
+    case TokenKind::KeywordInt:
+        return "int";
+    case TokenKind::KeywordDouble:
+        return "double";
+    case TokenKind::KeywordFloat:
+        return "float";
+    case TokenKind::KeywordDecimal:
+        return "decimal";
     case TokenKind::KeywordLong:
         return "long";
     case TokenKind::KeywordByte:
         return "byte";
+    case TokenKind::KeywordChar:
+        return "char";
+    case TokenKind::KeywordTuple:
+        return "tuple";
+    case TokenKind::KeywordSet:
+        return "set";
+    case TokenKind::KeywordMap:
+        return "map";
+    case TokenKind::KeywordNull:
+        return "null";
+    case TokenKind::KeywordEnum:
+        return "enum";
+    case TokenKind::KeywordFunctionType:
+        return "function";
     case TokenKind::KeywordFunc:
         return "func";
     case TokenKind::KeywordEndFunc:
@@ -217,6 +274,54 @@ std::vector<Token> Tokenizer::TokenizeLine(const std::string& line) {
             }
 
             tokens.push_back({TokenKind::String, literal, index + 1});
+            index = cursor + 1;
+            continue;
+        }
+
+        if (current == '\'') {
+            std::size_t cursor = index + 1;
+            if (cursor >= line.size()) {
+                tokens.push_back({TokenKind::Unknown, line.substr(index), index + 1});
+                break;
+            }
+
+            char parsed = '\0';
+            if (line[cursor] == '\\') {
+                ++cursor;
+                if (cursor >= line.size()) {
+                    tokens.push_back({TokenKind::Unknown, line.substr(index), index + 1});
+                    break;
+                }
+
+                const char escaped = line[cursor];
+                if (escaped == 'n') {
+                    parsed = '\n';
+                } else if (escaped == 't') {
+                    parsed = '\t';
+                } else if (escaped == 'r') {
+                    parsed = '\r';
+                } else if (escaped == '\'') {
+                    parsed = '\'';
+                } else if (escaped == '\\') {
+                    parsed = '\\';
+                } else if (escaped == '0') {
+                    parsed = '\0';
+                } else {
+                    tokens.push_back({TokenKind::Unknown, line.substr(index, cursor - index + 1), index + 1});
+                    break;
+                }
+                ++cursor;
+            } else {
+                parsed = line[cursor];
+                ++cursor;
+            }
+
+            if (cursor >= line.size() || line[cursor] != '\'') {
+                tokens.push_back({TokenKind::Unknown, line.substr(index), index + 1});
+                break;
+            }
+
+            tokens.push_back({TokenKind::Char, std::string(1, parsed), index + 1});
             index = cursor + 1;
             continue;
         }

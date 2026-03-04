@@ -15,11 +15,38 @@ bool Parser::ParseAssignment(std::size_t* line_index, const std::vector<Token>& 
     DeclarationType declaration_type = DeclarationType::Inferred;
     std::size_t cursor = 0;
 
-    if (tokens[cursor].kind == TokenKind::KeywordLong) {
+    if (tokens[cursor].kind == TokenKind::KeywordInt) {
+        declaration_type = DeclarationType::Int;
+        ++cursor;
+    } else if (tokens[cursor].kind == TokenKind::KeywordDouble) {
+        declaration_type = DeclarationType::Double;
+        ++cursor;
+    } else if (tokens[cursor].kind == TokenKind::KeywordFloat) {
+        declaration_type = DeclarationType::Float;
+        ++cursor;
+    } else if (tokens[cursor].kind == TokenKind::KeywordDecimal) {
+        declaration_type = DeclarationType::Decimal;
+        ++cursor;
+    } else if (tokens[cursor].kind == TokenKind::KeywordLong) {
         declaration_type = DeclarationType::Long;
         ++cursor;
     } else if (tokens[cursor].kind == TokenKind::KeywordByte) {
         declaration_type = DeclarationType::Byte;
+        ++cursor;
+    } else if (tokens[cursor].kind == TokenKind::KeywordChar) {
+        declaration_type = DeclarationType::Char;
+        ++cursor;
+    } else if (tokens[cursor].kind == TokenKind::KeywordTuple) {
+        declaration_type = DeclarationType::Tuple;
+        ++cursor;
+    } else if (tokens[cursor].kind == TokenKind::KeywordSet) {
+        declaration_type = DeclarationType::Set;
+        ++cursor;
+    } else if (tokens[cursor].kind == TokenKind::KeywordMap) {
+        declaration_type = DeclarationType::Map;
+        ++cursor;
+    } else if (tokens[cursor].kind == TokenKind::KeywordFunctionType) {
+        declaration_type = DeclarationType::Function;
         ++cursor;
     }
 
@@ -210,7 +237,7 @@ bool Parser::ParseIf(std::size_t* line_index, const std::vector<Token>& tokens,
 bool Parser::ParseFunctionDeclaration(std::size_t* line_index, const std::vector<Token>& tokens,
                                       std::vector<std::unique_ptr<Statement>>* out_statements,
                                       Diagnostic* out_error) const {
-    if (tokens.size() < 6) {
+    if (tokens.size() < 5) {
         *out_error = MakeError(*line_index + 1, tokens[0].column, "Declaracion de funcion incompleta.");
         return false;
     }
@@ -329,6 +356,131 @@ bool Parser::ParseImport(std::size_t* line_index, const std::vector<Token>& toke
 
     out_statements->push_back(std::make_unique<ImportStmt>(tokens[1].lexeme));
     ++(*line_index);
+    return true;
+}
+
+bool Parser::ParseEnum(std::size_t* line_index, const std::vector<Token>& tokens,
+                       std::vector<std::unique_ptr<Statement>>* out_statements, Diagnostic* out_error) const {
+    if (tokens.size() < 2 || tokens[1].kind != TokenKind::Identifier) {
+        *out_error = MakeError(*line_index + 1, tokens[0].column, "Formato invalido en enum. Use: enum Nombre { A, B };");
+        return false;
+    }
+
+    const std::string enum_name = tokens[1].lexeme;
+    std::vector<std::string> members;
+
+    std::size_t current_line = *line_index;
+    std::vector<Token> current_tokens = tokens;
+    std::size_t cursor = 2;
+    bool opened = false;
+    bool closed = false;
+    bool expect_member = true;
+    bool semicolon_consumed = false;
+
+    while (true) {
+        if (cursor >= current_tokens.size()) {
+            ++current_line;
+            if (current_line >= lines_.size()) {
+                *out_error = MakeError(*line_index + 1, tokens[0].column,
+                                       "Formato invalido en enum. Use: enum Nombre { A, B };");
+                return false;
+            }
+            current_tokens = Tokenizer::TokenizeLine(lines_[current_line]);
+            cursor = 0;
+            if (current_tokens.empty()) {
+                continue;
+            }
+            if (current_tokens[0].kind == TokenKind::Unknown) {
+                *out_error = MakeError(current_line + 1, current_tokens[0].column,
+                                       "Token no reconocido: '" + current_tokens[0].lexeme + "'.");
+                return false;
+            }
+        }
+
+        const Token& token = current_tokens[cursor];
+        if (!opened) {
+            if (token.kind != TokenKind::LeftBrace) {
+                *out_error = MakeError(current_line + 1, token.column,
+                                       "Formato invalido en enum. Use: enum Nombre { A, B };");
+                return false;
+            }
+            opened = true;
+            ++cursor;
+            continue;
+        }
+
+        if (token.kind == TokenKind::RightBrace) {
+            closed = true;
+            ++cursor;
+
+            if (cursor < current_tokens.size() && current_tokens[cursor].kind == TokenKind::Semicolon) {
+                semicolon_consumed = true;
+                ++cursor;
+            }
+
+            if (cursor < current_tokens.size()) {
+                *out_error = MakeError(current_line + 1, current_tokens[cursor].column,
+                                       "Tokens extra despues del cierre de enum.");
+                return false;
+            }
+            break;
+        }
+
+        if (expect_member) {
+            if (token.kind != TokenKind::Identifier) {
+                *out_error = MakeError(current_line + 1, token.column, "Miembro invalido en enum.");
+                return false;
+            }
+            members.push_back(token.lexeme);
+            expect_member = false;
+            ++cursor;
+            continue;
+        }
+
+        if (token.kind == TokenKind::Comma) {
+            expect_member = true;
+            ++cursor;
+            continue;
+        }
+
+        *out_error = MakeError(current_line + 1, token.column, "Se esperaba ',' o '}' en enum.");
+        return false;
+    }
+
+    if (!closed) {
+        *out_error = MakeError(*line_index + 1, tokens[0].column, "Falta '}' para cerrar enum.");
+        return false;
+    }
+
+    if (members.empty()) {
+        *out_error = MakeError(*line_index + 1, tokens[0].column, "Enum no puede estar vacio.");
+        return false;
+    }
+
+    if (expect_member && !members.empty()) {
+        *out_error = MakeError(current_line + 1, 1, "No se permite coma final en enum.");
+        return false;
+    }
+
+    if (!semicolon_consumed) {
+        std::size_t semicolon_line = current_line + 1;
+        while (semicolon_line < lines_.size()) {
+            const std::vector<Token> semicolon_tokens = Tokenizer::TokenizeLine(lines_[semicolon_line]);
+            if (semicolon_tokens.empty()) {
+                ++semicolon_line;
+                continue;
+            }
+
+            if (semicolon_tokens[0].kind == TokenKind::Semicolon && semicolon_tokens.size() == 1) {
+                semicolon_consumed = true;
+                current_line = semicolon_line;
+            }
+            break;
+        }
+    }
+
+    out_statements->push_back(std::make_unique<EnumDeclStmt>(enum_name, std::move(members)));
+    *line_index = current_line + 1;
     return true;
 }
 
