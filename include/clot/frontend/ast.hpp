@@ -53,6 +53,26 @@ enum class DeclarationType {
     Function,
 };
 
+enum class TypeHint {
+    Inferred,
+    Int,
+    Double,
+    Float,
+    Decimal,
+    Long,
+    Byte,
+    Char,
+    Tuple,
+    Set,
+    Map,
+    Function,
+    String,
+    Bool,
+    List,
+    Object,
+    Null,
+};
+
 struct Expr {
     virtual ~Expr() = default;
 };
@@ -223,18 +243,23 @@ struct WhileStmt final : Statement {
 struct FunctionParam {
     std::string name;
     bool by_reference = false;
+    TypeHint type_hint = TypeHint::Inferred;
+    std::unique_ptr<Expr> default_value;
 };
 
 struct FunctionDeclStmt final : Statement {
     FunctionDeclStmt(
         std::string in_name,
+        TypeHint in_return_type,
         std::vector<FunctionParam> in_params,
         std::vector<std::unique_ptr<Statement>> in_body)
         : name(std::move(in_name)),
+          return_type(in_return_type),
           params(std::move(in_params)),
           body(std::move(in_body)) {}
 
     std::string name;
+    TypeHint return_type = TypeHint::Inferred;
     std::vector<FunctionParam> params;
     std::vector<std::unique_ptr<Statement>> body;
 };

@@ -334,6 +334,7 @@
                             <span class="theme-icon-holder me-2"><i class="fas fa-compass"></i></span>Manual
                         </a>
                     </li>
+                    <li class="nav-item"><a class="nav-link scrollto" href="#item-manual-language-profile">Language Profile</a></li>
                     <li class="nav-item"><a class="nav-link scrollto" href="#item-manual-scope">Scope</a></li>
                     <li class="nav-item"><a class="nav-link scrollto" href="#item-manual-audience">Audience Paths</a></li>
                     <li class="nav-item"><a class="nav-link scrollto" href="#item-manual-style">Style and Conventions</a></li>
@@ -484,6 +485,55 @@
                             El buscador indexa titulos, tablas, snippets y glosario.
                         </div>
                     </header>
+
+                    <section class="docs-section" id="item-manual-language-profile">
+                        <h2 class="section-heading">Language Profile</h2>
+                        <p>
+                            Resumen rapido del posicionamiento tecnico del lenguaje (paradigma, ejecucion y tipado).
+                        </p>
+                        <div class="table-responsive my-3">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Pregunta</th>
+                                        <th>Respuesta corta</th>
+                                        <th>Detalle</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>Es multiparadigma?</td>
+                                        <td>Si</td>
+                                        <td>Combina estilo imperativo/procedural, funciones de primera clase y modelado dinamico de datos con <code>list</code>/<code>object</code>/<code>map</code>/<code>set</code>.</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Paradigma dominante</td>
+                                        <td>Imperativo/procedural</td>
+                                        <td>Flujo principal basado en mutacion de estado, bloques, <code>if</code>/<code>while</code>, funciones y llamadas explicitas.</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Paradigma menos dominante</td>
+                                        <td>Funcional ligero</td>
+                                        <td>Hay funciones de primera clase y composicion por funciones, pero no hay enfoque funcional puro ni sistema avanzado de tipos funcionales.</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Es compilado o interpretado?</td>
+                                        <td>Ambos</td>
+                                        <td><code>--mode interpret</code> ejecuta via interprete; <code>--mode compile</code> compila AOT con LLVM (<code>exe</code>, <code>obj</code>, <code>ir</code>) y puede usar runtime bridge para features dinamicas.</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Tipado estatico o dinamico?</td>
+                                        <td>Dinamico con hints opcionales</td>
+                                        <td>Variables sin tipo son dinamicas. Tipos declarados y type hints en funciones se validan en runtime. <code>--mode analyze</code> agrega chequeos estaticos auxiliares, no tipado estatico total.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="docs-callout success">
+                            En practica: Clot apunta mas a productividad imperativa con flexibilidad dinamica, y menos a
+                            OOP clasico (no hay clases/herencia) o a tipado estatico estricto global.
+                        </div>
+                    </section>
 
                     <section class="docs-section" id="item-manual-scope">
                         <h2 class="section-heading">Scope</h2>
@@ -666,6 +716,26 @@
 
                     <section class="docs-section" id="item-tutorial-quickstart">
                         <h2 class="section-heading">Quickstart</h2>
+                        <p>
+                            Desde la raiz del repo, primero compila con CMake y luego ejecuta el binario generado.
+                        </p>
+                        <pre class="shadow-lg rounded"><code class="language-bash"># Opcion recomendada (presets WSL)
+cmake --preset wsl-release
+cmake --build --preset build-release -j4
+# binario: ./build/wsl-release/clot
+
+# Opcion directa (sin presets)
+cmake -S . -B build -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DCLOT_ENABLE_LLVM=ON
+cmake --build build -j4
+# binario: ./build/clot
+</code></pre>
+                        <ul>
+                            <li><code>cmake --build ...</code>: build normal (sin forzar paralelismo).</li>
+                            <li><code>-j4</code>: 4 tareas en paralelo (acelera compilacion).</li>
+                            <li><code>-jN</code>: fija N tareas en paralelo (ej. <code>-j8</code>).</li>
+                            <li><code>--parallel</code>: paralelismo automatico segun el sistema.</li>
+                            <li><code>--parallel N</code>: paralelismo fijo con N tareas.</li>
+                        </ul>
                         <pre class="shadow-lg rounded"><code class="language-bash"># Ejecutar en modo interprete
 ./build/wsl-release/clot hello.clot
 
@@ -675,6 +745,10 @@
 # Compilar AOT con LLVM (si disponible)
 ./build/wsl-release/clot hello.clot --mode compile --emit exe -o hello
 </code></pre>
+                        <p>
+                            Si usaste la opcion sin presets, reemplaza <code>./build/wsl-release/clot</code> por
+                            <code>./build/clot</code> en los comandos.
+                        </p>
                         <pre class="shadow-lg rounded"><code class="language-clike">// hello.clot
 print("Hola");
 print(endl);
@@ -700,7 +774,14 @@ endif
 
                     <section class="docs-section" id="item-tutorial-funcs">
                         <h2 class="section-heading">Functions and References</h2>
-                        <pre class="shadow-lg rounded"><code class="language-clike">func inc_and_print(&amp;x):
+                        <pre class="shadow-lg rounded"><code class="language-clike">func float free_fall_height(h0: float, v0: float, t: float, g: float = 9.81):
+    return h0 + v0 * t - (g * t * t) / 2;
+endfunc
+
+println(free_fall_height(100.0, 0.0, 2.0));       // usa g por defecto
+println(free_fall_height(100.0, 0.0, 2.0, 10.0)); // override
+
+func inc_and_print(&amp;x):
     x += 1;
     println(x);
 endfunc
@@ -718,6 +799,8 @@ println(ping());       // imprime "pong" y luego "null"
 </code></pre>
                         <div class="docs-callout success">
                             Una funcion sin <code>return</code> explicito retorna <code>null</code> implicitamente.
+                            Si la firma declara tipo de retorno (ej. <code>func float ...</code>), el runtime exige
+                            <code>return</code> compatible.
                         </div>
                     </section>
 
@@ -1064,8 +1147,8 @@ endtry
                                     </tr>
                                     <tr>
                                         <td>Function</td>
-                                        <td><code>func nombre(args): ... endfunc</code></td>
-                                        <td>Declaracion incompleta produce parse error</td>
+                                        <td><code>func nombre(args): ... endfunc</code> o <code>func tipo nombre(args): ... endfunc</code> con <code>param = expr</code> opcional</td>
+                                        <td>Firma invalida o tipo no reconocido produce parse error</td>
                                     </tr>
                                     <tr>
                                         <td>Return</td>
@@ -1115,10 +1198,24 @@ endtry
                         <ul>
                             <li>Parametros por referencia declarados con <code>&amp;</code> en la firma: <code>func f(&amp;x):</code>.</li>
                             <li>En llamada, usa <code>&amp;var</code> para pasar por referencia si la firma lo requiere.</li>
+                            <li>Type hints opcionales: <code>func float media(a: float, b: float):</code>.</li>
+                            <li>Tipo de retorno declarado: solo admite <strong>1 tipo por funcion</strong> (no union types como <code>int|string</code>).</li>
+                            <li>Tipos soportados en hints de retorno/parametros: <code>int</code>, <code>double</code>, <code>float</code>, <code>decimal</code>, <code>long</code>, <code>byte</code>, <code>char</code>, <code>tuple</code>, <code>set</code>, <code>map</code>, <code>function</code>, <code>string</code>, <code>bool</code>, <code>list</code>, <code>object</code>, <code>null</code>.</li>
+                            <li><code>any</code> y <code>dynamic</code> son alias: ambos significan tipo dinamico (internamente equivalente a omitir el tipo).</li>
+                            <li>Sin tipo de retorno (<code>func nombre(...):</code>) o con <code>func any nombre(...):</code>/<code>func dynamic nombre(...):</code>, el retorno es dinamico y puede variar por llamada.</li>
+                            <li>Tambien aplica a parametros: <code>x</code>, <code>x: any</code> y <code>x: dynamic</code> son equivalentes y aceptan cualquier tipo de valor.</li>
+                            <li>Nota: <code>any/dynamic</code> en la doc significa "any o dynamic"; no se escribe con barra en el codigo fuente.</li>
+                            <li>Valores por defecto soportados en parametros por valor: <code>func f(x: float = 1.0):</code>.</li>
                             <li>Las funciones son de primera clase via tipo <code>function</code>.</li>
                             <li>Si no hay <code>return</code>, el valor implicito es <code>null</code>.</li>
+                            <li>Si declaras tipo de retorno, la funcion debe retornar un valor compatible con ese tipo. En <code>func null ...</code>, debes hacer <code>return null;</code> explicito.</li>
+                            <li>Reglas de firma: los parametros sin default no pueden ir despues de uno con default; parametros por referencia (<code>&amp;</code>) no aceptan default.</li>
                         </ul>
-                        <pre class="shadow-lg rounded"><code class="language-clike">func add(a, b):
+                        <pre class="shadow-lg rounded"><code class="language-clike">func string greet(name: string):
+    return "Hola " + name;
+endfunc
+
+func float add(a: float, b: float = 0.0):
     return a + b;
 endfunc
 
@@ -1128,6 +1225,24 @@ endfunc
 
 function ref = add;
 println(ref(2, 3));
+
+func any echo_any(x: any):
+    return x;
+endfunc
+
+func dynamic echo_dynamic(x: dynamic):
+    return x;
+endfunc
+
+func show_params(a, b: any, c: dynamic):
+    println(a);
+    println(b);
+    println(c);
+endfunc
+
+println(echo_any("hola"));
+println(echo_dynamic(42));
+show_params(10, "texto", [1, 2, 3]);
 </code></pre>
                     </section>
 
@@ -1204,6 +1319,16 @@ println(enum_value(Estado, "ACTIVO"));      // 0
                                         <td>Function arity</td>
                                         <td>Numero de argumentos distinto</td>
                                         <td>Error de ejecucion</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Function type hints</td>
+                                        <td>Argumento o retorno incompatible con hint declarado</td>
+                                        <td>Error de ejecucion por mismatch de tipo</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Function defaults (signature)</td>
+                                        <td>Parametro obligatorio despues de uno con default o default en <code>&amp;</code></td>
+                                        <td>Parse error en declaracion de funcion</td>
                                     </tr>
                                     <tr>
                                         <td>try/catch grammar</td>
@@ -1816,7 +1941,19 @@ import modules.utils; // Alias legacy a clot.science.utils
                         <h2 class="section-heading">What happens if a function does not return?</h2>
                         <p>
                             Devuelve <code>null</code> implicitamente. Ejemplo: <code>println(mi_func());</code> imprimira
-                            <code>null</code> si no hubo <code>return</code> explicito.
+                            <code>null</code> si no hubo <code>return</code> explicito. Excepcion: si la funcion declara un
+                            tipo de retorno (por ejemplo <code>func int f(...):</code>), entonces debe retornar un valor
+                            compatible o se produce error runtime.
+                        </p>
+                        <p>
+                            Cantidad de tipos de retorno por funcion: <strong>uno</strong> cuando declaras hint
+                            (<code>func int ...</code>, <code>func string ...</code>, etc.). Si quieres comportamiento
+                            multi-tipo, usa retorno dinamico (<code>func ...</code> sin tipo, o <code>func any ...</code>/<code>func dynamic ...</code>).
+                            <code>any</code> y <code>dynamic</code> son equivalentes.
+                            Tipos declarables: <code>int</code>, <code>double</code>, <code>float</code>, <code>decimal</code>,
+                            <code>long</code>, <code>byte</code>, <code>char</code>, <code>tuple</code>, <code>set</code>,
+                            <code>map</code>, <code>function</code>, <code>string</code>, <code>bool</code>, <code>list</code>,
+                            <code>object</code> y <code>null</code>.
                         </p>
                     </section>
 

@@ -61,17 +61,7 @@
 		border: none;
 		position: absolute;
 		right: 0;
-		top: 0.15rem;
 		margin-right: 0;
-		
-		
-		&:active, &:focus, &:hover {
-			outline: none !important;
-			color: $theme-color-primary;
-			@include box-shadow(none);
-			
-		}
-		
 	}
 }
 

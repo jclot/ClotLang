@@ -122,6 +122,46 @@ bool ReadListIndex(const runtime::Value& value, std::size_t* out_index, std::str
     return true;
 }
 
+const char* TypeHintName(frontend::TypeHint hint) {
+    switch (hint) {
+    case frontend::TypeHint::Inferred:
+        return "dynamic";
+    case frontend::TypeHint::Int:
+        return "int";
+    case frontend::TypeHint::Double:
+        return "double";
+    case frontend::TypeHint::Float:
+        return "float";
+    case frontend::TypeHint::Decimal:
+        return "decimal";
+    case frontend::TypeHint::Long:
+        return "long";
+    case frontend::TypeHint::Byte:
+        return "byte";
+    case frontend::TypeHint::Char:
+        return "char";
+    case frontend::TypeHint::Tuple:
+        return "tuple";
+    case frontend::TypeHint::Set:
+        return "set";
+    case frontend::TypeHint::Map:
+        return "map";
+    case frontend::TypeHint::Function:
+        return "function";
+    case frontend::TypeHint::String:
+        return "string";
+    case frontend::TypeHint::Bool:
+        return "bool";
+    case frontend::TypeHint::List:
+        return "list";
+    case frontend::TypeHint::Object:
+        return "object";
+    case frontend::TypeHint::Null:
+        return "null";
+    }
+    return "dynamic";
+}
+
 } // namespace
 
 void Interpreter::SetEntryFilePath(const std::string& file_path) {
@@ -904,7 +944,7 @@ bool Interpreter::ExecuteCall(const frontend::CallExpr& call, bool require_retur
 
 bool Interpreter::ExecuteUserFunction(const frontend::FunctionDeclStmt& function, const frontend::CallExpr& call,
                                       bool require_return_value, runtime::Value* out_value, std::string* out_error) {
-    if (call.arguments.size() != function.params.size()) {
+    if (call.arguments.size() > function.params.size()) {
         *out_error = "Numero incorrecto de argumentos para funcion '" + function.name + "'.";
         return false;
     }
@@ -912,6 +952,7 @@ bool Interpreter::ExecuteUserFunction(const frontend::FunctionDeclStmt& function
     struct RefBinding {
         std::string param;
         std::string caller;
+        frontend::TypeHint type_hint = frontend::TypeHint::Inferred;
     };
 
     std::vector<RefBinding> refs;
@@ -920,9 +961,19 @@ bool Interpreter::ExecuteUserFunction(const frontend::FunctionDeclStmt& function
 
     for (std::size_t i = 0; i < function.params.size(); ++i) {
         const frontend::FunctionParam& param = function.params[i];
-        const frontend::CallArgument& argument = call.arguments[i];
+        const bool has_argument = i < call.arguments.size();
+        if (!has_argument && param.default_value == nullptr) {
+            *out_error = "Numero incorrecto de argumentos para funcion '" + function.name + "'.";
+            return false;
+        }
 
         if (param.by_reference) {
+            if (!has_argument) {
+                *out_error = "Parametro por referencia '" + param.name + "' requiere argumento explicito.";
+                return false;
+            }
+
+            const frontend::CallArgument& argument = call.arguments[i];
             const auto* variable = dynamic_cast<const frontend::VariableExpr*>(argument.value.get());
             if (variable == nullptr) {
                 *out_error = "Parametro por referencia '" + param.name + "' requiere una variable.";
@@ -940,19 +991,56 @@ bool Interpreter::ExecuteUserFunction(const frontend::FunctionDeclStmt& function
                 return false;
             }
 
-            local_environment[param.name] = caller_it->second;
-            refs.push_back(RefBinding{param.name, variable->name});
+            runtime::VariableSlot reference_slot = caller_it->second;
+            if (param.type_hint != frontend::TypeHint::Inferred) {
+                runtime::Value normalized;
+                std::string type_error;
+                if (!NormalizeValueForTypeHint(param.type_hint, reference_slot.value, &normalized, &type_error)) {
+                    *out_error =
+                        "Argumento por referencia '" + param.name +
+                        "' no coincide con type hint '" + TypeHintName(param.type_hint) + "': " + type_error;
+                    return false;
+                }
+                reference_slot.value = std::move(normalized);
+            }
+
+            local_environment[param.name] = std::move(reference_slot);
+            refs.push_back(RefBinding{param.name, variable->name, param.type_hint});
             continue;
         }
 
-        if (argument.by_reference) {
-            *out_error = "No se puede pasar '&' a un parametro por valor: " + param.name;
-            return false;
+        runtime::Value evaluated;
+        if (has_argument) {
+            const frontend::CallArgument& argument = call.arguments[i];
+            if (argument.by_reference) {
+                *out_error = "No se puede pasar '&' a un parametro por valor: " + param.name;
+                return false;
+            }
+
+            if (!EvaluateExpression(*argument.value, &evaluated, out_error)) {
+                return false;
+            }
+        } else {
+            if (param.default_value == nullptr) {
+                *out_error = "Error interno: parametro sin argumento ni default en '" + function.name + "'.";
+                return false;
+            }
+
+            if (!EvaluateExpression(*param.default_value, &evaluated, out_error)) {
+                return false;
+            }
         }
 
-        runtime::Value evaluated;
-        if (!EvaluateExpression(*argument.value, &evaluated, out_error)) {
-            return false;
+        if (param.type_hint != frontend::TypeHint::Inferred) {
+            runtime::Value normalized;
+            std::string type_error;
+            if (!NormalizeValueForTypeHint(param.type_hint, evaluated, &normalized, &type_error)) {
+                *out_error =
+                    "Argumento '" + param.name +
+                    "' no coincide con type hint '" + TypeHintName(param.type_hint) + "': " + type_error;
+                return false;
+            }
+            evaluated = std::move(normalized);
         }
 
         local_environment[param.name] = runtime::VariableSlot{evaluated, runtime::VariableKind::Dynamic};
@@ -970,10 +1058,44 @@ bool Interpreter::ExecuteUserFunction(const frontend::FunctionDeclStmt& function
     std::optional<runtime::Value> returned = return_stack_.back();
     return_stack_.pop_back();
 
+    if (function.return_type != frontend::TypeHint::Inferred) {
+        if (!returned.has_value()) {
+            *out_error =
+                "La funcion '" + function.name +
+                "' debe retornar un valor de tipo '" + TypeHintName(function.return_type) + "'.";
+            environment_ = std::move(caller_environment);
+            return false;
+        }
+
+        runtime::Value normalized_return;
+        std::string type_error;
+        if (!NormalizeValueForTypeHint(function.return_type, *returned, &normalized_return, &type_error)) {
+            *out_error =
+                "El retorno de la funcion '" + function.name +
+                "' no coincide con type hint '" + TypeHintName(function.return_type) + "': " + type_error;
+            environment_ = std::move(caller_environment);
+            return false;
+        }
+        returned = std::move(normalized_return);
+    }
+
     for (const RefBinding& ref : refs) {
         const auto updated = environment_.find(ref.param);
         if (updated != environment_.end()) {
-            caller_environment[ref.caller] = updated->second;
+            runtime::VariableSlot propagated_slot = updated->second;
+            if (ref.type_hint != frontend::TypeHint::Inferred) {
+                runtime::Value normalized;
+                std::string type_error;
+                if (!NormalizeValueForTypeHint(ref.type_hint, propagated_slot.value, &normalized, &type_error)) {
+                    *out_error =
+                        "El valor final del parametro por referencia '" + ref.param +
+                        "' no coincide con type hint '" + TypeHintName(ref.type_hint) + "': " + type_error;
+                    environment_ = std::move(caller_environment);
+                    return false;
+                }
+                propagated_slot.value = std::move(normalized);
+            }
+            caller_environment[ref.caller] = std::move(propagated_slot);
         }
     }
 

@@ -69,6 +69,96 @@ bool ReadListIndex(const runtime::Value& value, std::size_t* out_index, std::str
     return true;
 }
 
+const char* TypeHintName(frontend::TypeHint hint) {
+    switch (hint) {
+    case frontend::TypeHint::Inferred:
+        return "dynamic";
+    case frontend::TypeHint::Int:
+        return "int";
+    case frontend::TypeHint::Double:
+        return "double";
+    case frontend::TypeHint::Float:
+        return "float";
+    case frontend::TypeHint::Decimal:
+        return "decimal";
+    case frontend::TypeHint::Long:
+        return "long";
+    case frontend::TypeHint::Byte:
+        return "byte";
+    case frontend::TypeHint::Char:
+        return "char";
+    case frontend::TypeHint::Tuple:
+        return "tuple";
+    case frontend::TypeHint::Set:
+        return "set";
+    case frontend::TypeHint::Map:
+        return "map";
+    case frontend::TypeHint::Function:
+        return "function";
+    case frontend::TypeHint::String:
+        return "string";
+    case frontend::TypeHint::Bool:
+        return "bool";
+    case frontend::TypeHint::List:
+        return "list";
+    case frontend::TypeHint::Object:
+        return "object";
+    case frontend::TypeHint::Null:
+        return "null";
+    }
+    return "dynamic";
+}
+
+bool TryMapTypeHintToVariableKind(frontend::TypeHint hint, runtime::VariableKind* out_kind) {
+    if (out_kind == nullptr) {
+        return false;
+    }
+
+    switch (hint) {
+    case frontend::TypeHint::Int:
+        *out_kind = runtime::VariableKind::Int;
+        return true;
+    case frontend::TypeHint::Double:
+        *out_kind = runtime::VariableKind::Double;
+        return true;
+    case frontend::TypeHint::Float:
+        *out_kind = runtime::VariableKind::Float;
+        return true;
+    case frontend::TypeHint::Decimal:
+        *out_kind = runtime::VariableKind::Decimal;
+        return true;
+    case frontend::TypeHint::Long:
+        *out_kind = runtime::VariableKind::Long;
+        return true;
+    case frontend::TypeHint::Byte:
+        *out_kind = runtime::VariableKind::Byte;
+        return true;
+    case frontend::TypeHint::Char:
+        *out_kind = runtime::VariableKind::Char;
+        return true;
+    case frontend::TypeHint::Tuple:
+        *out_kind = runtime::VariableKind::Tuple;
+        return true;
+    case frontend::TypeHint::Set:
+        *out_kind = runtime::VariableKind::Set;
+        return true;
+    case frontend::TypeHint::Map:
+        *out_kind = runtime::VariableKind::Map;
+        return true;
+    case frontend::TypeHint::Function:
+        *out_kind = runtime::VariableKind::Function;
+        return true;
+    case frontend::TypeHint::Inferred:
+    case frontend::TypeHint::String:
+    case frontend::TypeHint::Bool:
+    case frontend::TypeHint::List:
+    case frontend::TypeHint::Object:
+    case frontend::TypeHint::Null:
+        return false;
+    }
+    return false;
+}
+
 }  // namespace
 
 bool Interpreter::ResolveVariable(
@@ -515,6 +605,79 @@ bool Interpreter::NormalizeValueForKind(
 
     *out_value = std::move(normalized);
     return true;
+}
+
+bool Interpreter::NormalizeValueForTypeHint(
+    frontend::TypeHint hint,
+    const runtime::Value& value,
+    runtime::Value* out_value,
+    std::string* out_error) const {
+    if (out_value == nullptr) {
+        if (out_error != nullptr) {
+            *out_error = "Error interno: out_value nulo en NormalizeValueForTypeHint.";
+        }
+        return false;
+    }
+
+    if (hint == frontend::TypeHint::Inferred) {
+        *out_value = value;
+        return true;
+    }
+
+    runtime::VariableKind kind = runtime::VariableKind::Dynamic;
+    if (TryMapTypeHintToVariableKind(hint, &kind)) {
+        return NormalizeValueForKind(kind, value, out_value, out_error);
+    }
+
+    if (hint == frontend::TypeHint::String) {
+        if (!value.IsString()) {
+            *out_error = "La expresion requiere un string.";
+            return false;
+        }
+        *out_value = value;
+        return true;
+    }
+
+    if (hint == frontend::TypeHint::Bool) {
+        if (!value.IsBool()) {
+            *out_error = "La expresion requiere un bool.";
+            return false;
+        }
+        *out_value = value;
+        return true;
+    }
+
+    if (hint == frontend::TypeHint::List) {
+        if (!value.IsList()) {
+            *out_error = "La expresion requiere un list.";
+            return false;
+        }
+        *out_value = value;
+        return true;
+    }
+
+    if (hint == frontend::TypeHint::Object) {
+        if (!value.IsObject()) {
+            *out_error = "La expresion requiere un object.";
+            return false;
+        }
+        *out_value = value;
+        return true;
+    }
+
+    if (hint == frontend::TypeHint::Null) {
+        if (!value.IsNull()) {
+            *out_error = "La expresion requiere null.";
+            return false;
+        }
+        *out_value = value;
+        return true;
+    }
+
+    if (out_error != nullptr) {
+        *out_error = std::string("Type hint no soportado: ") + TypeHintName(hint) + ".";
+    }
+    return false;
 }
 
 bool Interpreter::AssignValue(

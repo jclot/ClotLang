@@ -38,6 +38,7 @@ struct SymbolInfo {
 
 struct FunctionInfo {
     std::vector<bool> by_reference_params;
+    std::size_t required_params = 0;
 };
 
 struct ExpressionFacts {
@@ -114,6 +115,9 @@ private:
             info.by_reference_params.reserve(function_decl->params.size());
             for (const auto& param : function_decl->params) {
                 info.by_reference_params.push_back(param.by_reference);
+                if (param.default_value == nullptr) {
+                    ++info.required_params;
+                }
             }
             functions_[function_decl->name] = std::move(info);
 
@@ -742,12 +746,13 @@ private:
         }
 
         const std::vector<bool>& by_ref = function_it->second.by_reference_params;
-        if (call.arguments.size() != by_ref.size()) {
+        const std::size_t required = function_it->second.required_params;
+        if (call.arguments.size() < required || call.arguments.size() > by_ref.size()) {
             AddError(statement_id, "Cantidad de argumentos incorrecta en '" + call.callee + "'.");
             return ExpressionFacts{TypeHint::Unknown, false, 0.0};
         }
 
-        for (std::size_t i = 0; i < by_ref.size(); ++i) {
+        for (std::size_t i = 0; i < call.arguments.size(); ++i) {
             if (!by_ref[i]) {
                 continue;
             }

@@ -1,7 +1,10 @@
 #include "clot/frontend/parser.hpp"
 
+#include <algorithm>
 #include <cstddef>
+#include <cctype>
 #include <memory>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -9,6 +12,138 @@
 #include "parser_support.hpp"
 
 namespace clot::frontend {
+
+namespace {
+
+std::string ToLowerAscii(std::string text) {
+    std::transform(text.begin(), text.end(), text.begin(), [](unsigned char ch) {
+        return static_cast<char>(std::tolower(ch));
+    });
+    return text;
+}
+
+bool TryParseTypeHintToken(const Token& token, TypeHint* out_type_hint) {
+    if (out_type_hint == nullptr) {
+        return false;
+    }
+
+    switch (token.kind) {
+    case TokenKind::KeywordInt:
+        *out_type_hint = TypeHint::Int;
+        return true;
+    case TokenKind::KeywordDouble:
+        *out_type_hint = TypeHint::Double;
+        return true;
+    case TokenKind::KeywordFloat:
+        *out_type_hint = TypeHint::Float;
+        return true;
+    case TokenKind::KeywordDecimal:
+        *out_type_hint = TypeHint::Decimal;
+        return true;
+    case TokenKind::KeywordLong:
+        *out_type_hint = TypeHint::Long;
+        return true;
+    case TokenKind::KeywordByte:
+        *out_type_hint = TypeHint::Byte;
+        return true;
+    case TokenKind::KeywordChar:
+        *out_type_hint = TypeHint::Char;
+        return true;
+    case TokenKind::KeywordTuple:
+        *out_type_hint = TypeHint::Tuple;
+        return true;
+    case TokenKind::KeywordSet:
+        *out_type_hint = TypeHint::Set;
+        return true;
+    case TokenKind::KeywordMap:
+        *out_type_hint = TypeHint::Map;
+        return true;
+    case TokenKind::KeywordFunctionType:
+        *out_type_hint = TypeHint::Function;
+        return true;
+    case TokenKind::KeywordNull:
+        *out_type_hint = TypeHint::Null;
+        return true;
+    case TokenKind::Identifier:
+        break;
+    default:
+        return false;
+    }
+
+    const std::string lowered = ToLowerAscii(token.lexeme);
+    if (lowered == "int") {
+        *out_type_hint = TypeHint::Int;
+        return true;
+    }
+    if (lowered == "double") {
+        *out_type_hint = TypeHint::Double;
+        return true;
+    }
+    if (lowered == "float") {
+        *out_type_hint = TypeHint::Float;
+        return true;
+    }
+    if (lowered == "decimal") {
+        *out_type_hint = TypeHint::Decimal;
+        return true;
+    }
+    if (lowered == "long") {
+        *out_type_hint = TypeHint::Long;
+        return true;
+    }
+    if (lowered == "byte") {
+        *out_type_hint = TypeHint::Byte;
+        return true;
+    }
+    if (lowered == "char") {
+        *out_type_hint = TypeHint::Char;
+        return true;
+    }
+    if (lowered == "tuple") {
+        *out_type_hint = TypeHint::Tuple;
+        return true;
+    }
+    if (lowered == "set") {
+        *out_type_hint = TypeHint::Set;
+        return true;
+    }
+    if (lowered == "map") {
+        *out_type_hint = TypeHint::Map;
+        return true;
+    }
+    if (lowered == "function") {
+        *out_type_hint = TypeHint::Function;
+        return true;
+    }
+    if (lowered == "string") {
+        *out_type_hint = TypeHint::String;
+        return true;
+    }
+    if (lowered == "bool") {
+        *out_type_hint = TypeHint::Bool;
+        return true;
+    }
+    if (lowered == "list") {
+        *out_type_hint = TypeHint::List;
+        return true;
+    }
+    if (lowered == "object") {
+        *out_type_hint = TypeHint::Object;
+        return true;
+    }
+    if (lowered == "null") {
+        *out_type_hint = TypeHint::Null;
+        return true;
+    }
+    if (lowered == "any" || lowered == "dynamic") {
+        *out_type_hint = TypeHint::Inferred;
+        return true;
+    }
+
+    return false;
+}
+
+}  // namespace
 
 bool Parser::ParseAssignment(std::size_t* line_index, const std::vector<Token>& tokens,
                              std::vector<std::unique_ptr<Statement>>* out_statements, Diagnostic* out_error) const {
@@ -242,13 +377,30 @@ bool Parser::ParseFunctionDeclaration(std::size_t* line_index, const std::vector
         return false;
     }
 
-    if (tokens[1].kind != TokenKind::Identifier) {
-        *out_error = MakeError(*line_index + 1, tokens[1].column, "Falta nombre de funcion valido.");
+    TypeHint return_type_hint = TypeHint::Inferred;
+    std::size_t name_index = 1;
+    if (tokens.size() >= 6) {
+        TypeHint parsed_return_type = TypeHint::Inferred;
+        if (TryParseTypeHintToken(tokens[1], &parsed_return_type) &&
+            tokens[2].kind == TokenKind::Identifier &&
+            tokens[3].kind == TokenKind::LeftParen) {
+            return_type_hint = parsed_return_type;
+            name_index = 2;
+        }
+    }
+
+    if (name_index >= tokens.size() || tokens[name_index].kind != TokenKind::Identifier) {
+        const std::size_t error_index = name_index < tokens.size() ? name_index : 1;
+        *out_error = MakeError(*line_index + 1, tokens[error_index].column, "Falta nombre de funcion valido.");
         return false;
     }
 
-    if (tokens[2].kind != TokenKind::LeftParen) {
-        *out_error = MakeError(*line_index + 1, tokens[2].column, "Se esperaba '(' en la declaracion de funcion.");
+    if (name_index + 1 >= tokens.size() || tokens[name_index + 1].kind != TokenKind::LeftParen) {
+        const std::size_t error_index = name_index + 1 < tokens.size() ? name_index + 1 : tokens.size() - 1;
+        *out_error = MakeError(
+            *line_index + 1,
+            tokens[error_index].column,
+            "Se esperaba '(' en la declaracion de funcion.");
         return false;
     }
 
@@ -258,10 +410,11 @@ bool Parser::ParseFunctionDeclaration(std::size_t* line_index, const std::vector
         return false;
     }
 
-    const std::string function_name = tokens[1].lexeme;
+    const std::string function_name = tokens[name_index].lexeme;
     std::vector<FunctionParam> params;
+    bool seen_default_parameter = false;
 
-    std::size_t cursor = 3;
+    std::size_t cursor = name_index + 2;
     while (cursor < tokens.size()) {
         if (tokens[cursor].kind == TokenKind::RightParen) {
             ++cursor;
@@ -281,8 +434,105 @@ bool Parser::ParseFunctionDeclaration(std::size_t* line_index, const std::vector
             return false;
         }
 
-        params.push_back(FunctionParam{tokens[cursor].lexeme, by_reference});
+        const std::string param_name = tokens[cursor].lexeme;
         ++cursor;
+
+        TypeHint param_type_hint = TypeHint::Inferred;
+        if (cursor < tokens.size() && tokens[cursor].kind == TokenKind::Colon) {
+            ++cursor;
+            if (cursor >= tokens.size()) {
+                *out_error = MakeError(
+                    *line_index + 1,
+                    tokens.back().column,
+                    "Falta tipo de parametro despues de ':'.");
+                return false;
+            }
+
+            if (!TryParseTypeHintToken(tokens[cursor], &param_type_hint)) {
+                *out_error = MakeError(
+                    *line_index + 1,
+                    tokens[cursor].column,
+                    "Tipo de parametro no reconocido: '" + tokens[cursor].lexeme + "'.");
+                return false;
+            }
+            ++cursor;
+        }
+
+        std::unique_ptr<Expr> default_expr;
+        if (cursor < tokens.size() && tokens[cursor].kind == TokenKind::Assign) {
+            ++cursor;
+            if (cursor >= tokens.size()) {
+                *out_error = MakeError(
+                    *line_index + 1,
+                    tokens.back().column,
+                    "Falta expresion de valor por defecto despues de '='.");
+                return false;
+            }
+
+            const std::size_t default_start = cursor;
+            int paren_depth = 0;
+            int bracket_depth = 0;
+            int brace_depth = 0;
+            for (; cursor < tokens.size(); ++cursor) {
+                const TokenKind kind = tokens[cursor].kind;
+
+                if (paren_depth == 0 && bracket_depth == 0 && brace_depth == 0 &&
+                    (kind == TokenKind::Comma || kind == TokenKind::RightParen)) {
+                    break;
+                }
+
+                if (kind == TokenKind::LeftParen) {
+                    ++paren_depth;
+                } else if (kind == TokenKind::RightParen) {
+                    --paren_depth;
+                } else if (kind == TokenKind::LeftBracket) {
+                    ++bracket_depth;
+                } else if (kind == TokenKind::RightBracket) {
+                    --bracket_depth;
+                } else if (kind == TokenKind::LeftBrace) {
+                    ++brace_depth;
+                } else if (kind == TokenKind::RightBrace) {
+                    --brace_depth;
+                }
+            }
+
+            if (cursor == default_start) {
+                *out_error = MakeError(
+                    *line_index + 1,
+                    tokens[default_start - 1].column,
+                    "Falta expresion de valor por defecto despues de '='.");
+                return false;
+            }
+
+            std::vector<Token> default_tokens(
+                tokens.begin() + static_cast<std::ptrdiff_t>(default_start),
+                tokens.begin() + static_cast<std::ptrdiff_t>(cursor));
+            if (!ParseExpression(*line_index + 1, std::move(default_tokens), &default_expr, out_error)) {
+                return false;
+            }
+            seen_default_parameter = true;
+        } else if (seen_default_parameter) {
+            *out_error = MakeError(
+                *line_index + 1,
+                tokens[cursor].column,
+                "Los parametros sin valor por defecto no pueden ir despues de parametros con default.");
+            return false;
+        }
+
+        if (by_reference && default_expr != nullptr) {
+            *out_error = MakeError(
+                *line_index + 1,
+                tokens[cursor - 1].column,
+                "Los parametros por referencia no aceptan valor por defecto.");
+            return false;
+        }
+
+        params.push_back(FunctionParam{
+            param_name,
+            by_reference,
+            param_type_hint,
+            std::move(default_expr),
+        });
 
         if (cursor < tokens.size() && tokens[cursor].kind == TokenKind::Comma) {
             ++cursor;
@@ -333,7 +583,11 @@ bool Parser::ParseFunctionDeclaration(std::size_t* line_index, const std::vector
             }
 
             out_statements->push_back(
-                std::make_unique<FunctionDeclStmt>(function_name, std::move(params), std::move(body)));
+                std::make_unique<FunctionDeclStmt>(
+                    function_name,
+                    return_type_hint,
+                    std::move(params),
+                    std::move(body)));
             ++(*line_index);
             return true;
         }

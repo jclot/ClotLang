@@ -10,6 +10,17 @@ Refactor de arquitectura para separar claramente frontend, runtime, interprete y
 - Internacionalizacion basica de interfaz y diagnosticos (`--lang es|en`, `CLOT_LANG`).
 - Migracion funcional completada en modo interprete: listas, objetos, indexacion, propiedades, funciones y `import math`.
 
+## Perfil del lenguaje
+- Multiparadigma (dominante: imperativo/procedural).
+- Funcional ligero (funciones de primera clase), pero no funcional puro.
+- Ejecucion dual:
+  - Interpretado: `--mode interpret`
+  - Compilado AOT LLVM: `--mode compile`
+- Tipado dinamico con hints opcionales:
+  - Declaraciones y type hints se validan en runtime.
+  - `--mode analyze` agrega chequeo estatico auxiliar (no reemplaza tipado estatico completo).
+- Sin modelo OOP clasico de clases/herencia en el estado actual.
+
 ## Estructura
 ```text
 include/
@@ -76,17 +87,27 @@ Instala:
 - `llvm-dev`
 - `libclang-dev`
 
-## Compilar
-```bash
-cmake -S . -B build -G "Unix Makefiles" -DCLOT_ENABLE_LLVM=ON
-cmake --build build
-```
-
-Con presets (util para Visual Studio):
+## Compilar (CMake)
+Opcion A (recomendada, usando presets WSL):
 ```bash
 cmake --preset wsl-release
-cmake --build --preset build-release
+cmake --build --preset build-release -j4
 ```
+Binario generado: `./build/wsl-release/clot`
+
+Opcion B (directa, sin presets):
+```bash
+cmake -S . -B build -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DCLOT_ENABLE_LLVM=ON
+cmake --build build -j4
+```
+Binario generado: `./build/clot`
+
+Notas sobre paralelismo (`-j` / `--parallel`):
+- `cmake --build ...` -> build normal (sin forzar paralelismo).
+- `cmake --build ... -j4` -> ejecuta 4 tareas de compilacion en paralelo.
+- `cmake --build ... -j8` -> igual, pero con 8 tareas.
+- `cmake --build ... --parallel` -> usa paralelismo automatico segun el sistema.
+- `cmake --build ... --parallel 6` -> fija 6 tareas en paralelo.
 
 Alternativa:
 ```bash
@@ -97,6 +118,11 @@ make
 ### Modo interprete
 ```bash
 ./build/clot programa.clot
+```
+
+Si compilaste con presets, usa:
+```bash
+./build/wsl-release/clot programa.clot
 ```
 
 Modo ingles:
@@ -162,6 +188,17 @@ Soportado en modo interprete:
   - `lista[i] = ...`, `lista[i] += ...`
 - Funciones de usuario (`func/endfunc`) con soporte de referencia `&`
 - `return;` y `return expresion;`
+- Type hints opcionales en funciones:
+  - Retorno: `func float promedio(...):`
+  - Parametros: `func greet(name: string):`
+  - Valores por defecto: `func f(x: float = 1.0):`
+  - Retorno tipado: exactamente 1 tipo por funcion (sin unions)
+  - Tipos permitidos en retorno/parametros: `int`, `double`, `float`, `decimal`, `long`, `byte`, `char`, `tuple`, `set`, `map`, `function`, `string`, `bool`, `list`, `object`, `null`
+  - `any` y `dynamic` son alias (equivalentes)
+  - Retorno dinamico: omitir tipo (`func nombre(...):`) o usar `func any nombre(...):` / `func dynamic nombre(...):`
+  - En parametros: `x`, `x: any` y `x: dynamic` son equivalentes (aceptan cualquier valor)
+  - `any/dynamic` en la doc significa "any o dynamic"; no se escribe literal con barra
+  - Validacion runtime cuando el hint esta presente
 - Modulos por archivo con `import modulo.submodulo;`
   (resuelve a `modulo/submodulo.clot` relativo al archivo actual)
 - `import math` con builtin `sum(a, b)` como modulo nativo

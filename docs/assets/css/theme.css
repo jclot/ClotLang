@@ -12324,15 +12324,7 @@ a.text-link:hover {
   border: none;
   position: absolute;
   right: 0;
-  top: 0.15rem;
   margin-right: 0;
-}
-.search-form .search-btn:active, .search-form .search-btn:focus, .search-form .search-btn:hover {
-  outline: none !important;
-  color: #6418d3;
-  -webkit-box-shadow: none;
-  -moz-box-shadow: none;
-  box-shadow: none;
 }
 
 .docs-branding {

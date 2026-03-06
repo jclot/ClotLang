@@ -248,6 +248,10 @@ std::vector<Token> Tokenizer::TokenizeLine(const std::string& line) {
             break;
         }
 
+        if (current == '#') {
+            break;
+        }
+
         if (current == '"') {
             std::size_t cursor = index + 1;
             bool escaped = false;

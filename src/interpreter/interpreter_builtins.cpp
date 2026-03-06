@@ -334,21 +334,15 @@ bool RenderPrintfFormat(const std::string& format,
             break;
         case 'x':
         case 'X': {
-            bool ok = false;
-            const long long integer = argument.AsInteger(&ok);
-            if (!ok || integer < 0) {
+            BigInt integer;
+            if (!argument.AsBigInt(&integer) || integer < 0) {
                 if (out_error != nullptr) {
                     *out_error = "printf: %x/%X requiere entero sin signo (>= 0).";
                 }
                 return false;
             }
 
-            std::ostringstream stream;
-            if (specifier == 'X') {
-                stream << std::uppercase;
-            }
-            stream << std::hex << static_cast<unsigned long long>(integer);
-            *out_text += stream.str();
+            *out_text += BigIntToHexString(integer, specifier == 'X');
             break;
         }
         default:

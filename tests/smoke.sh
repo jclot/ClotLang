@@ -544,4 +544,167 @@ if [[ "$ACTUAL_FUNCTION_IMPLICIT_NULL" != "$EXPECTED_FUNCTION_IMPLICIT_NULL" ]];
     exit 1
 fi
 
+cat > "$TMP_DIR/function_type_hints_ok.clot" <<'PROG'
+func string greet(name: string):
+    return "Hola " + name;
+endfunc
+
+func float average(a: float, b: float):
+    return (a + b) / 2;
+endfunc
+
+println(greet("Ada"));
+println(type(average(5, 7)));
+println(average(5, 7));
+PROG
+
+EXPECTED_FUNCTION_TYPE_HINTS_OK=$'Hola Ada\nfloat\n6'
+ACTUAL_FUNCTION_TYPE_HINTS_OK="$($BIN_PATH "$TMP_DIR/function_type_hints_ok.clot")"
+if [[ "$ACTUAL_FUNCTION_TYPE_HINTS_OK" != "$EXPECTED_FUNCTION_TYPE_HINTS_OK" ]]; then
+    echo "Fallo test function_type_hints_ok" >&2
+    echo "Esperado:" >&2
+    printf '%s\n' "$EXPECTED_FUNCTION_TYPE_HINTS_OK" >&2
+    echo "Actual:" >&2
+    printf '%s\n' "$ACTUAL_FUNCTION_TYPE_HINTS_OK" >&2
+    exit 1
+fi
+
+cat > "$TMP_DIR/function_type_hints_missing_return.clot" <<'PROG'
+func int no_return():
+    x = 1;
+endfunc
+
+no_return();
+PROG
+
+set +e
+"$BIN_PATH" "$TMP_DIR/function_type_hints_missing_return.clot" >"$TMP_DIR/function_type_hints_missing_return.out" 2>"$TMP_DIR/function_type_hints_missing_return.err"
+STATUS_FUNCTION_TYPE_MISSING_RETURN=$?
+set -e
+
+if [[ "$STATUS_FUNCTION_TYPE_MISSING_RETURN" -eq 0 ]]; then
+    echo "Fallo test function_type_hints_missing_return: se esperaba error." >&2
+    exit 1
+fi
+
+if ! grep -q "debe retornar un valor de tipo 'int'" "$TMP_DIR/function_type_hints_missing_return.err"; then
+    echo "Fallo test function_type_hints_missing_return: mensaje esperado no encontrado." >&2
+    cat "$TMP_DIR/function_type_hints_missing_return.err" >&2
+    exit 1
+fi
+
+cat > "$TMP_DIR/function_type_hints_bad_arg.clot" <<'PROG'
+func string greet(name: string):
+    return name;
+endfunc
+
+println(greet(10));
+PROG
+
+set +e
+"$BIN_PATH" "$TMP_DIR/function_type_hints_bad_arg.clot" >"$TMP_DIR/function_type_hints_bad_arg.out" 2>"$TMP_DIR/function_type_hints_bad_arg.err"
+STATUS_FUNCTION_TYPE_BAD_ARG=$?
+set -e
+
+if [[ "$STATUS_FUNCTION_TYPE_BAD_ARG" -eq 0 ]]; then
+    echo "Fallo test function_type_hints_bad_arg: se esperaba error." >&2
+    exit 1
+fi
+
+if ! grep -q "Argumento 'name' no coincide con type hint 'string'" "$TMP_DIR/function_type_hints_bad_arg.err"; then
+    echo "Fallo test function_type_hints_bad_arg: mensaje esperado no encontrado." >&2
+    cat "$TMP_DIR/function_type_hints_bad_arg.err" >&2
+    exit 1
+fi
+
+cat > "$TMP_DIR/function_defaults_ok.clot" <<'PROG'
+func float free_fall_height(h0: float, v0: float, t: float, g: float = 9.81):
+    return h0 + v0 * t - (g * t * t) / 2;
+endfunc
+
+println(free_fall_height(100.0, 0.0, 2.0));
+println(free_fall_height(100.0, 0.0, 2.0, 10.0));
+println(type(free_fall_height(100.0, 0.0, 2.0)));
+PROG
+
+EXPECTED_FUNCTION_DEFAULTS_OK=$'80.38\n80\nfloat'
+ACTUAL_FUNCTION_DEFAULTS_OK="$($BIN_PATH "$TMP_DIR/function_defaults_ok.clot")"
+if [[ "$ACTUAL_FUNCTION_DEFAULTS_OK" != "$EXPECTED_FUNCTION_DEFAULTS_OK" ]]; then
+    echo "Fallo test function_defaults_ok" >&2
+    echo "Esperado:" >&2
+    printf '%s\n' "$EXPECTED_FUNCTION_DEFAULTS_OK" >&2
+    echo "Actual:" >&2
+    printf '%s\n' "$ACTUAL_FUNCTION_DEFAULTS_OK" >&2
+    exit 1
+fi
+
+cat > "$TMP_DIR/function_defaults_dynamic_ok.clot" <<'PROG'
+func greet(name, prefix = "Hola "):
+    return prefix + name;
+endfunc
+
+println(greet("Ada"));
+println(greet("Ada", "Hey "));
+PROG
+
+EXPECTED_FUNCTION_DEFAULTS_DYNAMIC_OK=$'Hola Ada\nHey Ada'
+ACTUAL_FUNCTION_DEFAULTS_DYNAMIC_OK="$($BIN_PATH "$TMP_DIR/function_defaults_dynamic_ok.clot")"
+if [[ "$ACTUAL_FUNCTION_DEFAULTS_DYNAMIC_OK" != "$EXPECTED_FUNCTION_DEFAULTS_DYNAMIC_OK" ]]; then
+    echo "Fallo test function_defaults_dynamic_ok" >&2
+    echo "Esperado:" >&2
+    printf '%s\n' "$EXPECTED_FUNCTION_DEFAULTS_DYNAMIC_OK" >&2
+    echo "Actual:" >&2
+    printf '%s\n' "$ACTUAL_FUNCTION_DEFAULTS_DYNAMIC_OK" >&2
+    exit 1
+fi
+
+cat > "$TMP_DIR/function_defaults_order_parse_error.clot" <<'PROG'
+func bad(a = 1, b):
+    return a + b;
+endfunc
+
+bad(1, 2);
+PROG
+
+set +e
+"$BIN_PATH" "$TMP_DIR/function_defaults_order_parse_error.clot" >"$TMP_DIR/function_defaults_order_parse_error.out" 2>"$TMP_DIR/function_defaults_order_parse_error.err"
+STATUS_FUNCTION_DEFAULTS_ORDER=$?
+set -e
+
+if [[ "$STATUS_FUNCTION_DEFAULTS_ORDER" -eq 0 ]]; then
+    echo "Fallo test function_defaults_order_parse_error: se esperaba error." >&2
+    exit 1
+fi
+
+if ! grep -q "no pueden ir despues" "$TMP_DIR/function_defaults_order_parse_error.err"; then
+    echo "Fallo test function_defaults_order_parse_error: mensaje esperado no encontrado." >&2
+    cat "$TMP_DIR/function_defaults_order_parse_error.err" >&2
+    exit 1
+fi
+
+cat > "$TMP_DIR/function_defaults_ref_parse_error.clot" <<'PROG'
+func bad(&x = 1):
+    return x;
+endfunc
+
+v = 1;
+bad(v);
+PROG
+
+set +e
+"$BIN_PATH" "$TMP_DIR/function_defaults_ref_parse_error.clot" >"$TMP_DIR/function_defaults_ref_parse_error.out" 2>"$TMP_DIR/function_defaults_ref_parse_error.err"
+STATUS_FUNCTION_DEFAULTS_REF=$?
+set -e
+
+if [[ "$STATUS_FUNCTION_DEFAULTS_REF" -eq 0 ]]; then
+    echo "Fallo test function_defaults_ref_parse_error: se esperaba error." >&2
+    exit 1
+fi
+
+if ! grep -q "por referencia no aceptan valor por defecto" "$TMP_DIR/function_defaults_ref_parse_error.err"; then
+    echo "Fallo test function_defaults_ref_parse_error: mensaje esperado no encontrado." >&2
+    cat "$TMP_DIR/function_defaults_ref_parse_error.err" >&2
+    exit 1
+fi
+
 echo "Smoke tests OK"

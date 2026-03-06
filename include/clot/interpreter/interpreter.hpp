@@ -88,6 +88,11 @@ private:
         const runtime::Value& value,
         runtime::Value* out_value,
         std::string* out_error) const;
+    bool NormalizeValueForTypeHint(
+        frontend::TypeHint hint,
+        const runtime::Value& value,
+        runtime::Value* out_value,
+        std::string* out_error) const;
 
     bool AssignValue(
         const frontend::AssignmentStmt& statement,
