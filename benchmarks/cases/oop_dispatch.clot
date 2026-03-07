@@ -1,0 +1,21 @@
+class Counter:
+    private int _v = 0;
+
+    constructor(start: int):
+        this._v = start;
+    endconstructor
+
+    public func int inc():
+        this._v += 1;
+        return this._v;
+    endfunc
+endclass
+
+c = Counter(0);
+i = 0;
+last = 0;
+while i < 20000:
+    last = c.inc();
+    i += 1;
+endwhile
+println(last);

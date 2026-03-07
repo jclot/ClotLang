@@ -1,0 +1,7 @@
+acc = 0;
+i = 0;
+while i < 50000:
+    acc += i;
+    i += 1;
+endwhile
+println(acc);

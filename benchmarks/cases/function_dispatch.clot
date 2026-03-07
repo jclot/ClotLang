@@ -1,0 +1,11 @@
+func int add_one(x: int):
+    return x + 1;
+endfunc
+
+i = 0;
+acc = 0;
+while i < 30000:
+    acc = add_one(acc);
+    i += 1;
+endwhile
+println(acc);
