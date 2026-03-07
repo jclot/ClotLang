@@ -158,6 +158,9 @@ private:
             for (const auto& nested : try_catch->catch_branch) {
                 CollectFunctionsAndImportsInStatement(nested.get());
             }
+            for (const auto& nested : try_catch->finally_branch) {
+                CollectFunctionsAndImportsInStatement(nested.get());
+            }
         }
     }
 
@@ -251,15 +254,20 @@ private:
             SymbolTable try_symbols = *symbols;
             AnalyzeStatements(try_catch->try_branch, &try_symbols);
 
-            SymbolTable catch_symbols = *symbols;
-            if (!try_catch->error_binding.empty()) {
-                catch_symbols[try_catch->error_binding] =
-                    SymbolInfo{
-                        DeclarationType::Inferred,
-                        try_catch->catch_type.empty() ? TypeHint::String : TypeHint::Unknown,
-                    };
+            if (try_catch->has_catch) {
+                SymbolTable catch_symbols = *symbols;
+                if (!try_catch->error_binding.empty()) {
+                    catch_symbols[try_catch->error_binding] =
+                        SymbolInfo{
+                            DeclarationType::Inferred,
+                            try_catch->catch_type.empty() ? TypeHint::String : TypeHint::Unknown,
+                        };
+                }
+                AnalyzeStatements(try_catch->catch_branch, &catch_symbols);
             }
-            AnalyzeStatements(try_catch->catch_branch, &catch_symbols);
+
+            SymbolTable finally_symbols = *symbols;
+            AnalyzeStatements(try_catch->finally_branch, &finally_symbols);
             return;
         }
     }
@@ -492,6 +500,7 @@ private:
             case BinaryOp::GreaterEqual:
             case BinaryOp::LogicalAnd:
             case BinaryOp::LogicalOr:
+            case BinaryOp::In:
                 return ExpressionFacts{TypeHint::Bool, false, 0.0};
             case BinaryOp::Subtract:
             case BinaryOp::Multiply:
@@ -532,6 +541,7 @@ private:
                 case BinaryOp::GreaterEqual:
                 case BinaryOp::LogicalAnd:
                 case BinaryOp::LogicalOr:
+                case BinaryOp::In:
                     facts.is_constant_numeric = false;
                     break;
                 }
@@ -631,6 +641,80 @@ private:
                 AddError(statement_id, "map(key, value, ...) requiere cantidad par de argumentos.");
             }
             return ExpressionFacts{TypeHint::Map, false, 0.0};
+        }
+
+        if (call.callee == "len") {
+            if (call.arguments.size() != 1) {
+                AddError(statement_id, "len(value) requiere 1 argumento.");
+            }
+            return ExpressionFacts{TypeHint::Number, false, 0.0};
+        }
+
+        if (call.callee == "range") {
+            if (call.arguments.empty() || call.arguments.size() > 3) {
+                AddError(statement_id, "range() requiere 1, 2 o 3 argumentos.");
+            }
+            return ExpressionFacts{TypeHint::List, false, 0.0};
+        }
+
+        if (call.callee == "enumerate") {
+            if (call.arguments.size() != 1 && call.arguments.size() != 2) {
+                AddError(statement_id, "enumerate(iterable, start=0) requiere 1 o 2 argumentos.");
+            }
+            return ExpressionFacts{TypeHint::List, false, 0.0};
+        }
+
+        if (call.callee == "zip") {
+            return ExpressionFacts{TypeHint::List, false, 0.0};
+        }
+
+        if (call.callee == "all" || call.callee == "any") {
+            if (call.arguments.size() != 1) {
+                AddError(statement_id, call.callee + "(iterable) requiere 1 argumento.");
+            }
+            return ExpressionFacts{TypeHint::Bool, false, 0.0};
+        }
+
+        if (call.callee == "isinstance") {
+            if (call.arguments.size() != 2) {
+                AddError(statement_id, "isinstance(value, type_name) requiere 2 argumentos.");
+            }
+            return ExpressionFacts{TypeHint::Bool, false, 0.0};
+        }
+
+        if (call.callee == "chr") {
+            if (call.arguments.size() != 1) {
+                AddError(statement_id, "chr(code) requiere 1 argumento.");
+            }
+            return ExpressionFacts{TypeHint::Char, false, 0.0};
+        }
+
+        if (call.callee == "ord") {
+            if (call.arguments.size() != 1) {
+                AddError(statement_id, "ord(char) requiere 1 argumento.");
+            }
+            return ExpressionFacts{TypeHint::Number, false, 0.0};
+        }
+
+        if (call.callee == "hex" || call.callee == "bin") {
+            if (call.arguments.size() != 1) {
+                AddError(statement_id, call.callee + "(value) requiere 1 argumento.");
+            }
+            return ExpressionFacts{TypeHint::String, false, 0.0};
+        }
+
+        if (call.callee == "hash") {
+            if (call.arguments.size() != 1) {
+                AddError(statement_id, "hash(value) requiere 1 argumento.");
+            }
+            return ExpressionFacts{TypeHint::Number, false, 0.0};
+        }
+
+        if (call.callee == "id") {
+            if (call.arguments.size() != 1) {
+                AddError(statement_id, "id(value) requiere 1 argumento.");
+            }
+            return ExpressionFacts{TypeHint::Number, false, 0.0};
         }
 
         if (call.callee == "enum_name") {

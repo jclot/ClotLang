@@ -1094,6 +1094,9 @@ llvm::Value* LlvmEmitter::EmitNumericExpr(const frontend::Expr& expression) {
             llvm::Value* rhs_bool = builder_.CreateFCmpONE(rhs, llvm::ConstantFP::get(builder_.getDoubleTy(), 0.0));
             return BoolToNumber(builder_.CreateOr(lhs_bool, rhs_bool, "or"));
         }
+        case frontend::BinaryOp::In:
+            error_ = "Operador 'in' no soportado en modo compile LLVM AOT; usa runtime bridge.";
+            return nullptr;
         }
     }
 

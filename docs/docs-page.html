@@ -449,6 +449,18 @@
                     <li class="nav-item"><a class="nav-link scrollto" href="#item-faq-print">Print and newline</a></li>
                     <li class="nav-item"><a class="nav-link scrollto" href="#item-faq-return">Missing return
                             behavior</a></li>
+                    <li class="nav-item"><a class="nav-link scrollto" href="#item-faq-try-forms">try/catch/finally
+                            forms</a></li>
+                    <li class="nav-item"><a class="nav-link scrollto" href="#item-faq-foreach-const">for-each
+                            with/without const</a></li>
+                    <li class="nav-item"><a class="nav-link scrollto" href="#item-faq-empty-var">Declaring empty
+                            vars</a></li>
+                    <li class="nav-item"><a class="nav-link scrollto" href="#item-faq-defer">When defer runs</a></li>
+                    <li class="nav-item"><a class="nav-link scrollto" href="#item-faq-in">What in checks</a></li>
+                    <li class="nav-item"><a class="nav-link scrollto" href="#item-faq-null-none">null vs Python
+                            None</a></li>
+                    <li class="nav-item"><a class="nav-link scrollto" href="#item-faq-aot-controlflow">LLVM AOT and
+                            control flow</a></li>
                     <li class="nav-item"><a class="nav-link scrollto" href="#item-faq-oop">Why super(...) first</a></li>
                     <li class="nav-item"><a class="nav-link scrollto" href="#item-faq-enum">Enum name/value</a></li>
 
@@ -544,7 +556,8 @@
                                         <td>Paradigma dominante</td>
                                         <td>Imperativo/procedural</td>
                                         <td>Flujo principal basado en mutacion de estado, bloques,
-                                            <code>if</code>/<code>while</code>, funciones y llamadas explicitas.</td>
+                                            <code>if</code>/<code>while</code>/<code>for</code>/<code>switch</code>,
+                                            funciones y llamadas explicitas.</td>
                                     </tr>
                                     <tr>
                                         <td>Paradigma menos dominante</td>
@@ -579,7 +592,7 @@
                     <section class="docs-section" id="item-manual-scope">
                         <h2 class="section-heading">Scope</h2>
                         <p>
-                            Documenta el estado de Clot al <strong>2026-03-06</strong>. La cobertura corresponde a
+                            Documenta el estado de Clot al <strong>2026-03-07</strong>. La cobertura corresponde a
                             parser,
                             interpreter, static analyzer, backend LLVM AOT, runtime bridge, i18n y modulos disponibles.
                         </p>
@@ -595,9 +608,13 @@
                                 <tbody>
                                     <tr>
                                         <td>Lenguaje</td>
-                                        <td>Tipos, funciones, OOP MVP (<code>class/interface</code>), enum, while,
-                                            <code>throw</code>, try/catch tipado, import</td>
-                                        <td>for, pattern matching, async/await nativo de lenguaje, OOP avanzado
+                                        <td>Tipos, funciones, OOP MVP (<code>class/interface</code>), enum,
+                                            <code>while</code>, <code>for</code> clasico, <code>for-each</code>,
+                                            <code>do-while</code>, <code>switch</code>, <code>break</code>,
+                                            <code>continue</code>, <code>pass</code>, <code>const</code>,
+                                            <code>in</code>, <code>throw</code>, <code>try/catch/finally</code>,
+                                            <code>defer</code>, import</td>
+                                        <td>Pattern matching, async/await nativo de lenguaje, OOP avanzado
                                             (<code>protected/abstract/final</code>)</td>
                                     </tr>
                                     <tr>
@@ -608,7 +625,8 @@
                                     </tr>
                                     <tr>
                                         <td>Tooling</td>
-                                        <td><code>--mode interpret|compile|analyze</code>, i18n es/en</td>
+                                        <td><code>--mode interpret|compile|analyze</code>, i18n es/en, runtime bridge
+                                            automatico para features no cubiertas por AOT nativo</td>
                                         <td>Package manager dedicado</td>
                                     </tr>
                                 </tbody>
@@ -703,13 +721,24 @@
                                     </tr>
                                     <tr>
                                         <td>Control flow</td>
-                                        <td><code>while ... endwhile</code> y <code>try/catch/endtry</code></td>
-                                        <td>Resiliencia y flujo mas robusto</td>
+                                        <td><code>for</code> clasico, <code>for-each</code>,
+                                            <code>do-while</code>, <code>switch/case/default</code>,
+                                            <code>break</code>, <code>continue</code>, <code>pass</code>,
+                                            <code>finally</code> y <code>defer</code></td>
+                                        <td>Flujo mas expresivo, mas cercano a Java en cabeceras y con mejor control de
+                                            salida de bloques</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Immutability & membership</td>
+                                        <td><code>const</code> + operador <code>in</code></td>
+                                        <td>Bindings inmutables y pruebas de pertenencia para colecciones, object y
+                                            string</td>
                                     </tr>
                                     <tr>
                                         <td>Error system</td>
                                         <td><code>throw(value)</code> +
-                                            <code>catch(Tipo)</code>/<code>catch(Tipo err)</code> + modulo
+                                            <code>catch(Tipo)</code>/<code>catch(Tipo err)</code> +
+                                            <code>finally</code> + modulo
                                             <code>clot.core.exceptions</code></td>
                                         <td>Captura por tipo y jerarquia de excepciones para codigo OOP</td>
                                     </tr>
@@ -772,6 +801,20 @@
                             <li><code>long</code> mantiene rango estricto de 64 bits signed.</li>
                             <li><code>double</code> ya no es el default para enteros literales; <code>int</code>
                                 (BigInt) es el default.</li>
+                            <li><code>for</code> usa cabecera estilo Java
+                                (<code>for (init; cond; update):</code>), pero mantiene bloques estilo Clot con
+                                <code>:</code> y <code>endfor</code>.</li>
+                            <li><code>continue;</code> solo es valido dentro de bucles. Si aparece dentro de un
+                                <code>switch</code> anidado en un bucle, continua la iteracion del bucle externo.</li>
+                            <li><code>defer</code> solo acepta sentencias simples y se ejecuta en orden LIFO al salir del
+                                bloque actual.</li>
+                            <li><code>in</code> verifica elementos en <code>list</code>/<code>tuple</code>/<code>set</code>,
+                                claves en <code>map</code>, nombres de propiedad en <code>object</code> y substring en
+                                <code>string</code>.</li>
+                            <li>En LLVM AOT nativo aun no hay lowering dedicado para <code>switch</code>,
+                                <code>for-each</code>, <code>do-while</code>, <code>finally</code>,
+                                <code>defer</code> ni el operador <code>in</code>; compile mode puede resolverlos via
+                                runtime bridge.</li>
                         </ul>
                     </section>
                 </article>
@@ -828,18 +871,59 @@ printf("%s %d\\n", "Version", 1);
 
                     <section class="docs-section" id="item-tutorial-controlflow">
                         <h2 class="section-heading">Control Flow</h2>
-                        <pre class="shadow-lg rounded"><code class="language-clike">int i = 0;
-while i &lt; 3:
-    println(i);
-    i += 1;
-endwhile
+                        <p>
+                            Clot mantiene su estilo de bloques con <code>:</code> y cierres explicitos, pero ahora
+                            cubre el repertorio de control de flujo que normalmente se espera en un lenguaje imperativo
+                            moderno: <code>while</code>, <code>for</code> clasico, <code>for-each</code>,
+                            <code>do-while</code>, <code>switch</code>, <code>break</code>,
+                            <code>continue</code> y <code>pass</code>.
+                        </p>
+                        <pre class="shadow-lg rounded"><code class="language-clike">const long limit = 6;
+sum = 0;
 
-if i == 3:
-    println("loop done");
-else:
-    println("unexpected");
-endif
+for (int i = 0; i &lt; limit; i++):
+    if(i == 1):
+        continue;
+    endif
+    if(i == 4):
+        break;
+    endif
+    sum += i;
+endfor
+
+for (const item in [10, 20, 30]):
+    println(item);
+endfor
+
+switch(sum):
+    case 5:
+        println("five");
+        break;
+    default:
+        pass;
+endswitch
+
+do:
+    sum -= 1;
+while(sum &gt; 0);
+
+println("na" in "banana");
+println("name" in {name: "Ada"});
 </code></pre>
+                        <ul>
+                            <li><code>for (init; cond; update):</code> acepta declaraciones, mutaciones o expresiones
+                                simples en <code>init</code> y <code>update</code>.</li>
+                            <li><code>for (item in coleccion):</code> itera directamente listas, tuple, set, map,
+                                object o string; <code>const</code> en el binding es opcional.</li>
+                            <li><code>switch</code> usa fallthrough estilo Java hasta encontrar <code>break;</code> o
+                                terminar el bloque.</li>
+                            <li><code>pass;</code> es un placeholder valido y no ejecuta ninguna accion.</li>
+                        </ul>
+                        <div class="docs-callout success">
+                            El operador <code>in</code> es dual: sirve en <code>for-each</code> y tambien como
+                            prueba de pertenencia. En <code>map</code> busca claves; en <code>object</code> busca
+                            nombres de propiedad.
+                        </div>
                     </section>
 
                     <section class="docs-section" id="item-tutorial-funcs">
@@ -918,7 +1002,10 @@ println(p.greet());
                             Clot soporta <code>throw(value)</code> y cuatro variantes de <code>catch</code>:
                             <code>catch:</code>, <code>catch(err):</code>, <code>catch(Tipo):</code> y
                             <code>catch(Tipo err):</code>.
-                            Solo se permite un bloque <code>catch</code> por <code>try</code>.
+                            Ademas, <code>finally:</code> es opcional y siempre se ejecuta al cerrar el
+                            <code>try</code>. Solo se permite un bloque <code>catch</code> por <code>try</code>.
+                            Las formas validas son <code>try/catch</code>, <code>try/finally</code> y
+                            <code>try/catch/finally</code>; si aparece, <code>finally</code> siempre va de ultimo.
                             En errores runtime internos, el binding de catch recibe un string localizado;
                             en <code>throw(objeto)</code> recibe el valor lanzado.
                             Si una excepcion no encuentra <code>catch</code> compatible, la ejecucion termina con
@@ -955,6 +1042,27 @@ catch:
     println("generic catch");
 endtry
 </code></pre>
+                        <pre class="shadow-lg rounded"><code class="language-clike">// finally y defer en accion
+func demo_cleanup():
+    defer println("defer: ultimo en declararse, primero en ejecutar");
+    defer println("defer: cleanup interno");
+
+    try:
+        throw("boom");
+    catch(err):
+        println(err);
+    finally:
+        println("finally: cleanup del try");
+    endtry
+endfunc
+
+demo_cleanup();
+</code></pre>
+                        <div class="docs-callout">
+                            <strong>finally</strong> es parte del flujo de excepciones del <code>try</code>.
+                            <strong>defer</strong> no depende de excepciones: agenda una sentencia simple y la ejecuta
+                            cuando el bloque actual termina, incluso si hubo <code>return</code> o un error propagado.
+                        </div>
                         <pre class="shadow-lg rounded"><code class="language-clike">// throw sin try/catch (excepcion no capturada) usando funcion
 import clot.core.exceptions;
 
@@ -1212,6 +1320,15 @@ benchmarks/baseline.sh ./build/wsl-release/clot
                                 </thead>
                                 <tbody>
                                     <tr>
+                                        <td><code>const</code></td>
+                                        <td>Variable slot inmutable</td>
+                                        <td>N/A</td>
+                                        <td>Requiere inicializacion inmediata; solo acepta <code>=</code>; protege el
+                                            binding contra reasignacion y no puede redeclararse sobre una binding ya
+                                            existente</td>
+                                        <td><code>const long limit = 10;</code></td>
+                                    </tr>
+                                    <tr>
                                         <td><code>int</code></td>
                                         <td>BigInt dinamico</td>
                                         <td>Limitado por RAM</td>
@@ -1278,7 +1395,8 @@ benchmarks/baseline.sh ./build/wsl-release/clot
                                         <td><code>null</code></td>
                                         <td>Valor nulo</td>
                                         <td>N/A</td>
-                                        <td>Falsy, usado para ausencia de valor</td>
+                                        <td>Falsy, usado para ausencia de valor; equivalente conceptual al
+                                            <code>None</code> de Python</td>
                                         <td><code>v = null;</code></td>
                                     </tr>
                                     <tr>
@@ -1325,6 +1443,12 @@ benchmarks/baseline.sh ./build/wsl-release/clot
                                     </tr>
                                 </tbody>
                             </table>
+                        </div>
+                        <div class="docs-callout">
+                            Clot no soporta declaraciones vacias estilo <code>int x;</code>. Toda binding nace con un
+                            valor inicial. Si necesitas reservar la variable para completarla despues, usa
+                            <code>x = null;</code>. <code>null</code> es un valor real de ausencia, no un estado
+                            especial de "sin inicializar".
                         </div>
 
                         <h3>Field Summary for Composite Types</h3>
@@ -1427,8 +1551,20 @@ benchmarks/baseline.sh ./build/wsl-release/clot
                                         <td><code>=</code>, <code>+=</code>, <code>-=</code></td>
                                         <td>Declaracion tipada solo permite <code>=</code></td>
                                     </tr>
+                                    <tr>
+                                        <td>Membership</td>
+                                        <td><code>in</code></td>
+                                        <td><code>lhs in rhs</code> revisa elementos en
+                                            <code>list/tuple/set</code>, claves en <code>map</code>, propiedades en
+                                            <code>object</code> y substring en <code>string</code></td>
+                                    </tr>
                                 </tbody>
                             </table>
+                        </div>
+                        <div class="docs-callout">
+                            <code>i++</code> y <code>i--</code> estan soportados como shorthand en el slot
+                            <code>update</code> del <code>for</code> clasico. No forman parte de la gramatica general
+                            de expresiones fuera de ese contexto.
                         </div>
                     </section>
 
@@ -1453,6 +1589,49 @@ benchmarks/baseline.sh ./build/wsl-release/clot
                                         <td>While</td>
                                         <td><code>while cond: ... endwhile</code></td>
                                         <td>Cierre obligatorio <code>endwhile</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Assignment / declaration</td>
+                                        <td><code>name = expr;</code> y variantes tipadas/<code>const</code> con valor
+                                            inicial</td>
+                                        <td>Toda binding requiere valor inicial; no existe declaracion vacia estilo
+                                            <code>int x;</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Const declaration</td>
+                                        <td><code>const name = expr;</code> o <code>const tipo name = expr;</code></td>
+                                        <td>Inmutable despues de inicializar; no acepta <code>+=</code> ni
+                                            <code>-=</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td>For (classic)</td>
+                                        <td><code>for (init; cond; update): ... endfor</code></td>
+                                        <td>Cabecera estilo Java; <code>init</code>/<code>update</code> solo aceptan
+                                            declaraciones, mutaciones o expresiones simples</td>
+                                    </tr>
+                                    <tr>
+                                        <td>For-each</td>
+                                        <td><code>for (item in collection): ... endfor</code></td>
+                                        <td>Binding opcionalmente tipado y/o <code>const</code>; itera
+                                            <code>list</code>, <code>tuple</code>, <code>set</code>, <code>map</code>,
+                                            <code>object</code> o <code>string</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Do-while</td>
+                                        <td><code>do: ... while(cond);</code></td>
+                                        <td>El cuerpo se ejecuta al menos una vez; el cierre exige
+                                            <code>while(cond);</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Switch</td>
+                                        <td><code>switch(expr): case valor: ... default: ... endswitch</code></td>
+                                        <td>Soporta fallthrough estilo Java; solo un <code>default</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Loop/switch flow</td>
+                                        <td><code>break;</code>, <code>continue;</code>, <code>pass;</code></td>
+                                        <td><code>break</code> sale de bucle o <code>switch</code>;
+                                            <code>continue</code> solo aplica a bucles; <code>pass</code> no-op</td>
                                     </tr>
                                     <tr>
                                         <td>Function</td>
@@ -1481,11 +1660,21 @@ benchmarks/baseline.sh ./build/wsl-release/clot
                                         <td>Fuera de formato: parse error</td>
                                     </tr>
                                     <tr>
-                                        <td>Try/catch</td>
-                                        <td><code>try: ... catch:|catch(err):|catch(Tipo):|catch(Tipo err): ... endtry</code>
+                                        <td>Try/catch/finally</td>
+                                        <td><code>try: ... catch:|catch(err):|catch(Tipo):|catch(Tipo err): ...
+                                                finally: ... endtry</code>
                                         </td>
                                         <td>Solo un <code>catch</code>; requiere <code>endtry</code>; formato de
-                                            <code>catch</code> estricto</td>
+                                            <code>catch</code>/<code>finally</code> estricto; formas validas:
+                                            <code>try/catch</code>, <code>try/finally</code> o
+                                            <code>try/catch/finally</code>; <code>finally</code> es opcional y va al
+                                            final</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Defer</td>
+                                        <td><code>defer sentencia_simple;</code></td>
+                                        <td>Solo agenda sentencias simples; ejecucion LIFO al salir del bloque actual
+                                        </td>
                                     </tr>
                                     <tr>
                                         <td>Import</td>
@@ -1502,19 +1691,32 @@ benchmarks/baseline.sh ./build/wsl-release/clot
                                 </tbody>
                             </table>
                         </div>
-                        <pre class="shadow-lg rounded"><code class="language-clike">enum Estado {
-    ACTIVO,
-    INACTIVO
-};
+                        <div class="docs-callout">
+                            El <code>for-each</code> no exige <code>const</code>. Estas formas son validas:
+                            <code>for (item in xs):</code>, <code>for (const item in xs):</code>,
+                            <code>for (int item in xs):</code> y <code>for (const int item in xs):</code>.
+                            <code>const</code> solo vuelve inmutable el binding de iteracion dentro del cuerpo.
+                        </div>
+                        <pre class="shadow-lg rounded"><code class="language-clike">const long n = 5;
+sum = 0;
 
-import clot.core.exceptions;
+for (int i = 0; i &lt; n; i++):
+    sum += i;
+endfor
+
+switch(sum):
+    case 10:
+        println("ten");
+        break;
+    default:
+        pass;
+endswitch
 
 try:
-    while true:
-        throw(IndexError("indice invalido"));
-    endwhile
-catch(IndexError err):
-    println(err.message);
+    defer println("fin de bloque");
+    println("id" in {id: 1});
+finally:
+    println("cleanup");
 endtry
 </code></pre>
                     </section>
@@ -1867,9 +2069,16 @@ tuple pair = tuple("x", 99);
 set uniq = set(1, 1, 2, 3);
 map dict = map("a", 1, 2, "b");
 println(dict[2]);
+
+println(20 in list_values);      // true
+println("a" in dict);            // true (clave)
+println("name" in obj);          // true (propiedad)
+println("da" in "Ada");          // true (substring)
 </code></pre>
                         <div class="docs-callout warn">
                             Mutar <code>tuple</code> con <code>[]</code> genera error runtime.
+                            El operador <code>in</code> no busca valores dentro de <code>map</code> u
+                            <code>object</code>; busca claves o nombres de propiedad.
                         </div>
                     </section>
 
@@ -1961,6 +2170,18 @@ println(enum_value(Estado, "ACTIVO"));      // 0
                                         <td>Error de ejecucion</td>
                                     </tr>
                                     <tr>
+                                        <td><code>const</code> binding</td>
+                                        <td>Reasignacion, <code>+=</code>/<code>-=</code> o declaracion sobre
+                                            propiedad de objeto</td>
+                                        <td>Error de parse o runtime segun el caso</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Standalone declaration</td>
+                                        <td>Uso de <code>int x;</code>, <code>long y;</code> o cualquier declaracion sin
+                                            inicializador</td>
+                                        <td>Parse error</td>
+                                    </tr>
+                                    <tr>
                                         <td>Derived constructor</td>
                                         <td>Falta <code>super(...)</code> como primera sentencia o se llama mas de una
                                             vez</td>
@@ -1973,10 +2194,61 @@ println(enum_value(Estado, "ACTIVO"));      // 0
                                         <td>Parse error en declaracion de funcion</td>
                                     </tr>
                                     <tr>
-                                        <td>try/catch grammar</td>
-                                        <td>Falta <code>catch</code>/<code>endtry</code> o formato invalido de
-                                            <code>catch</code></td>
+                                        <td><code>for</code> header</td>
+                                        <td>Cabecera mal formada o uso de bloques/control de flujo en
+                                            <code>init/update</code></td>
                                         <td>Parse error</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>for-each</code></td>
+                                        <td>Coleccion no iterable por el runtime o binding invalido</td>
+                                        <td>Parse error o runtime error</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>do-while</code> grammar</td>
+                                        <td>Falta cierre <code>while(cond);</code></td>
+                                        <td>Parse error</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>switch</code> grammar</td>
+                                        <td>Falta <code>endswitch</code>, no hay labels o hay multiples
+                                            <code>default</code></td>
+                                        <td>Parse error</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>break</code>/<code>continue</code></td>
+                                        <td>Uso fuera de contexto valido</td>
+                                        <td>Error de ejecucion</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>defer</code></td>
+                                        <td>Sentencia vacia, sentencia compuesta o uso fuera de bloque</td>
+                                        <td>Parse error o runtime error</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>in</code> membership</td>
+                                        <td>Lado derecho no es <code>list</code>, <code>tuple</code>,
+                                            <code>set</code>, <code>map</code>, <code>object</code> o
+                                            <code>string</code></td>
+                                        <td>Error de ejecucion</td>
+                                    </tr>
+                                    <tr>
+                                        <td>try/catch/finally grammar</td>
+                                        <td>Falta <code>catch</code>/<code>finally</code>/<code>endtry</code> o formato
+                                            invalido de <code>catch</code>/<code>finally</code></td>
+                                        <td>Parse error</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>null</code> / <code>none</code></td>
+                                        <td>Uso de <code>none</code> esperando un literal nulo</td>
+                                        <td><code>none</code> no es keyword; usa <code>null</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td>LLVM AOT native coverage</td>
+                                        <td>Uso de <code>switch</code>, <code>for-each</code>, <code>do-while</code>,
+                                            <code>defer</code>, <code>finally</code> o <code>in</code> fuera del subset
+                                            AOT nativo</td>
+                                        <td>Fallback via runtime bridge o diagnostico de compile mode</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -2147,6 +2419,24 @@ println(enum_value(Estado, "ACTIVO"));      // 0
                                         <td>Convierte a tipo destino si es valido</td>
                                     </tr>
                                     <tr>
+                                        <td><code>isinstance</code></td>
+                                        <td><code>isinstance(value, type_name)</code></td>
+                                        <td><code>bool</code></td>
+                                        <td>Chequeo de tipo runtime (builtin o clase)</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>hash</code></td>
+                                        <td><code>hash(value)</code></td>
+                                        <td><code>int</code></td>
+                                        <td>Fingerprint estructural estable para comparacion</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>id</code></td>
+                                        <td><code>id(value)</code></td>
+                                        <td><code>int</code></td>
+                                        <td>Identidad runtime estable por igualdad de valor</td>
+                                    </tr>
+                                    <tr>
                                         <td><code>assert</code></td>
                                         <td><code>assert(cond)</code> o <code>assert(cond, msg)</code></td>
                                         <td><code>true</code> en exito</td>
@@ -2186,6 +2476,36 @@ endtry
                                 </thead>
                                 <tbody>
                                     <tr>
+                                        <td><code>len</code></td>
+                                        <td><code>len(value)</code></td>
+                                        <td><code>int</code></td>
+                                        <td>Longitud de <code>string/list/tuple/set/map/object/char</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>range</code></td>
+                                        <td><code>range(stop)</code>, <code>range(start, stop, step)</code></td>
+                                        <td><code>list</code></td>
+                                        <td>Secuencia de enteros; <code>step</code> no puede ser 0; max 1,000,000 elementos</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>enumerate</code></td>
+                                        <td><code>enumerate(iterable, start=0)</code></td>
+                                        <td><code>list</code> de <code>tuple(index, value)</code></td>
+                                        <td>Iteracion indexada en runtime</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>zip</code></td>
+                                        <td><code>zip(iter1, iter2, ...)</code></td>
+                                        <td><code>list</code> de <code>tuple</code></td>
+                                        <td>Combina iterables hasta el menor largo</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>all</code> / <code>any</code></td>
+                                        <td><code>all(iterable)</code>, <code>any(iterable)</code></td>
+                                        <td><code>bool</code></td>
+                                        <td>Validaciones logicas masivas sobre elementos truthy/falsy</td>
+                                    </tr>
+                                    <tr>
                                         <td><code>tuple</code></td>
                                         <td><code>tuple(v1, v2, ...)</code></td>
                                         <td><code>tuple</code></td>
@@ -2215,9 +2535,28 @@ endtry
                                         <td><code>int</code></td>
                                         <td>Busca valor por nombre de miembro</td>
                                     </tr>
+                                    <tr>
+                                        <td><code>chr</code> / <code>ord</code></td>
+                                        <td><code>chr(code)</code>, <code>ord(char)</code></td>
+                                        <td><code>char</code> / <code>int</code></td>
+                                        <td>Conversion ASCII (0..255) entre entero y caracter</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>hex</code> / <code>bin</code></td>
+                                        <td><code>hex(value)</code>, <code>bin(value)</code></td>
+                                        <td><code>string</code></td>
+                                        <td>Representacion de enteros con prefijo <code>0x</code>/<code>0b</code></td>
+                                    </tr>
                                 </tbody>
                             </table>
                         </div>
+                        <pre class="shadow-lg rounded"><code class="language-clike">println(range(1, 6, 2));                 // [1, 3, 5]
+println(enumerate(["a", "b"], 5));      // [(5, "a"), (6, "b")]
+println(zip([1, 2, 3], "ab"));          // [(1, 'a'), (2, 'b')]
+println(all([1, true, "x"]));            // true
+println(isinstance(10, "number"));       // true
+println(hex(-26));                        // -0x1a
+</code></pre>
                     </section>
 
                     <section class="docs-section" id="item-lib-system">
@@ -2525,14 +2864,17 @@ println(log(100, 10));
                     <section class="docs-section" id="item-base-reference">
                         <h2 class="section-heading">Base Reference Checklist</h2>
                         <ul>
-                            <li>Statements: <code>if</code>, <code>while</code>, <code>func</code>,
-                                <code>try/catch</code>, <code>return</code>.</li>
+                            <li>Statements: <code>if</code>, <code>while</code>, <code>for</code>,
+                                <code>for-each</code>, <code>do-while</code>, <code>switch</code>,
+                                <code>break</code>, <code>continue</code>, <code>pass</code>, <code>func</code>,
+                                <code>try/catch/finally</code>, <code>defer</code>, <code>return</code>.</li>
                             <li>Tipos: numericos, char, bool, null, listas, objetos, tuple/set/map, function ref.</li>
                             <li>Builtins: <code>input</code>, <code>println</code>, <code>printf</code>,
                                 <code>type</code>, <code>cast</code>, <code>assert</code>, <code>throw</code>,
                                 file/async builtins.</li>
                             <li>Jerarquia base de errores disponible con <code>import clot.core.exceptions;</code>.</li>
-                            <li>Constante: <code>endl</code> para salto de linea.</li>
+                            <li>Keywords/utilidades base: <code>const</code>, operador <code>in</code> y constante
+                                <code>endl</code>.</li>
                         </ul>
                     </section>
                 </article>
@@ -2699,7 +3041,7 @@ println(a.value + b.value);
                     <section class="docs-section" id="item-deprecations-current">
                         <h2 class="section-heading">Current Status</h2>
                         <div class="docs-callout success">
-                            A la fecha 2026-03-03 no hay APIs marcadas como deprecadas en la superficie oficial.
+                            A la fecha 2026-03-07 no hay APIs marcadas como deprecadas en la superficie oficial.
                         </div>
                     </section>
                     <section class="docs-section" id="item-deprecations-policy">
@@ -2758,6 +3100,133 @@ println(a.value + b.value);
                             <code>map</code>, <code>function</code>, <code>string</code>, <code>bool</code>,
                             <code>list</code>,
                             <code>object</code> y <code>null</code>.
+                        </p>
+                    </section>
+
+                    <section class="docs-section" id="item-faq-try-forms">
+                        <h2 class="section-heading">Can I use <code>try</code>, <code>catch</code> and
+                            <code>finally</code> together?</h2>
+                        <p>
+                            Si. Clot acepta tres combinaciones validas:
+                            <code>try/catch</code>, <code>try/finally</code> y
+                            <code>try/catch/finally</code>.
+                        </p>
+                        <pre class="shadow-lg rounded"><code class="language-clike">try:
+    risky();
+catch(err):
+    println(err);
+finally:
+    println("cleanup");
+endtry
+</code></pre>
+                        <ul>
+                            <li>Solo se permite un <code>catch</code> por bloque <code>try</code>.</li>
+                            <li>Si existe <code>finally</code>, va despues de <code>catch</code>.</li>
+                            <li><code>finally</code> siempre intenta ejecutarse al cerrar el <code>try</code>, incluso
+                                si hubo error.</li>
+                        </ul>
+                    </section>
+
+                    <section class="docs-section" id="item-faq-foreach-const">
+                        <h2 class="section-heading">Does <code>for-each</code> require <code>const</code>?</h2>
+                        <p>
+                            No. <code>const</code> es opcional en el binding del <code>for-each</code>.
+                        </p>
+                        <pre class="shadow-lg rounded"><code class="language-clike">for (item in values):
+    println(item);
+endfor
+
+for (const item in values):
+    println(item);
+endfor
+</code></pre>
+                        <p>
+                            Usa <code>const</code> cuando quieras impedir reasignar la variable de iteracion dentro del
+                            cuerpo. Si no lo necesitas, el binding simple <code>item</code> es valido.
+                        </p>
+                    </section>
+
+                    <section class="docs-section" id="item-faq-empty-var">
+                        <h2 class="section-heading">Can I declare a variable first and assign later?</h2>
+                        <p>
+                            No con una declaracion vacia estilo C/Java. En Clot, toda binding debe nacer con un valor.
+                            <code>int x;</code> es invalido.
+                        </p>
+                        <pre class="shadow-lg rounded"><code class="language-clike">// invalido
+int x;
+
+// valido
+x = null;
+x = 42;
+</code></pre>
+                        <div class="docs-callout">
+                            Usa <code>null</code> como placeholder cuando quieras "todavia no tengo valor". Eso no
+                            significa "sin inicializar": significa "inicializado con ausencia de valor".
+                        </div>
+                    </section>
+
+                    <section class="docs-section" id="item-faq-defer">
+                        <h2 class="section-heading">When does <code>defer</code> run?</h2>
+                        <p>
+                            <code>defer</code> programa una sentencia simple para el final del bloque actual. No corre en
+                            el punto donde aparece, sino al salir del bloque. El orden es <strong>LIFO</strong>.
+                        </p>
+                        <pre class="shadow-lg rounded"><code class="language-clike">func sample():
+    defer println("third");
+    defer println("second");
+    println("body");
+endfunc
+
+sample();
+
+// salida:
+// body
+// second
+// third
+</code></pre>
+                        <p>
+                            Su uso practico tipico es cleanup por bloque: liberar recursos, restaurar estado, registrar
+                            logs finales o ejecutar pasos que deben correr antes de abandonar el bloque.
+                        </p>
+                    </section>
+
+                    <section class="docs-section" id="item-faq-in">
+                        <h2 class="section-heading">What does <code>in</code> check?</h2>
+                        <ul>
+                            <li><code>valor in [1, 2, 3]</code>: pertenencia por elemento.</li>
+                            <li><code>clave in map(...)</code>: existencia de clave.</li>
+                            <li><code>"prop" in obj</code>: existencia de propiedad en object.</li>
+                            <li><code>"na" in "banana"</code>: substring.</li>
+                        </ul>
+                        <div class="docs-callout warn">
+                            El lado derecho debe ser <code>list</code>, <code>tuple</code>, <code>set</code>,
+                            <code>map</code>, <code>object</code> o <code>string</code>.
+                        </div>
+                    </section>
+
+                    <section class="docs-section" id="item-faq-null-none">
+                        <h2 class="section-heading">Is <code>null</code> like Python <code>None</code>? Does
+                            <code>none</code> exist?</h2>
+                        <p>
+                            Conceptualmente, si: <code>null</code> es el valor de ausencia de Clot y es el equivalente
+                            mas cercano al <code>None</code> de Python.
+                        </p>
+                        <p>
+                            La forma oficial del lenguaje es <code>null</code>. <code>none</code> no es keyword, no es
+                            alias y no debe usarse como literal nulo en ejemplos o codigo fuente.
+                        </p>
+                    </section>
+
+                    <section class="docs-section" id="item-faq-aot-controlflow">
+                        <h2 class="section-heading">Can LLVM AOT compile the new control-flow features natively?</h2>
+                        <p>
+                            No todas. En el estado actual, <code>switch</code>, <code>for-each</code>,
+                            <code>do-while</code>, <code>finally</code>, <code>defer</code> y el operador
+                            <code>in</code> no tienen lowering AOT nativo dedicado.
+                        </p>
+                        <p>
+                            El modo <code>compile</code> puede seguir cubriendo esos casos via runtime bridge, pero no
+                            debes asumir que se ejecutaran como IR LLVM puro sin soporte de runtime.
                         </p>
                     </section>
 
@@ -2938,6 +3407,11 @@ endclass
                                         <td><a href="#item-lang-types">Type System</a></td>
                                     </tr>
                                     <tr>
+                                        <td>break</td>
+                                        <td>Control flow</td>
+                                        <td><a href="#item-lang-statements">Statements</a></td>
+                                    </tr>
+                                    <tr>
                                         <td>cast</td>
                                         <td>Core builtin</td>
                                         <td><a href="#item-lib-core">Core Module</a></td>
@@ -2958,14 +3432,34 @@ endclass
                                         <td><a href="#item-packages-resolution-order">Module Resolution Order</a></td>
                                     </tr>
                                     <tr>
+                                        <td>const</td>
+                                        <td>Modifier</td>
+                                        <td><a href="#item-lang-types">Type System</a></td>
+                                    </tr>
+                                    <tr>
                                         <td>constructor</td>
                                         <td>OOP block</td>
                                         <td><a href="#item-lang-oop">OOP MVP</a></td>
                                     </tr>
                                     <tr>
+                                        <td>continue</td>
+                                        <td>Control flow</td>
+                                        <td><a href="#item-lang-statements">Statements</a></td>
+                                    </tr>
+                                    <tr>
                                         <td>decimal</td>
                                         <td>Type</td>
                                         <td><a href="#item-lang-types">Type System</a></td>
+                                    </tr>
+                                    <tr>
+                                        <td>defer</td>
+                                        <td>Execution control</td>
+                                        <td><a href="#item-lang-statements">Statements</a></td>
+                                    </tr>
+                                    <tr>
+                                        <td>do-while</td>
+                                        <td>Control flow</td>
+                                        <td><a href="#item-lang-statements">Statements</a></td>
                                     </tr>
                                     <tr>
                                         <td>endl</td>
@@ -2998,6 +3492,21 @@ endclass
                                         <td><a href="#item-lang-types">Type System</a></td>
                                     </tr>
                                     <tr>
+                                        <td>finally</td>
+                                        <td>Error handling</td>
+                                        <td><a href="#item-lang-statements">Statements</a></td>
+                                    </tr>
+                                    <tr>
+                                        <td>for</td>
+                                        <td>Control flow</td>
+                                        <td><a href="#item-lang-statements">Statements</a></td>
+                                    </tr>
+                                    <tr>
+                                        <td>for-each</td>
+                                        <td>Control flow</td>
+                                        <td><a href="#item-lang-statements">Statements</a></td>
+                                    </tr>
+                                    <tr>
                                         <td>function</td>
                                         <td>Type</td>
                                         <td><a href="#item-lang-functions">Functions</a></td>
@@ -3023,6 +3532,11 @@ endclass
                                         <td><a href="#item-lang-types">Type System</a></td>
                                     </tr>
                                     <tr>
+                                        <td>in</td>
+                                        <td>Operator</td>
+                                        <td><a href="#item-lang-operators">Operators</a></td>
+                                    </tr>
+                                    <tr>
                                         <td>interface</td>
                                         <td>OOP keyword</td>
                                         <td><a href="#item-lang-oop">OOP MVP</a></td>
@@ -3043,9 +3557,19 @@ endclass
                                         <td><a href="#item-lang-types">Type System</a></td>
                                     </tr>
                                     <tr>
+                                        <td>none</td>
+                                        <td>Not a keyword</td>
+                                        <td><a href="#item-faq-null-none">null vs Python None</a></td>
+                                    </tr>
+                                    <tr>
                                         <td>override</td>
                                         <td>OOP modifier</td>
                                         <td><a href="#item-lang-oop">OOP MVP</a></td>
+                                    </tr>
+                                    <tr>
+                                        <td>pass</td>
+                                        <td>Control flow</td>
+                                        <td><a href="#item-lang-statements">Statements</a></td>
                                     </tr>
                                     <tr>
                                         <td>printf</td>
@@ -3068,12 +3592,17 @@ endclass
                                         <td><a href="#item-lang-oop">OOP MVP</a></td>
                                     </tr>
                                     <tr>
+                                        <td>switch</td>
+                                        <td>Control flow</td>
+                                        <td><a href="#item-lang-statements">Statements</a></td>
+                                    </tr>
+                                    <tr>
                                         <td>throw</td>
                                         <td>Core builtin</td>
                                         <td><a href="#item-lib-core">Core Module</a></td>
                                     </tr>
                                     <tr>
-                                        <td>try/catch</td>
+                                        <td>try/catch/finally</td>
                                         <td>Error handling</td>
                                         <td><a href="#item-lang-statements">Statements</a></td>
                                     </tr>
@@ -3255,6 +3784,37 @@ endclass
                                         <td>Campo que solo puede inicializarse en contexto permitido y luego no puede
                                             reasignarse.</td>
                                     </tr>
+                                    <tr>
+                                        <td>Const binding</td>
+                                        <td>Binding declarada con <code>const</code>; exige inicializacion inmediata y no
+                                            admite reasignacion posterior.</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Null literal</td>
+                                        <td>Valor canonico de ausencia en Clot. Cumple el papel conceptual de
+                                            <code>None</code> en Python, pero la spelling oficial es
+                                            <code>null</code>.</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Placeholder initialization</td>
+                                        <td>Patron de inicializar una binding con <code>null</code> para completar su
+                                            valor mas adelante sin introducir un estado "sin inicializar".</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Defer</td>
+                                        <td>Mecanismo de ejecucion diferida por bloque. Agenda una sentencia simple para
+                                            el final del bloque actual.</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Fallthrough</td>
+                                        <td>Comportamiento de <code>switch</code> donde un <code>case</code> continua al
+                                            siguiente si no aparece <code>break;</code>.</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Membership operator</td>
+                                        <td>Operador <code>in</code> usado para pertenencia, existencia de clave o
+                                            existencia de propiedad segun el tipo del operando derecho.</td>
+                                    </tr>
                                 </tbody>
                             </table>
                         </div>
@@ -3295,6 +3855,13 @@ endclass
                                     <li><a href="#item-faq-overflow">int vs long overflow</a></li>
                                     <li><a href="#item-faq-print">Print and newline</a></li>
                                     <li><a href="#item-faq-return">Missing return behavior</a></li>
+                                    <li><a href="#item-faq-try-forms">try/catch/finally forms</a></li>
+                                    <li><a href="#item-faq-foreach-const">for-each with/without const</a></li>
+                                    <li><a href="#item-faq-empty-var">Declaring empty vars</a></li>
+                                    <li><a href="#item-faq-defer">When defer runs</a></li>
+                                    <li><a href="#item-faq-in">What in checks</a></li>
+                                    <li><a href="#item-faq-null-none">null vs Python None</a></li>
+                                    <li><a href="#item-faq-aot-controlflow">LLVM AOT and control flow</a></li>
                                     <li><a href="#item-faq-oop">Why super(...) first</a></li>
                                     <li><a href="#item-faq-enum">Enum name/value</a></li>
                                 </ul>
@@ -3320,7 +3887,7 @@ endclass
                     <section class="docs-section" id="item-issues-template">
                         <h2 class="section-heading">Issue Template</h2>
                         <pre class="shadow-lg rounded"><code class="language-text">Title: [Runtime|Parser|LLVM] Short description
-Version/Date: 2026-03-06 snapshot
+Version/Date: 2026-03-07 snapshot
 Command: ./build/wsl-release/clot file.clot --mode ... --lang en
 Input file:
 &lt;paste minimal reproducible clot code&gt;
@@ -3422,6 +3989,14 @@ bash tests/llvm_smoke.sh ./build/wsl-release/clot
                                     </tr>
                                 </thead>
                                 <tbody>
+                                    <tr>
+                                        <td>2026-03-07</td>
+                                        <td>Expanded control flow + const/in + finally/defer</td>
+                                        <td><code>for</code>, <code>for-each</code>, <code>do-while</code>,
+                                            <code>switch</code>, <code>break</code>, <code>continue</code>,
+                                            <code>pass</code>, <code>const</code>, <code>in</code>,
+                                            <code>finally</code>, <code>defer</code>, docs sync</td>
+                                    </tr>
                                     <tr>
                                         <td>2026-03-06</td>
                                         <td>Typed exception system + throw builtin</td>

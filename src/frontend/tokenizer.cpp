@@ -78,6 +78,48 @@ TokenKind KeywordToTokenKind(const std::string& text) {
     if (text == "import") {
         return TokenKind::KeywordImport;
     }
+    if (text == "for") {
+        return TokenKind::KeywordFor;
+    }
+    if (text == "endfor") {
+        return TokenKind::KeywordEndFor;
+    }
+    if (text == "do") {
+        return TokenKind::KeywordDo;
+    }
+    if (text == "switch") {
+        return TokenKind::KeywordSwitch;
+    }
+    if (text == "case") {
+        return TokenKind::KeywordCase;
+    }
+    if (text == "default") {
+        return TokenKind::KeywordDefault;
+    }
+    if (text == "endswitch") {
+        return TokenKind::KeywordEndSwitch;
+    }
+    if (text == "break") {
+        return TokenKind::KeywordBreak;
+    }
+    if (text == "continue") {
+        return TokenKind::KeywordContinue;
+    }
+    if (text == "pass") {
+        return TokenKind::KeywordPass;
+    }
+    if (text == "finally") {
+        return TokenKind::KeywordFinally;
+    }
+    if (text == "in") {
+        return TokenKind::KeywordIn;
+    }
+    if (text == "const") {
+        return TokenKind::KeywordConst;
+    }
+    if (text == "defer") {
+        return TokenKind::KeywordDefer;
+    }
     if (text == "return") {
         return TokenKind::KeywordReturn;
     }
@@ -206,6 +248,34 @@ const char* ToString(TokenKind kind) {
         return "endfunc";
     case TokenKind::KeywordImport:
         return "import";
+    case TokenKind::KeywordFor:
+        return "for";
+    case TokenKind::KeywordEndFor:
+        return "endfor";
+    case TokenKind::KeywordDo:
+        return "do";
+    case TokenKind::KeywordSwitch:
+        return "switch";
+    case TokenKind::KeywordCase:
+        return "case";
+    case TokenKind::KeywordDefault:
+        return "default";
+    case TokenKind::KeywordEndSwitch:
+        return "endswitch";
+    case TokenKind::KeywordBreak:
+        return "break";
+    case TokenKind::KeywordContinue:
+        return "continue";
+    case TokenKind::KeywordPass:
+        return "pass";
+    case TokenKind::KeywordFinally:
+        return "finally";
+    case TokenKind::KeywordIn:
+        return "in";
+    case TokenKind::KeywordConst:
+        return "const";
+    case TokenKind::KeywordDefer:
+        return "defer";
     case TokenKind::KeywordReturn:
         return "return";
     case TokenKind::KeywordTry:

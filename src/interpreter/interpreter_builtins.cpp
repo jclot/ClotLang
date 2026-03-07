@@ -3,13 +3,17 @@
 #include <algorithm>
 #include <chrono>
 #include <cctype>
+#include <cstdint>
+#include <cstring>
 #include <cmath>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <iomanip>
 #include <iostream>
 #include <limits>
 #include <sstream>
+#include <string_view>
 #include <thread>
 
 namespace clot::interpreter {
@@ -81,6 +85,270 @@ std::string BigIntToHexString(BigInt value, bool uppercase) {
     }
     std::reverse(text.begin(), text.end());
     return text;
+}
+
+std::string BigIntToBinaryString(BigInt value) {
+    if (value == 0) {
+        return "0";
+    }
+
+    std::string text;
+    while (value > 0) {
+        const BigInt quotient = value / 2;
+        const BigInt remainder = value % 2;
+        text.push_back(remainder == 0 ? '0' : '1');
+        value = quotient;
+    }
+    std::reverse(text.begin(), text.end());
+    return text;
+}
+
+BigInt SizeToBigInt(std::size_t size) {
+    BigInt integer;
+    if (!runtime::Value::TryParseBigInt(std::to_string(size), &integer)) {
+        return BigInt(0);
+    }
+    return integer;
+}
+
+BigInt UnsignedToBigInt(std::uint64_t value) {
+    BigInt integer;
+    if (!runtime::Value::TryParseBigInt(std::to_string(value), &integer)) {
+        return BigInt(0);
+    }
+    return integer;
+}
+
+std::string LowerAscii(std::string text) {
+    std::transform(text.begin(), text.end(), text.begin(), [](unsigned char ch) {
+        return static_cast<char>(std::tolower(ch));
+    });
+    return text;
+}
+
+std::string ValueTypeName(const runtime::Value& value) {
+    if (value.IsInteger()) {
+        return "int";
+    }
+    if (value.IsDouble()) {
+        return "double";
+    }
+    if (value.IsFloat()) {
+        return "float";
+    }
+    if (value.IsDecimal()) {
+        return "decimal";
+    }
+    if (value.IsChar()) {
+        return "char";
+    }
+    if (value.IsString()) {
+        return "string";
+    }
+    if (value.IsBool()) {
+        return "bool";
+    }
+    if (value.IsNull()) {
+        return "null";
+    }
+    if (value.IsList()) {
+        return "list";
+    }
+    if (value.IsTuple()) {
+        return "tuple";
+    }
+    if (value.IsSet()) {
+        return "set";
+    }
+    if (value.IsMap()) {
+        return "map";
+    }
+    if (value.IsFunctionRef()) {
+        return "function";
+    }
+    return "object";
+}
+
+bool MatchesBuiltinTypeName(const runtime::Value& value, const std::string& lowered_type_name) {
+    if (lowered_type_name == "any" || lowered_type_name == "dynamic") {
+        return true;
+    }
+    if (lowered_type_name == "number" || lowered_type_name == "numeric") {
+        return value.IsNumber();
+    }
+    if (lowered_type_name == "int" || lowered_type_name == "long" || lowered_type_name == "byte") {
+        return value.IsInteger();
+    }
+    if (lowered_type_name == "double") {
+        return value.IsDouble();
+    }
+    if (lowered_type_name == "float") {
+        return value.IsFloat();
+    }
+    if (lowered_type_name == "decimal") {
+        return value.IsDecimal();
+    }
+    if (lowered_type_name == "char") {
+        return value.IsChar();
+    }
+    if (lowered_type_name == "string") {
+        return value.IsString();
+    }
+    if (lowered_type_name == "bool" || lowered_type_name == "boolean") {
+        return value.IsBool();
+    }
+    if (lowered_type_name == "null") {
+        return value.IsNull();
+    }
+    if (lowered_type_name == "list") {
+        return value.IsList();
+    }
+    if (lowered_type_name == "tuple") {
+        return value.IsTuple();
+    }
+    if (lowered_type_name == "set") {
+        return value.IsSet();
+    }
+    if (lowered_type_name == "map") {
+        return value.IsMap();
+    }
+    if (lowered_type_name == "function") {
+        return value.IsFunctionRef();
+    }
+    if (lowered_type_name == "object") {
+        return value.IsObject();
+    }
+    return false;
+}
+
+std::uint64_t HashMix(std::uint64_t seed, std::uint64_t value) {
+    seed ^= value + 0x9E3779B97F4A7C15ULL + (seed << 6U) + (seed >> 2U);
+    return seed;
+}
+
+std::uint64_t HashBytes(std::string_view text) {
+    std::uint64_t hash = 1469598103934665603ULL;
+    for (unsigned char ch : text) {
+        hash ^= static_cast<std::uint64_t>(ch);
+        hash *= 1099511628211ULL;
+    }
+    return hash;
+}
+
+std::uint64_t HashValue(const runtime::Value& value, int depth = 0) {
+    if (depth > 128) {
+        return 0xDEADBEEFCAFEBABEULL;
+    }
+
+    if (value.IsNull()) {
+        return 0x0100000000000000ULL;
+    }
+
+    if (value.IsBool()) {
+        return value.AsBool() ? 0x0200000000000001ULL : 0x0200000000000000ULL;
+    }
+
+    if (value.IsNumber()) {
+        BigInt integer;
+        if (value.AsBigInt(&integer)) {
+            std::uint64_t hash = 0x0300000000000000ULL;
+            hash = HashMix(hash, HashBytes(integer.convert_to<std::string>()));
+            return hash;
+        }
+
+        runtime::Value::Decimal decimal;
+        if (value.AsDecimal(&decimal)) {
+            std::uint64_t hash = 0x0300000000000001ULL;
+            hash = HashMix(hash, HashBytes(decimal.ToString()));
+            return hash;
+        }
+
+        bool ok = false;
+        const double numeric = value.AsNumber(&ok);
+        std::uint64_t hash = 0x0300000000000002ULL;
+        if (ok) {
+            std::uint64_t bits = 0;
+            std::memcpy(&bits, &numeric, sizeof(bits));
+            hash = HashMix(hash, bits);
+        }
+        return hash;
+    }
+
+    if (value.IsChar()) {
+        const char character = *value.AsCharValue();
+        std::uint64_t hash = 0x0400000000000000ULL;
+        hash = HashMix(hash, static_cast<std::uint64_t>(static_cast<unsigned char>(character)));
+        return hash;
+    }
+
+    if (value.IsString()) {
+        std::uint64_t hash = 0x0500000000000000ULL;
+        hash = HashMix(hash, HashBytes(value.ToString()));
+        return hash;
+    }
+
+    if (const auto* list = value.AsList()) {
+        std::uint64_t hash = 0x0600000000000000ULL;
+        for (const auto& element : *list) {
+            hash = HashMix(hash, HashValue(element, depth + 1));
+        }
+        return hash;
+    }
+
+    if (const auto* tuple = value.AsTuple()) {
+        std::uint64_t hash = 0x0700000000000000ULL;
+        for (const auto& element : *tuple) {
+            hash = HashMix(hash, HashValue(element, depth + 1));
+        }
+        return hash;
+    }
+
+    if (const auto* set = value.AsSet()) {
+        std::vector<std::uint64_t> members;
+        members.reserve(set->size());
+        for (const auto& element : *set) {
+            members.push_back(HashValue(element, depth + 1));
+        }
+        std::sort(members.begin(), members.end());
+
+        std::uint64_t hash = 0x0800000000000000ULL;
+        for (const std::uint64_t member_hash : members) {
+            hash = HashMix(hash, member_hash);
+        }
+        return hash;
+    }
+
+    if (const auto* map = value.AsMap()) {
+        std::vector<std::uint64_t> entries;
+        entries.reserve(map->size());
+        for (const auto& entry : *map) {
+            std::uint64_t entry_hash = 0x0900000000000000ULL;
+            entry_hash = HashMix(entry_hash, HashValue(entry.first, depth + 1));
+            entry_hash = HashMix(entry_hash, HashValue(entry.second, depth + 1));
+            entries.push_back(entry_hash);
+        }
+        std::sort(entries.begin(), entries.end());
+
+        std::uint64_t hash = 0x0900000000000001ULL;
+        for (const std::uint64_t entry_hash : entries) {
+            hash = HashMix(hash, entry_hash);
+        }
+        return hash;
+    }
+
+    if (const auto* object = value.AsObject()) {
+        std::uint64_t hash = 0x0A00000000000000ULL;
+        for (const auto& entry : *object) {
+            hash = HashMix(hash, HashBytes(entry.first));
+            hash = HashMix(hash, HashValue(entry.second, depth + 1));
+        }
+        return hash;
+    }
+
+    const runtime::Value::FunctionRef* function = value.AsFunctionRefValue();
+    std::uint64_t hash = 0x0B00000000000000ULL;
+    hash = HashMix(hash, HashBytes(function != nullptr ? function->name : value.ToString()));
+    return hash;
 }
 
 BigInt AbsBigInt(const BigInt& value) {
@@ -813,6 +1081,422 @@ bool Interpreter::ExecuteBuiltinCall(const frontend::CallExpr& call, bool* out_w
         return true;
     }
 
+    if (call.callee == "len") {
+        *out_was_builtin = true;
+        if (call.arguments.size() != 1) {
+            *out_error = "len(value) requiere 1 argumento.";
+            return false;
+        }
+
+        runtime::Value value;
+        if (!evaluate_argument(0, &value)) {
+            return false;
+        }
+
+        std::size_t size = 0;
+        if (const auto* text = value.AsCharValue()) {
+            (void)text;
+            size = 1;
+        } else if (value.IsString()) {
+            size = value.ToString().size();
+        } else if (const auto* list = value.AsList()) {
+            size = list->size();
+        } else if (const auto* tuple = value.AsTuple()) {
+            size = tuple->size();
+        } else if (const auto* set = value.AsSet()) {
+            size = set->size();
+        } else if (const auto* map = value.AsMap()) {
+            size = map->size();
+        } else if (const auto* object = value.AsObject()) {
+            size = object->size();
+        } else {
+            *out_error = "len() requiere un string, list, tuple, set, map, object o char.";
+            return false;
+        }
+
+        *out_value = runtime::Value(SizeToBigInt(size));
+        return true;
+    }
+
+    if (call.callee == "range") {
+        *out_was_builtin = true;
+        if (call.arguments.empty() || call.arguments.size() > 3) {
+            *out_error = "range() requiere 1, 2 o 3 argumentos.";
+            return false;
+        }
+
+        BigInt start = 0;
+        BigInt stop = 0;
+        BigInt step = 1;
+
+        runtime::Value first_value;
+        BigInt first_integer;
+        if (!evaluate_argument(0, &first_value) || !ReadInteger(first_value, &first_integer, out_error)) {
+            return false;
+        }
+
+        if (call.arguments.size() == 1) {
+            stop = first_integer;
+        } else {
+            start = first_integer;
+
+            runtime::Value second;
+            if (!evaluate_argument(1, &second) || !ReadInteger(second, &stop, out_error)) {
+                return false;
+            }
+
+            if (call.arguments.size() == 3) {
+                runtime::Value third;
+                if (!evaluate_argument(2, &third) || !ReadInteger(third, &step, out_error)) {
+                    return false;
+                }
+            }
+        }
+
+        if (step == 0) {
+            *out_error = "range() requiere step != 0.";
+            return false;
+        }
+
+        static constexpr std::size_t kMaxRangeElements = 1000000;
+        runtime::Value::List values;
+        BigInt current = start;
+        while ((step > 0 && current < stop) || (step < 0 && current > stop)) {
+            if (values.size() >= kMaxRangeElements) {
+                *out_error = "range() excede el maximo de 1000000 elementos.";
+                return false;
+            }
+            values.emplace_back(current);
+            current += step;
+        }
+
+        *out_value = runtime::Value(std::move(values));
+        return true;
+    }
+
+    if (call.callee == "enumerate") {
+        *out_was_builtin = true;
+        if (call.arguments.size() != 1 && call.arguments.size() != 2) {
+            *out_error = "enumerate(iterable, start=0) requiere 1 o 2 argumentos.";
+            return false;
+        }
+
+        runtime::Value iterable;
+        if (!evaluate_argument(0, &iterable)) {
+            return false;
+        }
+
+        std::vector<runtime::Value> elements;
+        std::string iterable_error;
+        if (!CollectForEachElements(iterable, &elements, &iterable_error)) {
+            *out_error = "enumerate() requiere un iterable (list, tuple, set, map, object o string).";
+            return false;
+        }
+
+        BigInt index = 0;
+        if (call.arguments.size() == 2) {
+            runtime::Value start_value;
+            if (!evaluate_argument(1, &start_value) || !ReadInteger(start_value, &index, out_error)) {
+                return false;
+            }
+        }
+
+        runtime::Value::List result;
+        result.reserve(elements.size());
+        for (const auto& element : elements) {
+            runtime::Value::Tuple pair;
+            pair.elements.push_back(runtime::Value(index));
+            pair.elements.push_back(element);
+            result.push_back(runtime::Value(std::move(pair)));
+            index += 1;
+        }
+
+        *out_value = runtime::Value(std::move(result));
+        return true;
+    }
+
+    if (call.callee == "zip") {
+        *out_was_builtin = true;
+        runtime::Value::List result;
+        if (call.arguments.empty()) {
+            *out_value = runtime::Value(std::move(result));
+            return true;
+        }
+
+        std::vector<std::vector<runtime::Value>> collections;
+        collections.reserve(call.arguments.size());
+        std::size_t min_size = std::numeric_limits<std::size_t>::max();
+
+        for (std::size_t i = 0; i < call.arguments.size(); ++i) {
+            runtime::Value source;
+            if (!evaluate_argument(i, &source)) {
+                return false;
+            }
+
+            std::vector<runtime::Value> elements;
+            std::string iterable_error;
+            if (!CollectForEachElements(source, &elements, &iterable_error)) {
+                *out_error = "zip() requiere iterables validos en todos los argumentos.";
+                return false;
+            }
+
+            min_size = std::min(min_size, elements.size());
+            collections.push_back(std::move(elements));
+        }
+
+        result.reserve(min_size);
+        for (std::size_t row = 0; row < min_size; ++row) {
+            runtime::Value::Tuple tuple_value;
+            tuple_value.elements.reserve(collections.size());
+            for (const auto& collection : collections) {
+                tuple_value.elements.push_back(collection[row]);
+            }
+            result.push_back(runtime::Value(std::move(tuple_value)));
+        }
+
+        *out_value = runtime::Value(std::move(result));
+        return true;
+    }
+
+    if (call.callee == "all" || call.callee == "any") {
+        *out_was_builtin = true;
+        if (call.arguments.size() != 1) {
+            *out_error = call.callee + "(iterable) requiere 1 argumento.";
+            return false;
+        }
+
+        runtime::Value iterable;
+        if (!evaluate_argument(0, &iterable)) {
+            return false;
+        }
+
+        std::vector<runtime::Value> elements;
+        std::string iterable_error;
+        if (!CollectForEachElements(iterable, &elements, &iterable_error)) {
+            *out_error = call.callee + "() requiere un iterable (list, tuple, set, map, object o string).";
+            return false;
+        }
+
+        if (call.callee == "all") {
+            for (const auto& element : elements) {
+                if (!element.AsBool()) {
+                    *out_value = runtime::Value(false);
+                    return true;
+                }
+            }
+            *out_value = runtime::Value(true);
+            return true;
+        }
+
+        for (const auto& element : elements) {
+            if (element.AsBool()) {
+                *out_value = runtime::Value(true);
+                return true;
+            }
+        }
+        *out_value = runtime::Value(false);
+        return true;
+    }
+
+    if (call.callee == "isinstance") {
+        *out_was_builtin = true;
+        if (call.arguments.size() != 2) {
+            *out_error = "isinstance(value, type_name) requiere 2 argumentos.";
+            return false;
+        }
+
+        runtime::Value value;
+        runtime::Value type_spec;
+        if (!evaluate_argument(0, &value) || !evaluate_argument(1, &type_spec)) {
+            return false;
+        }
+
+        auto matches_type_name = [&](const std::string& type_name, bool* out_match) -> bool {
+            const std::string lowered = LowerAscii(type_name);
+            if (MatchesBuiltinTypeName(value, lowered)) {
+                *out_match = true;
+                return true;
+            }
+
+            std::string class_name;
+            *out_match = IsClassInstance(value, &class_name) && IsClassTypeOrDerived(class_name, type_name);
+            return true;
+        };
+
+        std::function<bool(const runtime::Value&, bool*)> matches_type_spec;
+        matches_type_spec = [&](const runtime::Value& candidate, bool* out_match) -> bool {
+            if (candidate.IsString() || candidate.IsChar()) {
+                return matches_type_name(candidate.ToString(), out_match);
+            }
+
+            const std::vector<runtime::Value>* collection = nullptr;
+            if (const auto* list = candidate.AsList()) {
+                collection = list;
+            } else if (const auto* tuple = candidate.AsTuple()) {
+                collection = tuple;
+            } else if (const auto* set = candidate.AsSet()) {
+                collection = set;
+            }
+
+            if (collection != nullptr) {
+                for (const auto& nested : *collection) {
+                    bool nested_match = false;
+                    if (!matches_type_spec(nested, &nested_match)) {
+                        return false;
+                    }
+                    if (nested_match) {
+                        *out_match = true;
+                        return true;
+                    }
+                }
+                *out_match = false;
+                return true;
+            }
+
+            *out_error = "isinstance(): type_name debe ser string, char, list, tuple o set.";
+            return false;
+        };
+
+        bool match = false;
+        if (!matches_type_spec(type_spec, &match)) {
+            return false;
+        }
+
+        *out_value = runtime::Value(match);
+        return true;
+    }
+
+    if (call.callee == "chr") {
+        *out_was_builtin = true;
+        if (call.arguments.size() != 1) {
+            *out_error = "chr(code) requiere 1 argumento.";
+            return false;
+        }
+
+        runtime::Value input;
+        if (!evaluate_argument(0, &input)) {
+            return false;
+        }
+
+        BigInt code;
+        if (!ReadInteger(input, &code, out_error)) {
+            return false;
+        }
+        if (code < 0 || code > 255) {
+            *out_error = "chr(code) requiere 0 <= code <= 255.";
+            return false;
+        }
+
+        const unsigned char ascii = static_cast<unsigned char>(code.convert_to<unsigned>());
+        *out_value = runtime::Value(static_cast<char>(ascii));
+        return true;
+    }
+
+    if (call.callee == "ord") {
+        *out_was_builtin = true;
+        if (call.arguments.size() != 1) {
+            *out_error = "ord(char) requiere 1 argumento.";
+            return false;
+        }
+
+        runtime::Value input;
+        if (!evaluate_argument(0, &input)) {
+            return false;
+        }
+
+        unsigned char ascii = 0;
+        if (input.IsChar()) {
+            ascii = static_cast<unsigned char>(*input.AsCharValue());
+        } else if (input.IsString()) {
+            const std::string text = input.ToString();
+            if (text.size() != 1) {
+                *out_error = "ord() requiere char o string de longitud 1.";
+                return false;
+            }
+            ascii = static_cast<unsigned char>(text[0]);
+        } else {
+            *out_error = "ord() requiere char o string de longitud 1.";
+            return false;
+        }
+
+        *out_value = runtime::Value(BigInt(ascii));
+        return true;
+    }
+
+    if (call.callee == "hex" || call.callee == "bin") {
+        *out_was_builtin = true;
+        if (call.arguments.size() != 1) {
+            *out_error = call.callee + "(value) requiere 1 argumento.";
+            return false;
+        }
+
+        runtime::Value input;
+        if (!evaluate_argument(0, &input)) {
+            return false;
+        }
+
+        BigInt integer;
+        if (!ReadInteger(input, &integer, out_error)) {
+            return false;
+        }
+
+        const bool negative = integer < 0;
+        const BigInt absolute = AbsBigInt(integer);
+        const std::string digits = call.callee == "hex" ? BigIntToHexString(absolute, false) : BigIntToBinaryString(absolute);
+        const std::string prefix = call.callee == "hex" ? "0x" : "0b";
+
+        *out_value = runtime::Value((negative ? "-" : "") + prefix + digits);
+        return true;
+    }
+
+    if (call.callee == "hash") {
+        *out_was_builtin = true;
+        if (call.arguments.size() != 1) {
+            *out_error = "hash(value) requiere 1 argumento.";
+            return false;
+        }
+
+        runtime::Value input;
+        if (!evaluate_argument(0, &input)) {
+            return false;
+        }
+
+        *out_value = runtime::Value(UnsignedToBigInt(HashValue(input)));
+        return true;
+    }
+
+    if (call.callee == "id") {
+        *out_was_builtin = true;
+        if (call.arguments.size() != 1) {
+            *out_error = "id(value) requiere 1 argumento.";
+            return false;
+        }
+
+        runtime::Value input;
+        if (!evaluate_argument(0, &input)) {
+            return false;
+        }
+
+        const std::uint64_t fingerprint = HashValue(input);
+        auto& bucket = value_identity_cache_[fingerprint];
+        for (const auto& entry : bucket) {
+            if (entry.first.Equals(input)) {
+                *out_value = runtime::Value(entry.second);
+                return true;
+            }
+        }
+
+        if (next_value_identity_id_ == std::numeric_limits<long long>::max()) {
+            *out_error = "id() excedio el limite de identidades en runtime.";
+            return false;
+        }
+
+        const long long assigned_id = next_value_identity_id_++;
+        bucket.push_back({input, assigned_id});
+        *out_value = runtime::Value(assigned_id);
+        return true;
+    }
+
     if (call.callee == "enum_name") {
         *out_was_builtin = true;
         if (call.arguments.size() != 2) {
@@ -898,35 +1582,7 @@ bool Interpreter::ExecuteBuiltinCall(const frontend::CallExpr& call, bool* out_w
             return false;
         }
 
-        if (value.IsInteger()) {
-            *out_value = runtime::Value("int");
-        } else if (value.IsDouble()) {
-            *out_value = runtime::Value("double");
-        } else if (value.IsFloat()) {
-            *out_value = runtime::Value("float");
-        } else if (value.IsDecimal()) {
-            *out_value = runtime::Value("decimal");
-        } else if (value.IsChar()) {
-            *out_value = runtime::Value("char");
-        } else if (value.IsString()) {
-            *out_value = runtime::Value("string");
-        } else if (value.IsBool()) {
-            *out_value = runtime::Value("bool");
-        } else if (value.IsNull()) {
-            *out_value = runtime::Value("null");
-        } else if (value.IsList()) {
-            *out_value = runtime::Value("list");
-        } else if (value.IsTuple()) {
-            *out_value = runtime::Value("tuple");
-        } else if (value.IsSet()) {
-            *out_value = runtime::Value("set");
-        } else if (value.IsMap()) {
-            *out_value = runtime::Value("map");
-        } else if (value.IsFunctionRef()) {
-            *out_value = runtime::Value("function");
-        } else {
-            *out_value = runtime::Value("object");
-        }
+        *out_value = runtime::Value(ValueTypeName(value));
         return true;
     }
 

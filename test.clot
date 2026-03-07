@@ -1,48 +1,5 @@
-// Prueba integral de Clot
-import math;
-import clot.science.utils;
-long counter = 9223372036854775801;
-byte level = 2;
-flag = true;
-nums = [1, 2, counter];
-user = {name: "Ada", active: counter, stats: {score: 7}};
+nums = [10,12, 20, 30, 40];
 
-// Mutaciones
-nums[1] = 20;
-nums[1] += 5;
-user.stats.score += 3;
-
-// Funciones + return
-func adjust(&value, extra):
-    value += sum(extra, 3);
-    if(value > 20):
-        println("alto");
-    else:
-        println("normal");
-    endif
-    return value;
-endfunc
-
-println(inc_and_get(counter));
-println(counter);
-
-result = adjust(counter, level);
-println(result);
-
-bump_index(nums, 1, 4);
-println(nums[1]);
-
-if(flag && counter > 10):
-    println(user.name + " score=" + user.stats.score);
-else:
-    println("disabled");
-endif
-
-
-try:
-    nums = [1, 2];
-    println(nums[9]);
-catch(err):
-    println("Error capturado");
-    println(err);
-endtry
+for(int i = 0; i < len(nums); i++):
+    println(nums[i]);
+endfor

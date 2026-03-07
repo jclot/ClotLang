@@ -186,33 +186,61 @@ bool Interpreter::Execute(const frontend::Program& program, std::string* out_err
     module_exports_cache_.clear();
     class_aliases_.clear();
     pending_exception_.reset();
+    loop_depth_ = 0;
+    switch_depth_ = 0;
+    break_signal_ = false;
+    continue_signal_ = false;
+    defer_stack_.clear();
     next_async_task_id_ = 1;
+    value_identity_cache_.clear();
+    next_value_identity_id_ = 1;
 
     if (!entry_file_path_.empty()) {
         module_base_dirs_.push_back(entry_file_path_.parent_path());
     }
 
+    defer_stack_.push_back({});
+    bool top_level_ok = true;
     for (const auto& statement : program.statements) {
         if (!ExecuteStatement(*statement, out_error)) {
-            if (pending_exception_.has_value()) {
-                RuntimeExceptionRecord uncaught = *pending_exception_;
-                pending_exception_.reset();
-
-                if (out_error != nullptr) {
-                    std::string type_name = uncaught.type_name.empty() ? "RuntimeError" : uncaught.type_name;
-                    std::string message = uncaught.message;
-                    if (message.empty() && !out_error->empty()) {
-                        message = *out_error;
-                    }
-                    if (message.empty()) {
-                        message = "Exception lanzada.";
-                    }
-
-                    *out_error = "Excepcion no capturada: " + type_name + ": " + message;
-                }
-            }
-            return false;
+            top_level_ok = false;
+            break;
         }
+        if (break_signal_ || continue_signal_) {
+            if (out_error != nullptr) {
+                *out_error = "break/continue fuera de contexto de bucle.";
+            }
+            top_level_ok = false;
+            break;
+        }
+    }
+
+    if (!ExecuteDeferredStatementsForCurrentBlock(out_error)) {
+        top_level_ok = false;
+    }
+    if (!defer_stack_.empty()) {
+        defer_stack_.pop_back();
+    }
+
+    if (!top_level_ok) {
+        if (pending_exception_.has_value()) {
+            RuntimeExceptionRecord uncaught = *pending_exception_;
+            pending_exception_.reset();
+
+            if (out_error != nullptr) {
+                std::string type_name = uncaught.type_name.empty() ? "RuntimeError" : uncaught.type_name;
+                std::string message = uncaught.message;
+                if (message.empty() && !out_error->empty()) {
+                    message = *out_error;
+                }
+                if (message.empty()) {
+                    message = "Exception lanzada.";
+                }
+
+                *out_error = "Excepcion no capturada: " + type_name + ": " + message;
+            }
+        }
+        return false;
     }
 
     if (!return_stack_.empty()) {
@@ -225,16 +253,50 @@ bool Interpreter::Execute(const frontend::Program& program, std::string* out_err
 
 bool Interpreter::ExecuteBlock(const std::vector<std::unique_ptr<frontend::Statement>>& statements,
                                std::string* out_error) {
+    defer_stack_.push_back({});
+    bool ok = true;
+
     for (const auto& statement : statements) {
         if (!ExecuteStatement(*statement, out_error)) {
-            return false;
+            ok = false;
+            break;
         }
 
         if (!return_stack_.empty() && return_stack_.back().has_value()) {
-            return true;
+            break;
+        }
+
+        if (break_signal_ || continue_signal_) {
+            break;
         }
     }
 
+    if (!ExecuteDeferredStatementsForCurrentBlock(out_error)) {
+        ok = false;
+    }
+    if (!defer_stack_.empty()) {
+        defer_stack_.pop_back();
+    }
+    return ok;
+}
+
+bool Interpreter::ExecuteDeferredStatementsForCurrentBlock(std::string* out_error) {
+    if (defer_stack_.empty()) {
+        return true;
+    }
+
+    std::vector<const frontend::Statement*>& deferred = defer_stack_.back();
+    for (auto it = deferred.rbegin(); it != deferred.rend(); ++it) {
+        if (*it == nullptr) {
+            continue;
+        }
+
+        if (!ExecuteStatement(**it, out_error)) {
+            return false;
+        }
+    }
+
+    deferred.clear();
     return true;
 }
 
@@ -304,20 +366,53 @@ bool Interpreter::ExecuteStatement(const frontend::Statement& statement, std::st
     }
 
     if (const auto* while_stmt = dynamic_cast<const frontend::WhileStmt*>(&statement)) {
+        ++loop_depth_;
         while (true) {
             runtime::Value condition;
-            if (!EvaluateExpression(*while_stmt->condition, &condition, out_error))
+            if (!EvaluateExpression(*while_stmt->condition, &condition, out_error)) {
+                --loop_depth_;
                 return false;
-            if (!condition.AsBool())
+            }
+            if (!condition.AsBool()) {
                 break;
+            }
 
-            if (!ExecuteBlock(while_stmt->body, out_error))
+            if (!ExecuteBlock(while_stmt->body, out_error)) {
+                --loop_depth_;
                 return false;
+            }
+
+            if (break_signal_) {
+                break_signal_ = false;
+                break;
+            }
+
+            if (continue_signal_) {
+                continue_signal_ = false;
+                continue;
+            }
 
             if (!return_stack_.empty() && return_stack_.back().has_value())
-                return true;
+                break;
         }
+        --loop_depth_;
         return true;
+    }
+
+    if (const auto* for_stmt = dynamic_cast<const frontend::ForStmt*>(&statement)) {
+        return ExecuteFor(*for_stmt, out_error);
+    }
+
+    if (const auto* foreach_stmt = dynamic_cast<const frontend::ForEachStmt*>(&statement)) {
+        return ExecuteForEach(*foreach_stmt, out_error);
+    }
+
+    if (const auto* do_while_stmt = dynamic_cast<const frontend::DoWhileStmt*>(&statement)) {
+        return ExecuteDoWhile(*do_while_stmt, out_error);
+    }
+
+    if (const auto* switch_stmt = dynamic_cast<const frontend::SwitchStmt*>(&statement)) {
+        return ExecuteSwitch(*switch_stmt, out_error);
     }
 
     if (const auto* conditional = dynamic_cast<const frontend::IfStmt*>(&statement)) {
@@ -412,6 +507,41 @@ bool Interpreter::ExecuteStatement(const frontend::Statement& statement, std::st
 
     if (const auto* return_stmt = dynamic_cast<const frontend::ReturnStmt*>(&statement)) {
         return ExecuteReturn(*return_stmt, out_error);
+    }
+
+    if (dynamic_cast<const frontend::BreakStmt*>(&statement) != nullptr) {
+        if (loop_depth_ <= 0 && switch_depth_ <= 0) {
+            *out_error = "break solo se permite dentro de bucles o switch.";
+            return false;
+        }
+        break_signal_ = true;
+        return true;
+    }
+
+    if (dynamic_cast<const frontend::ContinueStmt*>(&statement) != nullptr) {
+        if (loop_depth_ <= 0) {
+            *out_error = "continue solo se permite dentro de bucles.";
+            return false;
+        }
+        continue_signal_ = true;
+        return true;
+    }
+
+    if (dynamic_cast<const frontend::PassStmt*>(&statement) != nullptr) {
+        return true;
+    }
+
+    if (const auto* defer_stmt = dynamic_cast<const frontend::DeferStmt*>(&statement)) {
+        if (defer_stmt->statement == nullptr) {
+            *out_error = "defer invalido: sentencia vacia.";
+            return false;
+        }
+        if (defer_stack_.empty()) {
+            *out_error = "defer fuera de bloque.";
+            return false;
+        }
+        defer_stack_.back().push_back(defer_stmt->statement.get());
+        return true;
     }
 
     if (const auto* try_catch_stmt = dynamic_cast<const frontend::TryCatchStmt*>(&statement)) {
@@ -1061,6 +1191,318 @@ bool Interpreter::ExecuteReturn(const frontend::ReturnStmt& statement, std::stri
     return true;
 }
 
+bool Interpreter::CollectForEachElements(const runtime::Value& collection,
+                                         std::vector<runtime::Value>* out_elements,
+                                         std::string* out_error) const {
+    if (out_elements == nullptr) {
+        if (out_error != nullptr) {
+            *out_error = "Error interno: salida nula en for-each.";
+        }
+        return false;
+    }
+    out_elements->clear();
+
+    if (const auto* list = collection.AsList()) {
+        out_elements->insert(out_elements->end(), list->begin(), list->end());
+        return true;
+    }
+    if (const auto* tuple = collection.AsTuple()) {
+        out_elements->insert(out_elements->end(), tuple->begin(), tuple->end());
+        return true;
+    }
+    if (const auto* set = collection.AsSet()) {
+        out_elements->insert(out_elements->end(), set->begin(), set->end());
+        return true;
+    }
+    if (const auto* map = collection.AsMap()) {
+        for (const auto& entry : *map) {
+            out_elements->push_back(entry.first);
+        }
+        return true;
+    }
+    if (const auto* object = collection.AsObject()) {
+        for (const auto& entry : *object) {
+            out_elements->push_back(runtime::Value(entry.first));
+        }
+        return true;
+    }
+    if (collection.IsString()) {
+        const std::string text = collection.ToString();
+        for (char ch : text) {
+            out_elements->push_back(runtime::Value(ch));
+        }
+        return true;
+    }
+
+    if (out_error != nullptr) {
+        *out_error = "for-each requiere list, tuple, set, map, object o string.";
+    }
+    return false;
+}
+
+bool Interpreter::ExecuteFor(const frontend::ForStmt& statement, std::string* out_error) {
+    if (statement.initializer != nullptr) {
+        if (!ExecuteStatement(*statement.initializer, out_error)) {
+            return false;
+        }
+    }
+
+    ++loop_depth_;
+    while (true) {
+        if (statement.condition != nullptr) {
+            runtime::Value condition;
+            if (!EvaluateExpression(*statement.condition, &condition, out_error)) {
+                --loop_depth_;
+                return false;
+            }
+            if (!condition.AsBool()) {
+                break;
+            }
+        }
+
+        if (!ExecuteBlock(statement.body, out_error)) {
+            --loop_depth_;
+            return false;
+        }
+
+        if (break_signal_) {
+            break_signal_ = false;
+            break;
+        }
+
+        if (continue_signal_) {
+            continue_signal_ = false;
+        }
+
+        if (!return_stack_.empty() && return_stack_.back().has_value()) {
+            break;
+        }
+
+        if (statement.update != nullptr) {
+            if (!ExecuteStatement(*statement.update, out_error)) {
+                --loop_depth_;
+                return false;
+            }
+            if (break_signal_) {
+                break_signal_ = false;
+                break;
+            }
+            if (continue_signal_) {
+                continue_signal_ = false;
+            }
+            if (!return_stack_.empty() && return_stack_.back().has_value()) {
+                break;
+            }
+        }
+    }
+    --loop_depth_;
+    return true;
+}
+
+bool Interpreter::ExecuteForEach(const frontend::ForEachStmt& statement, std::string* out_error) {
+    runtime::Value collection;
+    if (!EvaluateExpression(*statement.collection, &collection, out_error)) {
+        return false;
+    }
+
+    std::vector<runtime::Value> elements;
+    if (!CollectForEachElements(collection, &elements, out_error)) {
+        return false;
+    }
+
+    std::optional<runtime::VariableSlot> previous_slot;
+    const auto existing = environment_.find(statement.variable_name);
+    if (existing != environment_.end()) {
+        previous_slot = existing->second;
+    }
+
+    runtime::VariableKind kind = runtime::VariableKind::Dynamic;
+    switch (statement.variable_type) {
+    case frontend::DeclarationType::Int:
+        kind = runtime::VariableKind::Int;
+        break;
+    case frontend::DeclarationType::Double:
+        kind = runtime::VariableKind::Double;
+        break;
+    case frontend::DeclarationType::Float:
+        kind = runtime::VariableKind::Float;
+        break;
+    case frontend::DeclarationType::Decimal:
+        kind = runtime::VariableKind::Decimal;
+        break;
+    case frontend::DeclarationType::Long:
+        kind = runtime::VariableKind::Long;
+        break;
+    case frontend::DeclarationType::Byte:
+        kind = runtime::VariableKind::Byte;
+        break;
+    case frontend::DeclarationType::Char:
+        kind = runtime::VariableKind::Char;
+        break;
+    case frontend::DeclarationType::Tuple:
+        kind = runtime::VariableKind::Tuple;
+        break;
+    case frontend::DeclarationType::Set:
+        kind = runtime::VariableKind::Set;
+        break;
+    case frontend::DeclarationType::Map:
+        kind = runtime::VariableKind::Map;
+        break;
+    case frontend::DeclarationType::Function:
+        kind = runtime::VariableKind::Function;
+        break;
+    case frontend::DeclarationType::Inferred:
+    default:
+        kind = runtime::VariableKind::Dynamic;
+        break;
+    }
+
+    ++loop_depth_;
+    for (const auto& element : elements) {
+        runtime::Value normalized = element;
+        if (kind != runtime::VariableKind::Dynamic) {
+            if (!NormalizeValueForKind(kind, element, &normalized, out_error)) {
+                --loop_depth_;
+                if (previous_slot.has_value()) {
+                    environment_[statement.variable_name] = *previous_slot;
+                } else {
+                    environment_.erase(statement.variable_name);
+                }
+                return false;
+            }
+        }
+
+        environment_[statement.variable_name] = runtime::VariableSlot{normalized, kind, statement.variable_is_const};
+
+        if (!ExecuteBlock(statement.body, out_error)) {
+            --loop_depth_;
+            if (previous_slot.has_value()) {
+                environment_[statement.variable_name] = *previous_slot;
+            } else {
+                environment_.erase(statement.variable_name);
+            }
+            return false;
+        }
+
+        if (break_signal_) {
+            break_signal_ = false;
+            break;
+        }
+
+        if (continue_signal_) {
+            continue_signal_ = false;
+            continue;
+        }
+
+        if (!return_stack_.empty() && return_stack_.back().has_value()) {
+            break;
+        }
+    }
+    --loop_depth_;
+
+    if (previous_slot.has_value()) {
+        environment_[statement.variable_name] = *previous_slot;
+    } else {
+        environment_.erase(statement.variable_name);
+    }
+    return true;
+}
+
+bool Interpreter::ExecuteDoWhile(const frontend::DoWhileStmt& statement, std::string* out_error) {
+    ++loop_depth_;
+    while (true) {
+        if (!ExecuteBlock(statement.body, out_error)) {
+            --loop_depth_;
+            return false;
+        }
+
+        if (break_signal_) {
+            break_signal_ = false;
+            break;
+        }
+
+        if (continue_signal_) {
+            continue_signal_ = false;
+        }
+
+        if (!return_stack_.empty() && return_stack_.back().has_value()) {
+            break;
+        }
+
+        runtime::Value condition;
+        if (!EvaluateExpression(*statement.condition, &condition, out_error)) {
+            --loop_depth_;
+            return false;
+        }
+        if (!condition.AsBool()) {
+            break;
+        }
+    }
+    --loop_depth_;
+    return true;
+}
+
+bool Interpreter::ExecuteSwitch(const frontend::SwitchStmt& statement, std::string* out_error) {
+    runtime::Value switch_value;
+    if (!EvaluateExpression(*statement.value, &switch_value, out_error)) {
+        return false;
+    }
+
+    std::size_t default_index = statement.cases.size();
+    std::size_t matched_index = statement.cases.size();
+    for (std::size_t i = 0; i < statement.cases.size(); ++i) {
+        const auto& switch_case = statement.cases[i];
+        if (switch_case.is_default) {
+            if (default_index == statement.cases.size()) {
+                default_index = i;
+            }
+            continue;
+        }
+        if (switch_case.match_expr == nullptr) {
+            continue;
+        }
+
+        runtime::Value case_value;
+        if (!EvaluateExpression(*switch_case.match_expr, &case_value, out_error)) {
+            return false;
+        }
+        if (switch_value.Equals(case_value)) {
+            matched_index = i;
+            break;
+        }
+    }
+
+    if (matched_index == statement.cases.size()) {
+        matched_index = default_index;
+    }
+    if (matched_index == statement.cases.size()) {
+        return true;
+    }
+
+    ++switch_depth_;
+    for (std::size_t i = matched_index; i < statement.cases.size(); ++i) {
+        if (!ExecuteBlock(statement.cases[i].body, out_error)) {
+            --switch_depth_;
+            return false;
+        }
+
+        if (break_signal_) {
+            break_signal_ = false;
+            break;
+        }
+
+        if (continue_signal_) {
+            break;
+        }
+
+        if (!return_stack_.empty() && return_stack_.back().has_value()) {
+            break;
+        }
+    }
+    --switch_depth_;
+    return true;
+}
+
 bool Interpreter::IsClassTypeOrDerived(const std::string& type_name, const std::string& base_type_name) const {
     if (type_name.empty() || base_type_name.empty()) {
         return false;
@@ -1291,62 +1733,76 @@ bool Interpreter::RaiseExceptionValue(const runtime::Value& value, std::string* 
 
 bool Interpreter::ExecuteTryCatch(const frontend::TryCatchStmt& statement, std::string* out_error) {
     std::string try_error;
-    if (ExecuteBlock(statement.try_branch, &try_error)) {
+    bool try_ok = ExecuteBlock(statement.try_branch, &try_error);
+
+    bool propagate_exception = false;
+    RuntimeExceptionRecord pending;
+    if (!try_ok) {
+        pending = pending_exception_.has_value()
+                      ? *pending_exception_
+                      : BuildRuntimeExceptionFromError(try_error);
         pending_exception_.reset();
-        return true;
+        if (pending.message.empty()) {
+            pending.message = try_error;
+        }
+
+        bool handled_by_catch = false;
+        if (statement.has_catch) {
+            if (statement.catch_type.empty() || ExceptionMatchesCatchType(pending, statement.catch_type)) {
+                handled_by_catch = true;
+
+                std::optional<runtime::VariableSlot> previous_slot;
+                if (!statement.error_binding.empty()) {
+                    const auto existing = environment_.find(statement.error_binding);
+                    if (existing != environment_.end()) {
+                        previous_slot = existing->second;
+                    }
+
+                    environment_[statement.error_binding] = runtime::VariableSlot{
+                        pending.payload,
+                        runtime::VariableKind::Dynamic,
+                        false,
+                    };
+                }
+
+                std::string catch_error;
+                const bool catch_ok = ExecuteBlock(statement.catch_branch, &catch_error);
+                if (!statement.error_binding.empty()) {
+                    if (previous_slot.has_value()) {
+                        environment_[statement.error_binding] = *previous_slot;
+                    } else {
+                        environment_.erase(statement.error_binding);
+                    }
+                }
+
+                if (!catch_ok) {
+                    if (out_error != nullptr) {
+                        *out_error = catch_error;
+                    }
+                    return false;
+                }
+            }
+        }
+
+        if (!handled_by_catch) {
+            propagate_exception = true;
+        }
     }
 
-    const bool has_active_return = !return_stack_.empty() && return_stack_.back().has_value();
-    if (has_active_return) {
+    if (!statement.finally_branch.empty()) {
+        std::string finally_error;
+        if (!ExecuteBlock(statement.finally_branch, &finally_error)) {
+            if (out_error != nullptr) {
+                *out_error = finally_error;
+            }
+            return false;
+        }
+    }
+
+    if (propagate_exception) {
+        pending_exception_ = pending;
         if (out_error != nullptr) {
-            *out_error = try_error;
-        }
-        return false;
-    }
-
-    RuntimeExceptionRecord exception = pending_exception_.has_value()
-                                           ? *pending_exception_
-                                           : BuildRuntimeExceptionFromError(try_error);
-    pending_exception_.reset();
-    if (exception.message.empty()) {
-        exception.message = try_error;
-    }
-
-    if (!statement.catch_type.empty() && !ExceptionMatchesCatchType(exception, statement.catch_type)) {
-        pending_exception_ = exception;
-        if (out_error != nullptr) {
-            *out_error = exception.message;
-        }
-        return false;
-    }
-
-    std::optional<runtime::VariableSlot> previous_slot;
-    if (!statement.error_binding.empty()) {
-        const auto existing = environment_.find(statement.error_binding);
-        if (existing != environment_.end()) {
-            previous_slot = existing->second;
-        }
-
-        environment_[statement.error_binding] = runtime::VariableSlot{
-            exception.payload,
-            runtime::VariableKind::Dynamic,
-        };
-    }
-
-    std::string catch_error;
-    const bool catch_ok = ExecuteBlock(statement.catch_branch, &catch_error);
-
-    if (!statement.error_binding.empty()) {
-        if (previous_slot.has_value()) {
-            environment_[statement.error_binding] = *previous_slot;
-        } else {
-            environment_.erase(statement.error_binding);
-        }
-    }
-
-    if (!catch_ok) {
-        if (out_error != nullptr) {
-            *out_error = catch_error;
+            *out_error = pending.message;
         }
         return false;
     }
@@ -1595,6 +2051,76 @@ bool Interpreter::EvaluateBinary(frontend::BinaryOp op, const runtime::Value& lh
         return true;
     }
 
+    if (op == frontend::BinaryOp::In) {
+        bool contains = false;
+
+        if (const auto* list = rhs.AsList()) {
+            for (const auto& element : *list) {
+                if (element.Equals(lhs)) {
+                    contains = true;
+                    break;
+                }
+            }
+            *out_value = runtime::Value(contains);
+            return true;
+        }
+
+        if (const auto* tuple = rhs.AsTuple()) {
+            for (const auto& element : *tuple) {
+                if (element.Equals(lhs)) {
+                    contains = true;
+                    break;
+                }
+            }
+            *out_value = runtime::Value(contains);
+            return true;
+        }
+
+        if (const auto* set = rhs.AsSet()) {
+            for (const auto& element : *set) {
+                if (element.Equals(lhs)) {
+                    contains = true;
+                    break;
+                }
+            }
+            *out_value = runtime::Value(contains);
+            return true;
+        }
+
+        if (const auto* map = rhs.AsMap()) {
+            for (const auto& entry : *map) {
+                if (entry.first.Equals(lhs)) {
+                    contains = true;
+                    break;
+                }
+            }
+            *out_value = runtime::Value(contains);
+            return true;
+        }
+
+        if (const auto* object = rhs.AsObject()) {
+            const std::string key = lhs.ToString();
+            for (const auto& entry : *object) {
+                if (entry.first == key) {
+                    contains = true;
+                    break;
+                }
+            }
+            *out_value = runtime::Value(contains);
+            return true;
+        }
+
+        if (rhs.IsString()) {
+            const std::string haystack = rhs.ToString();
+            const std::string needle = lhs.ToString();
+            *out_value = runtime::Value(haystack.find(needle) != std::string::npos);
+            return true;
+        }
+
+        *out_error = "Operador 'in' requiere list, tuple, set, map, object o string a la derecha.";
+        return false;
+    }
+
     runtime::Value::Decimal left_decimal;
     runtime::Value::Decimal right_decimal;
     const bool use_decimal =
@@ -1681,6 +2207,7 @@ bool Interpreter::EvaluateBinary(frontend::BinaryOp op, const runtime::Value& lh
             return true;
         case frontend::BinaryOp::Equal:
         case frontend::BinaryOp::NotEqual:
+        case frontend::BinaryOp::In:
         case frontend::BinaryOp::LogicalAnd:
         case frontend::BinaryOp::LogicalOr:
             break;
@@ -1758,6 +2285,7 @@ bool Interpreter::EvaluateBinary(frontend::BinaryOp op, const runtime::Value& lh
             return true;
         case frontend::BinaryOp::Equal:
         case frontend::BinaryOp::NotEqual:
+        case frontend::BinaryOp::In:
         case frontend::BinaryOp::LogicalAnd:
         case frontend::BinaryOp::LogicalOr:
             break;
@@ -1811,6 +2339,7 @@ bool Interpreter::EvaluateBinary(frontend::BinaryOp op, const runtime::Value& lh
         return true;
     case frontend::BinaryOp::Equal:
     case frontend::BinaryOp::NotEqual:
+    case frontend::BinaryOp::In:
     case frontend::BinaryOp::LogicalAnd:
     case frontend::BinaryOp::LogicalOr:
         break;

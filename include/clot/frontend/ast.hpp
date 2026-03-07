@@ -22,6 +22,7 @@ enum class BinaryOp {
     LessEqual,
     Greater,
     GreaterEqual,
+    In,
     LogicalAnd,
     LogicalOr,
 };
@@ -188,16 +189,19 @@ struct AssignmentStmt final : Statement {
         std::string in_name,
         AssignmentOp in_op,
         DeclarationType in_decl_type,
-        std::unique_ptr<Expr> in_expr)
+        std::unique_ptr<Expr> in_expr,
+        bool in_is_const = false)
         : name(std::move(in_name)),
           op(in_op),
           declaration_type(in_decl_type),
-          expr(std::move(in_expr)) {}
+          expr(std::move(in_expr)),
+          is_const(in_is_const) {}
 
     std::string name;
     AssignmentOp op = AssignmentOp::Set;
     DeclarationType declaration_type = DeclarationType::Inferred;
     std::unique_ptr<Expr> expr;
+    bool is_const = false;
 };
 
 struct PrintStmt final : Statement {
@@ -220,18 +224,24 @@ struct IfStmt final : Statement {
 struct TryCatchStmt final : Statement {
     TryCatchStmt(
         std::vector<std::unique_ptr<Statement>> in_try_branch,
+        bool in_has_catch,
         std::string in_catch_type,
         std::string in_error_binding,
-        std::vector<std::unique_ptr<Statement>> in_catch_branch)
+        std::vector<std::unique_ptr<Statement>> in_catch_branch,
+        std::vector<std::unique_ptr<Statement>> in_finally_branch)
         : try_branch(std::move(in_try_branch)),
+          has_catch(in_has_catch),
           catch_type(std::move(in_catch_type)),
           error_binding(std::move(in_error_binding)),
-          catch_branch(std::move(in_catch_branch)) {}
+          catch_branch(std::move(in_catch_branch)),
+          finally_branch(std::move(in_finally_branch)) {}
 
     std::vector<std::unique_ptr<Statement>> try_branch;
+    bool has_catch = true;
     std::string catch_type;
     std::string error_binding;
     std::vector<std::unique_ptr<Statement>> catch_branch;
+    std::vector<std::unique_ptr<Statement>> finally_branch;
 };
 
 struct WhileStmt final : Statement {
@@ -246,6 +256,87 @@ struct WhileStmt final : Statement {
 
     // Se ejecutan las sentencias si la condición es verdadera. 
     std::vector<std::unique_ptr<Statement>> body;
+};
+
+struct ForStmt final : Statement {
+    ForStmt(
+        std::unique_ptr<Statement> in_initializer,
+        std::unique_ptr<Expr> in_condition,
+        std::unique_ptr<Statement> in_update,
+        std::vector<std::unique_ptr<Statement>> in_body)
+        : initializer(std::move(in_initializer)),
+          condition(std::move(in_condition)),
+          update(std::move(in_update)),
+          body(std::move(in_body)) {}
+
+    std::unique_ptr<Statement> initializer;
+    std::unique_ptr<Expr> condition;
+    std::unique_ptr<Statement> update;
+    std::vector<std::unique_ptr<Statement>> body;
+};
+
+struct ForEachStmt final : Statement {
+    ForEachStmt(
+        std::string in_variable_name,
+        DeclarationType in_variable_type,
+        bool in_variable_is_const,
+        std::unique_ptr<Expr> in_collection,
+        std::vector<std::unique_ptr<Statement>> in_body)
+        : variable_name(std::move(in_variable_name)),
+          variable_type(in_variable_type),
+          variable_is_const(in_variable_is_const),
+          collection(std::move(in_collection)),
+          body(std::move(in_body)) {}
+
+    std::string variable_name;
+    DeclarationType variable_type = DeclarationType::Inferred;
+    bool variable_is_const = false;
+    std::unique_ptr<Expr> collection;
+    std::vector<std::unique_ptr<Statement>> body;
+};
+
+struct DoWhileStmt final : Statement {
+    DoWhileStmt(
+        std::vector<std::unique_ptr<Statement>> in_body,
+        std::unique_ptr<Expr> in_condition)
+        : body(std::move(in_body)),
+          condition(std::move(in_condition)) {}
+
+    std::vector<std::unique_ptr<Statement>> body;
+    std::unique_ptr<Expr> condition;
+};
+
+struct SwitchCase {
+    std::unique_ptr<Expr> match_expr;
+    std::vector<std::unique_ptr<Statement>> body;
+    bool is_default = false;
+};
+
+struct SwitchStmt final : Statement {
+    SwitchStmt(
+        std::unique_ptr<Expr> in_value,
+        std::vector<SwitchCase> in_cases)
+        : value(std::move(in_value)),
+          cases(std::move(in_cases)) {}
+
+    std::unique_ptr<Expr> value;
+    std::vector<SwitchCase> cases;
+};
+
+struct BreakStmt final : Statement {
+};
+
+struct ContinueStmt final : Statement {
+};
+
+struct PassStmt final : Statement {
+};
+
+struct DeferStmt final : Statement {
+    explicit DeferStmt(std::unique_ptr<Statement> in_statement)
+        : statement(std::move(in_statement)) {}
+
+    std::unique_ptr<Statement> statement;
 };
 
 struct FunctionParam {

@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cctype>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -149,6 +150,16 @@ bool Parser::ParseAssignment(std::size_t* line_index, const std::vector<Token>& 
                              std::vector<std::unique_ptr<Statement>>* out_statements, Diagnostic* out_error) const {
     DeclarationType declaration_type = DeclarationType::Inferred;
     std::size_t cursor = 0;
+    bool is_const = false;
+
+    if (tokens[cursor].kind == TokenKind::KeywordConst) {
+        is_const = true;
+        ++cursor;
+        if (cursor >= tokens.size()) {
+            *out_error = MakeError(*line_index + 1, tokens[0].column, "Declaracion const incompleta.");
+            return false;
+        }
+    }
 
     if (tokens[cursor].kind == TokenKind::KeywordInt) {
         declaration_type = DeclarationType::Int;
@@ -216,6 +227,11 @@ bool Parser::ParseAssignment(std::size_t* line_index, const std::vector<Token>& 
         return false;
     }
 
+    if (is_const && assignment_op != AssignmentOp::Set) {
+        *out_error = MakeError(*line_index + 1, tokens[cursor].column, "Las constantes solo aceptan '='.");
+        return false;
+    }
+
     ++cursor;
 
     if (tokens.back().kind != TokenKind::Semicolon) {
@@ -236,7 +252,7 @@ bool Parser::ParseAssignment(std::size_t* line_index, const std::vector<Token>& 
     }
 
     out_statements->push_back(
-        std::make_unique<AssignmentStmt>(variable_name, assignment_op, declaration_type, std::move(expression)));
+        std::make_unique<AssignmentStmt>(variable_name, assignment_op, declaration_type, std::move(expression), is_const));
 
     ++(*line_index);
     return true;
@@ -1658,7 +1674,9 @@ bool Parser::ParseTry(std::size_t* line_index, const std::vector<Token>& tokens,
             return false;
         }
 
-        if (branch_tokens[0].kind == TokenKind::KeywordCatch || branch_tokens[0].kind == TokenKind::KeywordEndTry) {
+        if (branch_tokens[0].kind == TokenKind::KeywordCatch ||
+            branch_tokens[0].kind == TokenKind::KeywordFinally ||
+            branch_tokens[0].kind == TokenKind::KeywordEndTry) {
             break;
         }
 
@@ -1668,82 +1686,126 @@ bool Parser::ParseTry(std::size_t* line_index, const std::vector<Token>& tokens,
     }
 
     if (*line_index >= lines_.size()) {
-        *out_error = MakeError(*line_index, 1, "Falta 'catch:' para cerrar bloque try.");
+        *out_error = MakeError(*line_index, 1, "Falta catch/finally para cerrar bloque try.");
         return false;
     }
 
     std::vector<Token> control_tokens = Tokenizer::TokenizeLine(lines_[*line_index]);
-    if (control_tokens.empty() || control_tokens[0].kind != TokenKind::KeywordCatch) {
-        const std::size_t column = control_tokens.empty() ? 1 : control_tokens[0].column;
-        *out_error = MakeError(*line_index + 1, column, "Se esperaba 'catch:' despues de try.");
-        return false;
-    }
-
-    if (control_tokens.back().kind != TokenKind::Colon) {
-        *out_error = MakeError(*line_index + 1, control_tokens.back().column, "Falta ':' al final de catch.");
-        return false;
-    }
-
+    bool has_catch = false;
     std::string catch_type;
     std::string error_binding;
-    if (control_tokens.size() == 2) {
-        // catch:
-    } else if (control_tokens.size() == 5 && control_tokens[1].kind == TokenKind::LeftParen &&
-               control_tokens[2].kind == TokenKind::Identifier && control_tokens[3].kind == TokenKind::RightParen) {
-        const std::string candidate = control_tokens[2].lexeme;
-        const bool looks_like_type =
-            !candidate.empty() && std::isupper(static_cast<unsigned char>(candidate.front()));
-        if (looks_like_type) {
-            catch_type = candidate;
-        } else {
-            error_binding = candidate;
+    std::vector<std::unique_ptr<Statement>> catch_branch;
+
+    if (!control_tokens.empty() && control_tokens[0].kind == TokenKind::KeywordCatch) {
+        has_catch = true;
+        if (control_tokens.back().kind != TokenKind::Colon) {
+            *out_error = MakeError(*line_index + 1, control_tokens.back().column, "Falta ':' al final de catch.");
+            return false;
         }
-    } else if (control_tokens.size() == 6 &&
-               control_tokens[1].kind == TokenKind::LeftParen &&
-               control_tokens[2].kind == TokenKind::Identifier &&
-               control_tokens[3].kind == TokenKind::Identifier &&
-               control_tokens[4].kind == TokenKind::RightParen) {
-        catch_type = control_tokens[2].lexeme;
-        error_binding = control_tokens[3].lexeme;
-    } else {
-        *out_error = MakeError(*line_index + 1, control_tokens[0].column,
-                               "Formato invalido en catch. Use: catch:, catch(error):, catch(Tipo): o catch(Tipo error):");
-        return false;
+
+        if (control_tokens.size() == 2) {
+            // catch:
+        } else if (control_tokens.size() == 5 && control_tokens[1].kind == TokenKind::LeftParen &&
+                   control_tokens[2].kind == TokenKind::Identifier && control_tokens[3].kind == TokenKind::RightParen) {
+            const std::string candidate = control_tokens[2].lexeme;
+            const bool looks_like_type =
+                !candidate.empty() && std::isupper(static_cast<unsigned char>(candidate.front()));
+            if (looks_like_type) {
+                catch_type = candidate;
+            } else {
+                error_binding = candidate;
+            }
+        } else if (control_tokens.size() == 6 &&
+                   control_tokens[1].kind == TokenKind::LeftParen &&
+                   control_tokens[2].kind == TokenKind::Identifier &&
+                   control_tokens[3].kind == TokenKind::Identifier &&
+                   control_tokens[4].kind == TokenKind::RightParen) {
+            catch_type = control_tokens[2].lexeme;
+            error_binding = control_tokens[3].lexeme;
+        } else {
+            *out_error = MakeError(*line_index + 1, control_tokens[0].column,
+                                   "Formato invalido en catch. Use: catch:, catch(error):, catch(Tipo): o catch(Tipo error):");
+            return false;
+        }
+
+        ++(*line_index);
+        while (*line_index < lines_.size()) {
+            const std::vector<Token> branch_tokens = Tokenizer::TokenizeLine(lines_[*line_index]);
+            if (branch_tokens.empty()) {
+                ++(*line_index);
+                continue;
+            }
+
+            if (branch_tokens[0].kind == TokenKind::Unknown) {
+                *out_error = MakeError(*line_index + 1, branch_tokens[0].column,
+                                       "Token no reconocido: '" + branch_tokens[0].lexeme + "'.");
+                return false;
+            }
+
+            if (branch_tokens[0].kind == TokenKind::KeywordFinally ||
+                branch_tokens[0].kind == TokenKind::KeywordEndTry) {
+                break;
+            }
+
+            if (branch_tokens[0].kind == TokenKind::KeywordCatch) {
+                *out_error = MakeError(*line_index + 1, branch_tokens[0].column, "Solo se permite un catch por bloque try.");
+                return false;
+            }
+
+            if (!ParseStatement(line_index, branch_tokens, &catch_branch, out_error)) {
+                return false;
+            }
+        }
     }
 
-    std::vector<std::unique_ptr<Statement>> catch_branch;
-    ++(*line_index);
+    std::vector<std::unique_ptr<Statement>> finally_branch;
+    if (*line_index < lines_.size()) {
+        control_tokens = Tokenizer::TokenizeLine(lines_[*line_index]);
+        if (!control_tokens.empty() && control_tokens[0].kind == TokenKind::KeywordFinally) {
+            if (control_tokens.size() != 2 || control_tokens[1].kind != TokenKind::Colon) {
+                *out_error = MakeError(*line_index + 1, control_tokens[0].column, "Formato invalido en finally. Use: finally:");
+                return false;
+            }
 
-    while (*line_index < lines_.size()) {
-        const std::vector<Token> branch_tokens = Tokenizer::TokenizeLine(lines_[*line_index]);
-        if (branch_tokens.empty()) {
             ++(*line_index);
-            continue;
-        }
+            while (*line_index < lines_.size()) {
+                const std::vector<Token> branch_tokens = Tokenizer::TokenizeLine(lines_[*line_index]);
+                if (branch_tokens.empty()) {
+                    ++(*line_index);
+                    continue;
+                }
 
-        if (branch_tokens[0].kind == TokenKind::Unknown) {
-            *out_error = MakeError(*line_index + 1, branch_tokens[0].column,
-                                   "Token no reconocido: '" + branch_tokens[0].lexeme + "'.");
-            return false;
-        }
+                if (branch_tokens[0].kind == TokenKind::Unknown) {
+                    *out_error = MakeError(*line_index + 1, branch_tokens[0].column,
+                                           "Token no reconocido: '" + branch_tokens[0].lexeme + "'.");
+                    return false;
+                }
 
-        if (branch_tokens[0].kind == TokenKind::KeywordEndTry) {
-            break;
-        }
+                if (branch_tokens[0].kind == TokenKind::KeywordEndTry) {
+                    break;
+                }
 
-        if (branch_tokens[0].kind == TokenKind::KeywordCatch) {
-            *out_error =
-                MakeError(*line_index + 1, branch_tokens[0].column, "Solo se permite un catch por bloque try.");
-            return false;
-        }
+                if (branch_tokens[0].kind == TokenKind::KeywordCatch ||
+                    branch_tokens[0].kind == TokenKind::KeywordFinally) {
+                    *out_error = MakeError(*line_index + 1, branch_tokens[0].column,
+                                           "Bloque try no permite catch/finally despues de finally.");
+                    return false;
+                }
 
-        if (!ParseStatement(line_index, branch_tokens, &catch_branch, out_error)) {
-            return false;
+                if (!ParseStatement(line_index, branch_tokens, &finally_branch, out_error)) {
+                    return false;
+                }
+            }
         }
+    }
+
+    if (!has_catch && finally_branch.empty()) {
+        *out_error = MakeError(*line_index + 1, tokens[0].column, "El bloque try requiere catch, finally o ambos.");
+        return false;
     }
 
     if (*line_index >= lines_.size()) {
-        *out_error = MakeError(*line_index, 1, "Falta 'endtry' para cerrar bloque try/catch.");
+        *out_error = MakeError(*line_index, 1, "Falta 'endtry' para cerrar bloque try/catch/finally.");
         return false;
     }
 
@@ -1760,7 +1822,7 @@ bool Parser::ParseTry(std::size_t* line_index, const std::vector<Token>& tokens,
     }
 
     out_statements->push_back(std::make_unique<TryCatchStmt>(
-        std::move(try_branch), std::move(catch_type), std::move(error_binding), std::move(catch_branch)));
+        std::move(try_branch), has_catch, std::move(catch_type), std::move(error_binding), std::move(catch_branch), std::move(finally_branch)));
     ++(*line_index);
     return true;
 }
@@ -1811,6 +1873,521 @@ bool Parser::ParseWhile(std::size_t* line_index, const std::vector<Token>& token
 
     out_statements->push_back(std::make_unique<WhileStmt>(std::move(condition), std::move(body)));
 
+    ++(*line_index);
+    return true;
+}
+
+bool Parser::ParseFor(std::size_t* line_index, const std::vector<Token>& tokens,
+                      std::vector<std::unique_ptr<Statement>>* out_statements, Diagnostic* out_error) const {
+    const std::size_t header_line = *line_index + 1;
+    if (tokens.size() < 5 || tokens[1].kind != TokenKind::LeftParen || tokens.back().kind != TokenKind::Colon ||
+        tokens[tokens.size() - 2].kind != TokenKind::RightParen) {
+        *out_error = MakeError(header_line, tokens[0].column,
+                               "Formato invalido en for. Use: for (init; cond; update): o for (item in coleccion):");
+        return false;
+    }
+
+    std::vector<Token> header_tokens(tokens.begin() + 2, tokens.end() - 2);
+    int paren_depth = 0;
+    int bracket_depth = 0;
+    int brace_depth = 0;
+    std::vector<std::size_t> top_level_semicolons;
+    std::size_t in_index = static_cast<std::size_t>(-1);
+    for (std::size_t i = 0; i < header_tokens.size(); ++i) {
+        const TokenKind kind = header_tokens[i].kind;
+        if (kind == TokenKind::LeftParen) {
+            ++paren_depth;
+            continue;
+        }
+        if (kind == TokenKind::RightParen) {
+            --paren_depth;
+            continue;
+        }
+        if (kind == TokenKind::LeftBracket) {
+            ++bracket_depth;
+            continue;
+        }
+        if (kind == TokenKind::RightBracket) {
+            --bracket_depth;
+            continue;
+        }
+        if (kind == TokenKind::LeftBrace) {
+            ++brace_depth;
+            continue;
+        }
+        if (kind == TokenKind::RightBrace) {
+            --brace_depth;
+            continue;
+        }
+
+        if (paren_depth == 0 && bracket_depth == 0 && brace_depth == 0) {
+            if (kind == TokenKind::Semicolon) {
+                top_level_semicolons.push_back(i);
+            } else if (kind == TokenKind::KeywordIn && in_index == static_cast<std::size_t>(-1)) {
+                in_index = i;
+            }
+        }
+    }
+
+    std::vector<std::unique_ptr<Statement>> body;
+    ++(*line_index);
+    if (!ParseBlock(line_index, true, &body, out_error)) {
+        return false;
+    }
+    if (*line_index >= lines_.size()) {
+        *out_error = MakeError(*line_index, 1, "Falta 'endfor' para cerrar el bloque for.");
+        return false;
+    }
+    const std::vector<Token> end_tokens = Tokenizer::TokenizeLine(lines_[*line_index]);
+    if (end_tokens.empty() || end_tokens[0].kind != TokenKind::KeywordEndFor) {
+        const std::size_t column = end_tokens.empty() ? 1 : end_tokens[0].column;
+        *out_error = MakeError(*line_index + 1, column, "Se esperaba 'endfor' para cerrar el for.");
+        return false;
+    }
+    if (end_tokens.size() != 1) {
+        *out_error = MakeError(*line_index + 1, end_tokens[1].column, "Tokens extra despues de 'endfor'.");
+        return false;
+    }
+
+    auto parse_inline_statement = [&](std::vector<Token> inline_tokens, std::unique_ptr<Statement>* out_statement) -> bool {
+        if (out_statement == nullptr) {
+            return false;
+        }
+        out_statement->reset();
+        if (inline_tokens.empty()) {
+            return true;
+        }
+
+        if (inline_tokens.size() == 3 &&
+            inline_tokens[0].kind == TokenKind::Identifier &&
+            inline_tokens[1].kind == TokenKind::Plus &&
+            inline_tokens[2].kind == TokenKind::Plus) {
+            auto target = std::make_unique<VariableExpr>(inline_tokens[0].lexeme);
+            auto one = std::make_unique<NumberExpr>(0.0, "1", true, std::optional<long long>(1LL));
+            *out_statement = std::make_unique<MutationStmt>(std::move(target), AssignmentOp::AddAssign, std::move(one));
+            return true;
+        }
+        if (inline_tokens.size() == 3 &&
+            inline_tokens[0].kind == TokenKind::Identifier &&
+            inline_tokens[1].kind == TokenKind::Minus &&
+            inline_tokens[2].kind == TokenKind::Minus) {
+            auto target = std::make_unique<VariableExpr>(inline_tokens[0].lexeme);
+            auto one = std::make_unique<NumberExpr>(0.0, "1", true, std::optional<long long>(1LL));
+            *out_statement = std::make_unique<MutationStmt>(std::move(target), AssignmentOp::SubAssign, std::move(one));
+            return true;
+        }
+
+        if (inline_tokens.back().kind != TokenKind::Semicolon) {
+            inline_tokens.push_back(Token{TokenKind::Semicolon, ";", inline_tokens.back().column + 1});
+        }
+
+        if (inline_tokens[0].kind == TokenKind::KeywordIf ||
+            inline_tokens[0].kind == TokenKind::KeywordWhile ||
+            inline_tokens[0].kind == TokenKind::KeywordFor ||
+            inline_tokens[0].kind == TokenKind::KeywordSwitch ||
+            inline_tokens[0].kind == TokenKind::KeywordDo ||
+            inline_tokens[0].kind == TokenKind::KeywordTry ||
+            inline_tokens[0].kind == TokenKind::KeywordFunc ||
+            inline_tokens[0].kind == TokenKind::KeywordClass ||
+            inline_tokens[0].kind == TokenKind::KeywordInterface) {
+            *out_error = MakeError(
+                header_line,
+                inline_tokens[0].column,
+                "for init/update solo permite declaraciones, mutaciones o expresiones simples.");
+            return false;
+        }
+
+        std::size_t fake_line = *line_index;
+        std::vector<std::unique_ptr<Statement>> parsed;
+        if (!ParseStatement(&fake_line, inline_tokens, &parsed, out_error)) {
+            return false;
+        }
+        if (parsed.size() != 1) {
+            *out_error = MakeError(header_line, inline_tokens[0].column, "for init/update invalido.");
+            return false;
+        }
+        if (dynamic_cast<const AssignmentStmt*>(parsed[0].get()) == nullptr &&
+            dynamic_cast<const MutationStmt*>(parsed[0].get()) == nullptr &&
+            dynamic_cast<const ExpressionStmt*>(parsed[0].get()) == nullptr) {
+            *out_error = MakeError(
+                header_line,
+                inline_tokens[0].column,
+                "for init/update solo permite declaraciones, mutaciones o expresiones simples.");
+            return false;
+        }
+        *out_statement = std::move(parsed[0]);
+        return true;
+    };
+
+    if (top_level_semicolons.size() == 2) {
+        const std::size_t s0 = top_level_semicolons[0];
+        const std::size_t s1 = top_level_semicolons[1];
+        if (s0 >= s1) {
+            *out_error = MakeError(header_line, tokens[0].column, "Cabecera for invalida.");
+            return false;
+        }
+
+        std::vector<Token> init_tokens(header_tokens.begin(), header_tokens.begin() + static_cast<std::ptrdiff_t>(s0));
+        std::vector<Token> condition_tokens(
+            header_tokens.begin() + static_cast<std::ptrdiff_t>(s0 + 1),
+            header_tokens.begin() + static_cast<std::ptrdiff_t>(s1));
+        std::vector<Token> update_tokens(
+            header_tokens.begin() + static_cast<std::ptrdiff_t>(s1 + 1),
+            header_tokens.end());
+
+        std::unique_ptr<Statement> initializer;
+        if (!parse_inline_statement(std::move(init_tokens), &initializer)) {
+            return false;
+        }
+
+        std::unique_ptr<Expr> condition;
+        if (!condition_tokens.empty()) {
+            if (!ParseExpression(header_line, std::move(condition_tokens), &condition, out_error)) {
+                return false;
+            }
+        }
+
+        std::unique_ptr<Statement> update;
+        if (!parse_inline_statement(std::move(update_tokens), &update)) {
+            return false;
+        }
+
+        out_statements->push_back(std::make_unique<ForStmt>(
+            std::move(initializer), std::move(condition), std::move(update), std::move(body)));
+        ++(*line_index);
+        return true;
+    }
+
+    if (top_level_semicolons.empty() && in_index != static_cast<std::size_t>(-1)) {
+        std::vector<Token> binding_tokens(
+            header_tokens.begin(),
+            header_tokens.begin() + static_cast<std::ptrdiff_t>(in_index));
+        std::vector<Token> collection_tokens(
+            header_tokens.begin() + static_cast<std::ptrdiff_t>(in_index + 1),
+            header_tokens.end());
+        if (binding_tokens.empty() || collection_tokens.empty()) {
+            *out_error = MakeError(header_line, tokens[0].column, "Formato invalido en for-each.");
+            return false;
+        }
+
+        bool variable_is_const = false;
+        std::size_t cursor = 0;
+        if (binding_tokens[cursor].kind == TokenKind::KeywordConst) {
+            variable_is_const = true;
+            ++cursor;
+        }
+
+        DeclarationType variable_type = DeclarationType::Inferred;
+        if (cursor < binding_tokens.size()) {
+            switch (binding_tokens[cursor].kind) {
+            case TokenKind::KeywordInt:
+                variable_type = DeclarationType::Int;
+                ++cursor;
+                break;
+            case TokenKind::KeywordDouble:
+                variable_type = DeclarationType::Double;
+                ++cursor;
+                break;
+            case TokenKind::KeywordFloat:
+                variable_type = DeclarationType::Float;
+                ++cursor;
+                break;
+            case TokenKind::KeywordDecimal:
+                variable_type = DeclarationType::Decimal;
+                ++cursor;
+                break;
+            case TokenKind::KeywordLong:
+                variable_type = DeclarationType::Long;
+                ++cursor;
+                break;
+            case TokenKind::KeywordByte:
+                variable_type = DeclarationType::Byte;
+                ++cursor;
+                break;
+            case TokenKind::KeywordChar:
+                variable_type = DeclarationType::Char;
+                ++cursor;
+                break;
+            case TokenKind::KeywordTuple:
+                variable_type = DeclarationType::Tuple;
+                ++cursor;
+                break;
+            case TokenKind::KeywordSet:
+                variable_type = DeclarationType::Set;
+                ++cursor;
+                break;
+            case TokenKind::KeywordMap:
+                variable_type = DeclarationType::Map;
+                ++cursor;
+                break;
+            case TokenKind::KeywordFunctionType:
+                variable_type = DeclarationType::Function;
+                ++cursor;
+                break;
+            default:
+                break;
+            }
+        }
+
+        if (cursor >= binding_tokens.size() || binding_tokens[cursor].kind != TokenKind::Identifier ||
+            cursor + 1 != binding_tokens.size()) {
+            *out_error = MakeError(header_line, tokens[0].column,
+                                   "Formato invalido en for-each. Use: for (item in coleccion):");
+            return false;
+        }
+
+        std::string variable_name = binding_tokens[cursor].lexeme;
+        std::unique_ptr<Expr> collection_expr;
+        if (!ParseExpression(header_line, std::move(collection_tokens), &collection_expr, out_error)) {
+            return false;
+        }
+
+        out_statements->push_back(std::make_unique<ForEachStmt>(
+            std::move(variable_name), variable_type, variable_is_const, std::move(collection_expr), std::move(body)));
+        ++(*line_index);
+        return true;
+    }
+
+    *out_error = MakeError(header_line, tokens[0].column,
+                           "Formato invalido en for. Use: for (init; cond; update): o for (item in coleccion):");
+    return false;
+}
+
+bool Parser::ParseDoWhile(std::size_t* line_index, const std::vector<Token>& tokens,
+                          std::vector<std::unique_ptr<Statement>>* out_statements, Diagnostic* out_error) const {
+    if (tokens.size() != 2 || tokens[1].kind != TokenKind::Colon) {
+        *out_error = MakeError(*line_index + 1, tokens[0].column, "Formato invalido en do-while. Use: do:");
+        return false;
+    }
+
+    std::vector<std::unique_ptr<Statement>> body;
+    ++(*line_index);
+    while (*line_index < lines_.size()) {
+        const std::vector<Token> branch_tokens = Tokenizer::TokenizeLine(lines_[*line_index]);
+        if (branch_tokens.empty()) {
+            ++(*line_index);
+            continue;
+        }
+
+        const bool looks_like_do_while_tail =
+            branch_tokens[0].kind == TokenKind::KeywordWhile &&
+            branch_tokens.size() >= 5 &&
+            branch_tokens[1].kind == TokenKind::LeftParen &&
+            branch_tokens[branch_tokens.size() - 2].kind == TokenKind::RightParen &&
+            branch_tokens.back().kind == TokenKind::Semicolon;
+
+        if (looks_like_do_while_tail) {
+            break;
+        }
+
+        if (!ParseStatement(line_index, branch_tokens, &body, out_error)) {
+            return false;
+        }
+    }
+
+    if (*line_index >= lines_.size()) {
+        *out_error = MakeError(*line_index, 1, "Falta while(condicion); para cerrar do-while.");
+        return false;
+    }
+
+    const std::vector<Token> control_tokens = Tokenizer::TokenizeLine(lines_[*line_index]);
+    if (control_tokens.size() < 5 ||
+        control_tokens[0].kind != TokenKind::KeywordWhile ||
+        control_tokens[1].kind != TokenKind::LeftParen ||
+        control_tokens[control_tokens.size() - 2].kind != TokenKind::RightParen ||
+        control_tokens.back().kind != TokenKind::Semicolon) {
+        *out_error = MakeError(*line_index + 1, control_tokens.empty() ? 1 : control_tokens[0].column,
+                               "Formato invalido en do-while. Use: while(condicion);");
+        return false;
+    }
+
+    std::vector<Token> condition_tokens(control_tokens.begin() + 2, control_tokens.end() - 2);
+    std::unique_ptr<Expr> condition;
+    if (!ParseExpression(*line_index + 1, std::move(condition_tokens), &condition, out_error)) {
+        return false;
+    }
+
+    out_statements->push_back(std::make_unique<DoWhileStmt>(std::move(body), std::move(condition)));
+    ++(*line_index);
+    return true;
+}
+
+bool Parser::ParseSwitch(std::size_t* line_index, const std::vector<Token>& tokens,
+                         std::vector<std::unique_ptr<Statement>>* out_statements, Diagnostic* out_error) const {
+    if (tokens.size() < 5 ||
+        tokens[1].kind != TokenKind::LeftParen ||
+        tokens[tokens.size() - 2].kind != TokenKind::RightParen ||
+        tokens.back().kind != TokenKind::Colon) {
+        *out_error = MakeError(*line_index + 1, tokens[0].column, "Formato invalido en switch. Use: switch(expr):");
+        return false;
+    }
+
+    std::vector<Token> value_tokens(tokens.begin() + 2, tokens.end() - 2);
+    std::unique_ptr<Expr> switch_value;
+    if (!ParseExpression(*line_index + 1, std::move(value_tokens), &switch_value, out_error)) {
+        return false;
+    }
+
+    std::vector<SwitchCase> cases;
+    bool seen_default = false;
+    ++(*line_index);
+    while (*line_index < lines_.size()) {
+        std::vector<Token> control_tokens = Tokenizer::TokenizeLine(lines_[*line_index]);
+        if (control_tokens.empty()) {
+            ++(*line_index);
+            continue;
+        }
+
+        if (control_tokens[0].kind == TokenKind::KeywordEndSwitch) {
+            break;
+        }
+
+        SwitchCase switch_case;
+        if (control_tokens[0].kind == TokenKind::KeywordCase) {
+            if (control_tokens.back().kind != TokenKind::Colon || control_tokens.size() < 3) {
+                *out_error = MakeError(*line_index + 1, control_tokens[0].column, "Formato invalido en case. Use: case valor:");
+                return false;
+            }
+
+            std::vector<Token> case_expr_tokens(control_tokens.begin() + 1, control_tokens.end() - 1);
+            if (!ParseExpression(*line_index + 1, std::move(case_expr_tokens), &switch_case.match_expr, out_error)) {
+                return false;
+            }
+        } else if (control_tokens[0].kind == TokenKind::KeywordDefault) {
+            if (control_tokens.size() != 2 || control_tokens[1].kind != TokenKind::Colon) {
+                *out_error = MakeError(*line_index + 1, control_tokens[0].column, "Formato invalido en default. Use: default:");
+                return false;
+            }
+            if (seen_default) {
+                *out_error = MakeError(*line_index + 1, control_tokens[0].column, "switch solo permite un default.");
+                return false;
+            }
+            seen_default = true;
+            switch_case.is_default = true;
+        } else {
+            *out_error = MakeError(*line_index + 1, control_tokens[0].column, "switch requiere labels case/default.");
+            return false;
+        }
+
+        ++(*line_index);
+        while (*line_index < lines_.size()) {
+            const std::vector<Token> branch_tokens = Tokenizer::TokenizeLine(lines_[*line_index]);
+            if (branch_tokens.empty()) {
+                ++(*line_index);
+                continue;
+            }
+            if (branch_tokens[0].kind == TokenKind::KeywordCase ||
+                branch_tokens[0].kind == TokenKind::KeywordDefault ||
+                branch_tokens[0].kind == TokenKind::KeywordEndSwitch) {
+                break;
+            }
+            if (!ParseStatement(line_index, branch_tokens, &switch_case.body, out_error)) {
+                return false;
+            }
+        }
+
+        cases.push_back(std::move(switch_case));
+    }
+
+    if (*line_index >= lines_.size()) {
+        *out_error = MakeError(*line_index, 1, "Falta 'endswitch' para cerrar switch.");
+        return false;
+    }
+
+    const std::vector<Token> end_tokens = Tokenizer::TokenizeLine(lines_[*line_index]);
+    if (end_tokens.empty() || end_tokens[0].kind != TokenKind::KeywordEndSwitch) {
+        *out_error = MakeError(*line_index + 1, end_tokens.empty() ? 1 : end_tokens[0].column, "Se esperaba 'endswitch'.");
+        return false;
+    }
+    if (end_tokens.size() != 1) {
+        *out_error = MakeError(*line_index + 1, end_tokens[1].column, "Tokens extra despues de 'endswitch'.");
+        return false;
+    }
+
+    if (cases.empty()) {
+        *out_error = MakeError(*line_index + 1, tokens[0].column, "switch requiere al menos un case o default.");
+        return false;
+    }
+
+    out_statements->push_back(std::make_unique<SwitchStmt>(std::move(switch_value), std::move(cases)));
+    ++(*line_index);
+    return true;
+}
+
+bool Parser::ParseBreak(std::size_t* line_index, const std::vector<Token>& tokens,
+                        std::vector<std::unique_ptr<Statement>>* out_statements, Diagnostic* out_error) const {
+    if (tokens.size() != 2 || tokens[1].kind != TokenKind::Semicolon) {
+        *out_error = MakeError(*line_index + 1, tokens[0].column, "Formato invalido en break. Use: break;");
+        return false;
+    }
+    out_statements->push_back(std::make_unique<BreakStmt>());
+    ++(*line_index);
+    return true;
+}
+
+bool Parser::ParseContinue(std::size_t* line_index, const std::vector<Token>& tokens,
+                           std::vector<std::unique_ptr<Statement>>* out_statements, Diagnostic* out_error) const {
+    if (tokens.size() != 2 || tokens[1].kind != TokenKind::Semicolon) {
+        *out_error = MakeError(*line_index + 1, tokens[0].column, "Formato invalido en continue. Use: continue;");
+        return false;
+    }
+    out_statements->push_back(std::make_unique<ContinueStmt>());
+    ++(*line_index);
+    return true;
+}
+
+bool Parser::ParsePass(std::size_t* line_index, const std::vector<Token>& tokens,
+                       std::vector<std::unique_ptr<Statement>>* out_statements, Diagnostic* out_error) const {
+    if (tokens.size() != 2 || tokens[1].kind != TokenKind::Semicolon) {
+        *out_error = MakeError(*line_index + 1, tokens[0].column, "Formato invalido en pass. Use: pass;");
+        return false;
+    }
+    out_statements->push_back(std::make_unique<PassStmt>());
+    ++(*line_index);
+    return true;
+}
+
+bool Parser::ParseDefer(std::size_t* line_index, const std::vector<Token>& tokens,
+                        std::vector<std::unique_ptr<Statement>>* out_statements, Diagnostic* out_error) const {
+    if (tokens.size() <= 1) {
+        *out_error = MakeError(*line_index + 1, tokens[0].column, "Formato invalido en defer. Use: defer sentencia;");
+        return false;
+    }
+
+    std::vector<Token> deferred_tokens(tokens.begin() + 1, tokens.end());
+    if (deferred_tokens.empty()) {
+        *out_error = MakeError(*line_index + 1, tokens[0].column, "defer requiere una sentencia.");
+        return false;
+    }
+
+    if (deferred_tokens[0].kind == TokenKind::KeywordIf ||
+        deferred_tokens[0].kind == TokenKind::KeywordWhile ||
+        deferred_tokens[0].kind == TokenKind::KeywordFor ||
+        deferred_tokens[0].kind == TokenKind::KeywordDo ||
+        deferred_tokens[0].kind == TokenKind::KeywordSwitch ||
+        deferred_tokens[0].kind == TokenKind::KeywordTry ||
+        deferred_tokens[0].kind == TokenKind::KeywordFunc ||
+        deferred_tokens[0].kind == TokenKind::KeywordClass ||
+        deferred_tokens[0].kind == TokenKind::KeywordInterface ||
+        deferred_tokens[0].kind == TokenKind::KeywordBreak ||
+        deferred_tokens[0].kind == TokenKind::KeywordContinue ||
+        deferred_tokens[0].kind == TokenKind::KeywordReturn ||
+        deferred_tokens[0].kind == TokenKind::KeywordDefer) {
+        *out_error = MakeError(*line_index + 1, deferred_tokens[0].column, "defer solo acepta sentencias simples.");
+        return false;
+    }
+
+    std::size_t fake_line = *line_index;
+    std::vector<std::unique_ptr<Statement>> deferred_statements;
+    if (!ParseStatement(&fake_line, deferred_tokens, &deferred_statements, out_error)) {
+        return false;
+    }
+    if (deferred_statements.size() != 1) {
+        *out_error = MakeError(*line_index + 1, tokens[0].column, "defer requiere exactamente una sentencia.");
+        return false;
+    }
+
+    out_statements->push_back(std::make_unique<DeferStmt>(std::move(deferred_statements[0])));
     ++(*line_index);
     return true;
 }

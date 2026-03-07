@@ -350,6 +350,10 @@ bool Interpreter::ResolveMutableVariable(
             *out_error = "Variable no definida: " + name;
             return false;
         }
+        if (found->second.is_const) {
+            *out_error = "No se puede modificar constante: " + name;
+            return false;
+        }
 
         *out_value = &found->second.value;
         return true;
@@ -834,6 +838,10 @@ bool Interpreter::AssignValue(
     const runtime::Value& value,
     std::string* out_error) {
     if (statement.name.find('.') != std::string::npos) {
+        if (statement.is_const) {
+            *out_error = "No se puede declarar const sobre una propiedad de objeto.";
+            return false;
+        }
         if (statement.declaration_type != frontend::DeclarationType::Inferred) {
             *out_error = "No se puede declarar tipo explicito sobre una propiedad de objeto.";
             return false;
@@ -844,6 +852,10 @@ bool Interpreter::AssignValue(
     }
 
     if (statement.op != frontend::AssignmentOp::Set) {
+        if (statement.is_const) {
+            *out_error = "Las constantes solo aceptan '='.";
+            return false;
+        }
         return ApplyVariableMutation(statement.name, statement.op, value, out_error);
     }
 
@@ -851,6 +863,14 @@ bool Interpreter::AssignValue(
 
     const auto existing = environment_.find(statement.name);
     if (existing != environment_.end()) {
+        if (existing->second.is_const) {
+            *out_error = "No se puede modificar constante: " + statement.name;
+            return false;
+        }
+        if (statement.is_const) {
+            *out_error = "Constante ya definida: " + statement.name;
+            return false;
+        }
         target_kind = existing->second.kind;
     }
 
@@ -883,7 +903,7 @@ bool Interpreter::AssignValue(
         return false;
     }
 
-    environment_[statement.name] = runtime::VariableSlot{normalized, target_kind};
+    environment_[statement.name] = runtime::VariableSlot{normalized, target_kind, statement.is_const};
     return true;
 }
 
@@ -895,6 +915,10 @@ bool Interpreter::ApplyVariableMutation(
     const auto found = environment_.find(name);
     if (found == environment_.end() && op != frontend::AssignmentOp::Set) {
         *out_error = "Variable no definida: " + name;
+        return false;
+    }
+    if (found != environment_.end() && found->second.is_const) {
+        *out_error = "No se puede modificar constante: " + name;
         return false;
     }
 

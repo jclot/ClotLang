@@ -77,6 +77,24 @@ private:
         std::vector<std::unique_ptr<Statement>>* out_statements,
         Diagnostic* out_error) const;
 
+    bool ParseFor(
+        std::size_t* line_index,
+        const std::vector<Token>& tokens,
+        std::vector<std::unique_ptr<Statement>>* out_statements,
+        Diagnostic* out_error) const;
+
+    bool ParseDoWhile(
+        std::size_t* line_index,
+        const std::vector<Token>& tokens,
+        std::vector<std::unique_ptr<Statement>>* out_statements,
+        Diagnostic* out_error) const;
+
+    bool ParseSwitch(
+        std::size_t* line_index,
+        const std::vector<Token>& tokens,
+        std::vector<std::unique_ptr<Statement>>* out_statements,
+        Diagnostic* out_error) const;
+
     bool ParseEnum(
         std::size_t* line_index,
         const std::vector<Token>& tokens,
@@ -102,6 +120,30 @@ private:
         Diagnostic* out_error) const;
 
     bool ParseReturn(
+        std::size_t* line_index,
+        const std::vector<Token>& tokens,
+        std::vector<std::unique_ptr<Statement>>* out_statements,
+        Diagnostic* out_error) const;
+
+    bool ParseBreak(
+        std::size_t* line_index,
+        const std::vector<Token>& tokens,
+        std::vector<std::unique_ptr<Statement>>* out_statements,
+        Diagnostic* out_error) const;
+
+    bool ParseContinue(
+        std::size_t* line_index,
+        const std::vector<Token>& tokens,
+        std::vector<std::unique_ptr<Statement>>* out_statements,
+        Diagnostic* out_error) const;
+
+    bool ParsePass(
+        std::size_t* line_index,
+        const std::vector<Token>& tokens,
+        std::vector<std::unique_ptr<Statement>>* out_statements,
+        Diagnostic* out_error) const;
+
+    bool ParseDefer(
         std::size_t* line_index,
         const std::vector<Token>& tokens,
         std::vector<std::unique_ptr<Statement>>* out_statements,

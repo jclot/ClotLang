@@ -3,6 +3,7 @@
 
 #include <filesystem>
 #include <future>
+#include <cstdint>
 #include <map>
 #include <memory>
 #include <optional>
@@ -28,6 +29,11 @@ private:
     bool ExecuteMutation(const frontend::MutationStmt& statement, std::string* out_error);
     bool ExecuteReturn(const frontend::ReturnStmt& statement, std::string* out_error);
     bool ExecuteTryCatch(const frontend::TryCatchStmt& statement, std::string* out_error);
+    bool ExecuteFor(const frontend::ForStmt& statement, std::string* out_error);
+    bool ExecuteForEach(const frontend::ForEachStmt& statement, std::string* out_error);
+    bool ExecuteDoWhile(const frontend::DoWhileStmt& statement, std::string* out_error);
+    bool ExecuteSwitch(const frontend::SwitchStmt& statement, std::string* out_error);
+    bool ExecuteDeferredStatementsForCurrentBlock(std::string* out_error);
     bool RaiseExceptionValue(const runtime::Value& value, std::string* out_error);
 
     bool EvaluateExpression(
@@ -193,6 +199,10 @@ private:
         const runtime::Value& value,
         runtime::Value* out_value,
         std::string* out_error) const;
+    bool CollectForEachElements(
+        const runtime::Value& collection,
+        std::vector<runtime::Value>* out_elements,
+        std::string* out_error) const;
 
     bool AssignValue(
         const frontend::AssignmentStmt& statement,
@@ -248,6 +258,11 @@ private:
     std::unordered_map<std::string, ModuleExports> module_exports_cache_;
     std::unordered_map<std::string, std::string> class_aliases_;
     std::optional<RuntimeExceptionRecord> pending_exception_;
+    int loop_depth_ = 0;
+    int switch_depth_ = 0;
+    bool break_signal_ = false;
+    bool continue_signal_ = false;
+    std::vector<std::vector<const frontend::Statement*>> defer_stack_;
 
     struct AsyncTaskResult {
         bool ok = false;
@@ -261,6 +276,8 @@ private:
 
     std::unordered_map<long long, AsyncTaskState> async_tasks_;
     long long next_async_task_id_ = 1;
+    std::unordered_map<std::uint64_t, std::vector<std::pair<runtime::Value, long long>>> value_identity_cache_;
+    long long next_value_identity_id_ = 1;
 };
 
 }  // namespace clot::interpreter

@@ -90,6 +90,18 @@ bool Parser::ParseStatement(
         return ParseImport(line_index, tokens, out_statements, out_error);
     }
 
+    if (tokens[0].kind == TokenKind::KeywordFor) {
+        return ParseFor(line_index, tokens, out_statements, out_error);
+    }
+
+    if (tokens[0].kind == TokenKind::KeywordDo) {
+        return ParseDoWhile(line_index, tokens, out_statements, out_error);
+    }
+
+    if (tokens[0].kind == TokenKind::KeywordSwitch) {
+        return ParseSwitch(line_index, tokens, out_statements, out_error);
+    }
+
     if (tokens[0].kind == TokenKind::KeywordEnum) {
         return ParseEnum(line_index, tokens, out_statements, out_error);
     }
@@ -106,11 +118,32 @@ bool Parser::ParseStatement(
         return ParseReturn(line_index, tokens, out_statements, out_error);
     }
 
+    if (tokens[0].kind == TokenKind::KeywordBreak) {
+        return ParseBreak(line_index, tokens, out_statements, out_error);
+    }
+
+    if (tokens[0].kind == TokenKind::KeywordContinue) {
+        return ParseContinue(line_index, tokens, out_statements, out_error);
+    }
+
+    if (tokens[0].kind == TokenKind::KeywordPass) {
+        return ParsePass(line_index, tokens, out_statements, out_error);
+    }
+
+    if (tokens[0].kind == TokenKind::KeywordDefer) {
+        return ParseDefer(line_index, tokens, out_statements, out_error);
+    }
+
     if (tokens[0].kind == TokenKind::KeywordElse ||
+        tokens[0].kind == TokenKind::KeywordCase ||
+        tokens[0].kind == TokenKind::KeywordDefault ||
+        tokens[0].kind == TokenKind::KeywordFinally ||
         tokens[0].kind == TokenKind::KeywordEndIf ||
+        tokens[0].kind == TokenKind::KeywordEndFor ||
         tokens[0].kind == TokenKind::KeywordCatch ||
         tokens[0].kind == TokenKind::KeywordEndTry ||
         tokens[0].kind == TokenKind::KeywordEndWhile ||
+        tokens[0].kind == TokenKind::KeywordEndSwitch ||
         tokens[0].kind == TokenKind::KeywordEndFunc ||
         tokens[0].kind == TokenKind::KeywordEndClass ||
         tokens[0].kind == TokenKind::KeywordEndInterface ||
@@ -134,7 +167,8 @@ bool Parser::ParseStatement(
         tokens[0].kind == TokenKind::KeywordTuple ||
         tokens[0].kind == TokenKind::KeywordSet ||
         tokens[0].kind == TokenKind::KeywordMap ||
-        tokens[0].kind == TokenKind::KeywordFunctionType) {
+        tokens[0].kind == TokenKind::KeywordFunctionType ||
+        tokens[0].kind == TokenKind::KeywordConst) {
         return ParseAssignment(line_index, tokens, out_statements, out_error);
     }
 

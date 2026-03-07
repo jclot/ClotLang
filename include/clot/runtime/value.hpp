@@ -894,6 +894,7 @@ private:
 struct VariableSlot {
     Value value;
     VariableKind kind = VariableKind::Dynamic;
+    bool is_const = false;
 };
 
 }  // namespace clot::runtime

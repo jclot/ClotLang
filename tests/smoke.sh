@@ -796,6 +796,113 @@ if [[ "$ACTUAL_BIGINT_MATH_CORE" != "$EXPECTED_BIGINT_MATH_CORE" ]]; then
     exit 1
 fi
 
+cat > "$TMP_DIR/new_builtins_sequences.clot" <<'PROG'
+println(len([10, 20, 30]));
+println(len("hola"));
+println(range(5));
+println(range(1, 6, 2));
+println(enumerate(["a", "b"], 5));
+println(zip([1, 2, 3], "ab"));
+println(all([1, true, "x"]));
+println(all([1, 0, 2]));
+println(any([0, "", false]));
+println(any([0, "", 7]));
+PROG
+
+EXPECTED_NEW_BUILTINS_SEQUENCES=$'3\n4\n[0, 1, 2, 3, 4]\n[1, 3, 5]\n[(5, "a"), (6, "b")]\n[(1, \'a\'), (2, \'b\')]\ntrue\nfalse\nfalse\ntrue'
+ACTUAL_NEW_BUILTINS_SEQUENCES="$($BIN_PATH "$TMP_DIR/new_builtins_sequences.clot")"
+if [[ "$ACTUAL_NEW_BUILTINS_SEQUENCES" != "$EXPECTED_NEW_BUILTINS_SEQUENCES" ]]; then
+    echo "Fallo test new_builtins_sequences" >&2
+    echo "Esperado:" >&2
+    printf '%s\n' "$EXPECTED_NEW_BUILTINS_SEQUENCES" >&2
+    echo "Actual:" >&2
+    printf '%s\n' "$ACTUAL_NEW_BUILTINS_SEQUENCES" >&2
+    exit 1
+fi
+
+cat > "$TMP_DIR/new_builtins_runtime.clot" <<'PROG'
+println(isinstance(10, "int"));
+println(isinstance(10, "number"));
+println(isinstance("x", ["int", "string"]));
+println(chr(65));
+println(ord('A'));
+println(hex(255));
+println(bin(10));
+println(hex(-26));
+println(bin(-5));
+println(hash(tuple(1, 2, 3)) == hash(tuple(1, 2, 3)));
+m = map("a", 1);
+println(id(m) == id(m));
+println(id(map("a", 1)) == id(map("a", 1)));
+PROG
+
+EXPECTED_NEW_BUILTINS_RUNTIME=$'true\ntrue\ntrue\nA\n65\n0xff\n0b1010\n-0x1a\n-0b101\ntrue\ntrue\ntrue'
+ACTUAL_NEW_BUILTINS_RUNTIME="$($BIN_PATH "$TMP_DIR/new_builtins_runtime.clot")"
+if [[ "$ACTUAL_NEW_BUILTINS_RUNTIME" != "$EXPECTED_NEW_BUILTINS_RUNTIME" ]]; then
+    echo "Fallo test new_builtins_runtime" >&2
+    echo "Esperado:" >&2
+    printf '%s\n' "$EXPECTED_NEW_BUILTINS_RUNTIME" >&2
+    echo "Actual:" >&2
+    printf '%s\n' "$ACTUAL_NEW_BUILTINS_RUNTIME" >&2
+    exit 1
+fi
+
+cat > "$TMP_DIR/new_builtins_range_error.clot" <<'PROG'
+range(0, 10, 0);
+PROG
+
+set +e
+"$BIN_PATH" "$TMP_DIR/new_builtins_range_error.clot" >"$TMP_DIR/new_builtins_range_error.out" 2>"$TMP_DIR/new_builtins_range_error.err"
+STATUS_NEW_BUILTINS_RANGE_ERROR=$?
+set -e
+
+if [[ "$STATUS_NEW_BUILTINS_RANGE_ERROR" -eq 0 ]]; then
+    echo "Fallo test new_builtins_range_error: se esperaba error." >&2
+    exit 1
+fi
+
+if ! grep -q "range() requiere step != 0." "$TMP_DIR/new_builtins_range_error.err"; then
+    echo "Fallo test new_builtins_range_error: mensaje esperado no encontrado." >&2
+    cat "$TMP_DIR/new_builtins_range_error.err" >&2
+    exit 1
+fi
+
+cat > "$TMP_DIR/new_builtins_ord_error.clot" <<'PROG'
+ord("AB");
+PROG
+
+set +e
+"$BIN_PATH" "$TMP_DIR/new_builtins_ord_error.clot" >"$TMP_DIR/new_builtins_ord_error.out" 2>"$TMP_DIR/new_builtins_ord_error.err"
+STATUS_NEW_BUILTINS_ORD_ERROR=$?
+set -e
+
+if [[ "$STATUS_NEW_BUILTINS_ORD_ERROR" -eq 0 ]]; then
+    echo "Fallo test new_builtins_ord_error: se esperaba error." >&2
+    exit 1
+fi
+
+if ! grep -q "ord() requiere char o string de longitud 1." "$TMP_DIR/new_builtins_ord_error.err"; then
+    echo "Fallo test new_builtins_ord_error: mensaje esperado en espanol no encontrado." >&2
+    cat "$TMP_DIR/new_builtins_ord_error.err" >&2
+    exit 1
+fi
+
+set +e
+CLOT_LANG=en "$BIN_PATH" "$TMP_DIR/new_builtins_ord_error.clot" >"$TMP_DIR/new_builtins_ord_error_en.out" 2>"$TMP_DIR/new_builtins_ord_error_en.err"
+STATUS_NEW_BUILTINS_ORD_ERROR_EN=$?
+set -e
+
+if [[ "$STATUS_NEW_BUILTINS_ORD_ERROR_EN" -eq 0 ]]; then
+    echo "Fallo test new_builtins_ord_error_en: se esperaba error." >&2
+    exit 1
+fi
+
+if ! grep -q "ord() requires char or a string of length 1." "$TMP_DIR/new_builtins_ord_error_en.err"; then
+    echo "Fallo test new_builtins_ord_error_en: mensaje esperado en ingles no encontrado." >&2
+    cat "$TMP_DIR/new_builtins_ord_error_en.err" >&2
+    exit 1
+fi
+
 set +e
 "$BIN_PATH" "$TMP_DIR/analyze_fail.clot" --mode analyze >"$TMP_DIR/analyze_fail.out" 2>"$TMP_DIR/analyze_fail.err"
 STATUS_ANALYZE=$?
@@ -1317,6 +1424,159 @@ fi
 if ! grep -q "debe invocar super(...) como primera sentencia" "$TMP_DIR/oop_super_first_error.err"; then
     echo "Fallo test oop_super_first_error: mensaje esperado no encontrado." >&2
     cat "$TMP_DIR/oop_super_first_error.err" >&2
+    exit 1
+fi
+
+cat > "$TMP_DIR/control_flow_keywords.clot" <<'PROG'
+println("loop");
+sum = 0;
+for (int i = 0; i < 6; i++):
+    if(i == 4):
+        break;
+    endif
+    if(i == 1):
+        continue;
+    endif
+    sum += i;
+endfor
+println(sum);
+
+acc = 0;
+for (n in [2, 3, 4]):
+    acc += n;
+endfor
+println(acc);
+
+switch(acc):
+    case 9:
+        println("nine");
+    case 10:
+        println("ten");
+        break;
+    default:
+        println("other");
+endswitch
+
+i = 0;
+do:
+    i += 1;
+while(i < 3);
+println(i);
+
+if(true):
+    pass;
+endif
+println("pass");
+
+println(3 in [1, 2, 3]);
+println("na" in "banana");
+
+const long c = 7;
+println(c);
+
+func deferred_demo():
+    defer println("defer-last");
+    println("defer-now");
+endfunc
+
+deferred_demo();
+
+try:
+    throw("boom");
+catch(err):
+    println(err);
+finally:
+    println("finally");
+endtry
+PROG
+
+EXPECTED_CONTROL_FLOW_KEYWORDS=$'loop\n5\n9\nnine\nten\n3\npass\ntrue\ntrue\n7\ndefer-now\ndefer-last\nboom\nfinally'
+ACTUAL_CONTROL_FLOW_KEYWORDS="$($BIN_PATH "$TMP_DIR/control_flow_keywords.clot")"
+if [[ "$ACTUAL_CONTROL_FLOW_KEYWORDS" != "$EXPECTED_CONTROL_FLOW_KEYWORDS" ]]; then
+    echo "Fallo test control_flow_keywords" >&2
+    echo "Esperado:" >&2
+    printf '%s\n' "$EXPECTED_CONTROL_FLOW_KEYWORDS" >&2
+    echo "Actual:" >&2
+    printf '%s\n' "$ACTUAL_CONTROL_FLOW_KEYWORDS" >&2
+    exit 1
+fi
+
+cat > "$TMP_DIR/const_reassign_error.clot" <<'PROG'
+const int x = 1;
+x = 2;
+PROG
+
+set +e
+"$BIN_PATH" "$TMP_DIR/const_reassign_error.clot" >"$TMP_DIR/const_reassign_error.out" 2>"$TMP_DIR/const_reassign_error.err"
+STATUS_CONST_REASSIGN=$?
+set -e
+
+if [[ "$STATUS_CONST_REASSIGN" -eq 0 ]]; then
+    echo "Fallo test const_reassign_error: se esperaba error." >&2
+    exit 1
+fi
+
+if ! grep -q "No se puede modificar constante: x" "$TMP_DIR/const_reassign_error.err"; then
+    echo "Fallo test const_reassign_error: mensaje esperado no encontrado." >&2
+    cat "$TMP_DIR/const_reassign_error.err" >&2
+    exit 1
+fi
+
+set +e
+"$BIN_PATH" "$TMP_DIR/const_reassign_error.clot" --lang en >"$TMP_DIR/const_reassign_error_en.out" 2>"$TMP_DIR/const_reassign_error_en.err"
+STATUS_CONST_REASSIGN_EN=$?
+set -e
+
+if [[ "$STATUS_CONST_REASSIGN_EN" -eq 0 ]]; then
+    echo "Fallo test const_reassign_error_en: se esperaba error." >&2
+    exit 1
+fi
+
+if ! grep -q "Runtime error: Cannot modify constant: x" "$TMP_DIR/const_reassign_error_en.err"; then
+    echo "Fallo test const_reassign_error_en: mensaje esperado en ingles no encontrado." >&2
+    cat "$TMP_DIR/const_reassign_error_en.err" >&2
+    exit 1
+fi
+
+cat > "$TMP_DIR/for_invalid_control_header.clot" <<'PROG'
+for (int i = 0; i < 3; break):
+    pass;
+endfor
+PROG
+
+set +e
+"$BIN_PATH" "$TMP_DIR/for_invalid_control_header.clot" --lang en >"$TMP_DIR/for_invalid_control_header.out" 2>"$TMP_DIR/for_invalid_control_header.err"
+STATUS_FOR_INVALID_CONTROL_HEADER=$?
+set -e
+
+if [[ "$STATUS_FOR_INVALID_CONTROL_HEADER" -eq 0 ]]; then
+    echo "Fallo test for_invalid_control_header: se esperaba error." >&2
+    exit 1
+fi
+
+if ! grep -q "Parse error at line 1, column 24: for init/update only allows declarations, mutations, or simple expressions." "$TMP_DIR/for_invalid_control_header.err"; then
+    echo "Fallo test for_invalid_control_header: mensaje esperado en ingles no encontrado." >&2
+    cat "$TMP_DIR/for_invalid_control_header.err" >&2
+    exit 1
+fi
+
+cat > "$TMP_DIR/in_membership_type_error.clot" <<'PROG'
+println(1 in 2);
+PROG
+
+set +e
+"$BIN_PATH" "$TMP_DIR/in_membership_type_error.clot" --lang en >"$TMP_DIR/in_membership_type_error.out" 2>"$TMP_DIR/in_membership_type_error.err"
+STATUS_IN_MEMBERSHIP_TYPE_ERROR=$?
+set -e
+
+if [[ "$STATUS_IN_MEMBERSHIP_TYPE_ERROR" -eq 0 ]]; then
+    echo "Fallo test in_membership_type_error: se esperaba error." >&2
+    exit 1
+fi
+
+if ! grep -q "Runtime error: Operator 'in' requires list, tuple, set, map, object, or string on the right-hand side." "$TMP_DIR/in_membership_type_error.err"; then
+    echo "Fallo test in_membership_type_error: mensaje esperado en ingles no encontrado." >&2
+    cat "$TMP_DIR/in_membership_type_error.err" >&2
     exit 1
 fi
 

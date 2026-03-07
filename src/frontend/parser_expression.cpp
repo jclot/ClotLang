@@ -123,6 +123,15 @@ private:
                 continue;
             }
 
+            if (Match(TokenKind::KeywordIn)) {
+                auto rhs = ParseTerm();
+                if (rhs == nullptr) {
+                    return nullptr;
+                }
+                expression = std::make_unique<BinaryExpr>(BinaryOp::In, std::move(expression), std::move(rhs));
+                continue;
+            }
+
             break;
         }
         return expression;

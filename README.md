@@ -11,6 +11,7 @@ Refactor de arquitectura para separar claramente frontend, runtime, interprete y
 - Tipado opcional en funciones y parametros (incluye `any`/`dynamic` como alias).
 - OOP MVP en modo interprete: `class/interface`, `extends`, `implements`, `constructor`, `get/set`, `public/private/static/readonly/override`, `super(...)` y `super.metodo(...)`.
 - Migracion funcional base completada en modo interprete: listas, objetos, indexacion, propiedades, funciones y `import math`.
+- Builtins utilitarios nuevos en runtime: `len`, `range`, `enumerate`, `zip`, `all`, `any`, `isinstance`, `chr`, `ord`, `hex`, `bin`, `hash`, `id`.
 
 ## Perfil del lenguaje
 - Multiparadigma (dominante: imperativo/procedural).
@@ -188,13 +189,107 @@ Baseline de benchmarks (Fase 0):
 benchmarks/baseline.sh ./build/wsl-release/clot
 ```
 
+## Ejemplos rapidos
+```clot
+const long n = 5;
+sum = 0;
+
+for (int i = 0; i < n; i++):
+    if(i == 2):
+        continue;
+    endif
+    sum += i;
+endfor
+
+for (item in [10, 20, 30]):
+    println(item);
+endfor
+
+switch(sum):
+    case 8:
+        println("ok");
+        break;
+    default:
+        println("otro");
+endswitch
+
+do:
+    sum -= 1;
+while(sum > 0);
+
+try:
+    throw("boom");
+catch(err):
+    println(err);
+finally:
+    println("cleanup");
+endtry
+
+func demo():
+    defer println("fin de bloque");
+    println(3 in [1, 2, 3]);
+endfunc
+```
+
+## Sintaxis de control de flujo
+```clot
+for (int i = 0; i < n; i++):
+    println(i);
+endfor
+
+for (const item in coleccion):
+    println(item);
+endfor
+
+switch(valor):
+    case 1:
+        println("uno");
+        break;
+    default:
+        pass;
+endswitch
+
+do:
+    trabajo();
+while(condicion);
+
+try:
+    trabajo_riesgoso();
+catch(Error err):
+    println(err);
+finally:
+    println("cleanup");
+endtry
+
+defer println("al salir del bloque");
+```
+
+- `for (init; cond; update):` conserva cabecera tipo Java, pero el bloque sigue usando `:` y `endfor`.
+- `init` y `update` aceptan declaraciones, mutaciones o expresiones simples; no aceptan bloques ni control de flujo.
+- `for (item in coleccion):` usa `in` para iterar listas, tuple, set, map, object o string; el binding puede ser `const` y/o tipado.
+- `switch` soporta `case`, `default`, fallthrough estilo Java y `break;` para cortar el flujo.
+- `break;` sale del bucle o `switch` mas cercano. `continue;` solo aplica a bucles, incluso si aparece dentro de un `switch` anidado.
+- `pass;` no hace nada y sirve como placeholder valido.
+- `defer` solo acepta sentencias simples y se ejecuta en orden LIFO al salir del bloque actual.
+- `finally` siempre se ejecuta al cerrar el `try`, haya excepcion capturada, no capturada o retorno temprano.
+- `in` tambien funciona como operador de pertenencia: `clave in mapa`, `item in lista`, `"na" in "banana"`.
+
 ## Alcance actual
 Soportado en modo interprete:
 - Asignaciones numericas (`=`, `+=`, `-=`)
 - Declaraciones `long` y `byte` (tratadas como numericas)
 - `print(...)` de expresiones numericas y string
 - `if / else / endif`
+- `switch/case/default/endswitch` (con fallthrough estilo Java y `break;`)
+- Bucles y control de flujo:
+  - `while/endwhile`
+  - `for/endfor` clasico: `for (int i = 0; i < n; i++):`
+  - `for-each`: `for (item in coleccion):`
+  - `do ... while(condicion);`
+  - `break;`, `continue;`, `pass;`
 - Operadores aritmeticos, comparacion y logicos
+- Operador de pertenencia `in` (listas, tuple, set, map, object, string)
+- `const` para declarar valores inmutables
 - Listas y objetos (incluye `nums[2]` y `user.name`)
 - Mutaciones sobre propiedades e indices:
   - `obj.prop = ...`, `obj.prop += ...`
@@ -219,11 +314,22 @@ Soportado en modo interprete:
   - `from modulo.submodulo import simbolo as alias;`
   (resuelve `modulo/submodulo.clot` y busca desde el directorio actual y sus ancestros, incluyendo raiz de proyecto)
 - `import math` con builtin `sum(a, b)` como modulo nativo
+- Builtins de colecciones/tipos estilo Python:
+  - `len(value)` para `string/list/tuple/set/map/object/char`
+  - `range(stop)`, `range(start, stop)`, `range(start, stop, step)` (retorna `list`, maximo 1,000,000 elementos)
+  - `enumerate(iterable, start=0)` y `zip(iter1, iter2, ...)` (retornan `list` de `tuple`)
+  - `all(iterable)` / `any(iterable)` para validaciones booleanas masivas
+  - `isinstance(value, type_name)` con `type_name` string o coleccion de strings
+  - `chr(code)` / `ord(char)` para conversion char <-> entero ASCII (0..255)
+  - `hex(value)` / `bin(value)` para conversion de base con prefijos `0x`/`0b`
+  - `hash(value)` para fingerprint estructural y `id(value)` para identidad runtime estable por valor
 - Manejo de excepciones:
   - `throw(value);`
   - `try/catch/endtry` con formas: `catch:`, `catch(err):`, `catch(Tipo):`, `catch(Tipo err):`
+  - `finally` opcional: `try/finally/endtry` o `try/catch/finally/endtry`
   - `try/catch` es opcional: si no hay `catch` compatible, termina con `Excepcion no capturada: <Tipo>: <mensaje>`
   - Tipos runtime base inferidos para errores internos: `RuntimeError`, `TypeError`, `ArgumentError`, `MissingArgumentError`, `TooManyArgumentsError`, `ValueError`, `RangeError`, `IndexError`, `NameError`, `AttributeError`, `IOError`, `FileNotFoundError`, `PermissionError`, `FileExistsError`, `FileClosedError`, `AssertionError`, `ImportError`, `ModuleNotFoundError`
+- Ejecucion diferida con `defer` (LIFO al salir del bloque actual)
 - Modulo base de excepciones en Clot: `import clot.core.exceptions;`
 - OOP MVP:
   - `interface/endinterface` con firmas `func ...;`
@@ -255,6 +361,8 @@ No soportado aun en modo compile LLVM:
 - AOT nativo de `return` y funciones usadas como expresion
 - AOT nativo de modulos de archivo
 - AOT nativo de OOP (`class/interface/constructor/get/set/extends/implements/super`)
+- AOT nativo de `switch`, `for-each`, `do-while`, `defer` y `finally`
+- AOT nativo del operador de pertenencia `in`
 - Strings no literales como expresion general en AOT (fuera de `print("...")`)
 
 ## Visual Studio 2026 + WSL

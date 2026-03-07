@@ -15,8 +15,13 @@ inline bool IsControlToken(const std::vector<Token>& tokens) {
 
     switch (tokens[0].kind) {
     case TokenKind::KeywordElse:
+    case TokenKind::KeywordCase:
+    case TokenKind::KeywordDefault:
+    case TokenKind::KeywordFinally:
     case TokenKind::KeywordEndIf:
+    case TokenKind::KeywordEndFor:
     case TokenKind::KeywordEndWhile:
+    case TokenKind::KeywordEndSwitch:
     case TokenKind::KeywordEndFunc:
     case TokenKind::KeywordCatch:
     case TokenKind::KeywordEndTry:

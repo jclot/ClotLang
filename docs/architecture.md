@@ -11,7 +11,7 @@
 ## Frontend Internal Split
 
 - `src/frontend/parser_core.cpp`: bloque principal (`Parse`, `ParseBlock`, despacho de sentencias).
-- `src/frontend/parser_statements.cpp`: parseo de sentencias (`assignment`, `if`, `func`, `import`, `mutation`, `return`, `try/catch`) y formatos de `catch` tipado.
+- `src/frontend/parser_statements.cpp`: parseo de sentencias (`assignment`, `if`, `while`, `for`, `for-each`, `do-while`, `switch`, `break/continue/pass`, `func`, `import`, `mutation`, `return`, `defer`, `try/catch/finally`) y validaciones de cabecera/formato.
 - `src/frontend/parser_expression.cpp`: parser de expresiones por precedencia.
 - `src/frontend/parser_support.hpp`: utilidades internas compartidas del parser.
 
@@ -28,12 +28,12 @@
 - `--mode interpret`: parse + execute AST directly.
 - `--mode compile`: compile to LLVM IR/object/executable.
   - AOT path: numeric/function subset.
-  - Runtime bridge path: full language features.
+  - Runtime bridge path: full language features, incluyendo control de flujo no cubierto por lowering AOT nativo (`switch`, `for-each`, `do-while`, `finally`, `defer`, `in`).
 
 ## Interpreter Internal Split
 
 - `src/interpreter/interpreter.cpp`: execution core (statements, expressions, calls).
-- Manejo de errores runtime: `throw(value)`, inferencia de tipo de excepcion para fallas internas y filtro por tipo en `catch`.
+- Manejo de errores runtime: `throw(value)`, inferencia de tipo de excepcion para fallas internas, filtro por tipo en `catch`, ejecucion garantizada de `finally` y stack LIFO para `defer`.
 - `src/interpreter/interpreter_state.cpp`: state/mutation/value-normalization logic.
 - `src/interpreter/interpreter_modules.cpp`: module resolution/loading/import graph control.
 
