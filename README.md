@@ -212,9 +212,19 @@ Soportado en modo interprete:
   - En parametros: `x`, `x: any` y `x: dynamic` son equivalentes (aceptan cualquier valor)
   - `any/dynamic` en la doc significa "any o dynamic"; no se escribe literal con barra
   - Validacion runtime cuando el hint esta presente
-- Modulos por archivo con `import modulo.submodulo;`
-  (resuelve a `modulo/submodulo.clot` relativo al archivo actual)
+- Modulos por archivo:
+  - `import modulo.submodulo;`
+  - `import modulo.submodulo as alias;`
+  - `from modulo.submodulo import simbolo;`
+  - `from modulo.submodulo import simbolo as alias;`
+  (resuelve `modulo/submodulo.clot` y busca desde el directorio actual y sus ancestros, incluyendo raiz de proyecto)
 - `import math` con builtin `sum(a, b)` como modulo nativo
+- Manejo de excepciones:
+  - `throw(value);`
+  - `try/catch/endtry` con formas: `catch:`, `catch(err):`, `catch(Tipo):`, `catch(Tipo err):`
+  - `try/catch` es opcional: si no hay `catch` compatible, termina con `Excepcion no capturada: <Tipo>: <mensaje>`
+  - Tipos runtime base inferidos para errores internos: `RuntimeError`, `TypeError`, `ArgumentError`, `MissingArgumentError`, `TooManyArgumentsError`, `ValueError`, `RangeError`, `IndexError`, `NameError`, `AttributeError`, `IOError`, `FileNotFoundError`, `PermissionError`, `FileExistsError`, `FileClosedError`, `AssertionError`, `ImportError`, `ModuleNotFoundError`
+- Modulo base de excepciones en Clot: `import clot.core.exceptions;`
 - OOP MVP:
   - `interface/endinterface` con firmas `func ...;`
   - `class/endclass` con `extends` (herencia simple) y `implements` (multiple)

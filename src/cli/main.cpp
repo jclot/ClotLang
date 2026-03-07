@@ -114,6 +114,11 @@ std::string BuildDefaultOutput(
 #endif
 }
 
+bool IsUnhandledExceptionDiagnostic(const std::string& diagnostic) {
+    return diagnostic.rfind("Excepcion no capturada: ", 0) == 0 ||
+           diagnostic.rfind("Unhandled Exception: ", 0) == 0;
+}
+
 bool ParseArgs(int argc, char* argv[], CliOptions* out_options, std::string* out_error) {
     for (int i = 1; i < argc; ++i) {
         const std::string arg = argv[i];
@@ -351,8 +356,13 @@ int main(int argc, char* argv[]) {
         interpreter.SetEntryFilePath(options.input_path);
         std::string runtime_error;
         if (!interpreter.Execute(program, &runtime_error)) {
-            std::cerr << clot::runtime::Tr("Error de ejecucion: ", "Runtime error: ")
-                      << clot::runtime::TranslateDiagnostic(runtime_error) << "\n";
+            const std::string translated_runtime_error = clot::runtime::TranslateDiagnostic(runtime_error);
+            if (IsUnhandledExceptionDiagnostic(translated_runtime_error)) {
+                std::cerr << translated_runtime_error << "\n";
+            } else {
+                std::cerr << clot::runtime::Tr("Error de ejecucion: ", "Runtime error: ")
+                          << translated_runtime_error << "\n";
+            }
             return 1;
         }
 

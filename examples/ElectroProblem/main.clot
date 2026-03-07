@@ -1,0 +1,20 @@
+import clot.science.physics.electromagnetism;
+import math;
+
+C = 10 * pow(10, -6);
+V = 12;
+R = 100;
+L = 0.5;
+
+Qmax = capacitor_charge(C, V);
+
+U = capacitor_energy_cv(C, V);
+
+Imax = sqrt((2 * U) / L);
+
+f = resonance_frequency(L, C);
+
+println("Qmax: " + Qmax);
+println("U: " + U);
+println("Imax: " + Imax);
+println("f: " + f);

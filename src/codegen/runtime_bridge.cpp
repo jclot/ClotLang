@@ -8,6 +8,15 @@
 #include "clot/interpreter/interpreter.hpp"
 #include "clot/runtime/i18n.hpp"
 
+namespace {
+
+bool IsUnhandledExceptionDiagnostic(const std::string& diagnostic) {
+    return diagnostic.rfind("Excepcion no capturada: ", 0) == 0 ||
+           diagnostic.rfind("Unhandled Exception: ", 0) == 0;
+}
+
+}  // namespace
+
 extern "C" int clot_runtime_execute_source(const char* source_text, const char* source_path) {
     if (source_text == nullptr) {
         std::cerr << clot::runtime::TranslateDiagnostic("Error de runtime bridge: source_text nulo.") << "\n";
@@ -54,8 +63,13 @@ extern "C" int clot_runtime_execute_source(const char* source_text, const char* 
     }
     std::string runtime_error;
     if (!interpreter.Execute(program, &runtime_error)) {
-        std::cerr << clot::runtime::Tr("Error de ejecucion: ", "Runtime error: ")
-                  << clot::runtime::TranslateDiagnostic(runtime_error) << "\n";
+        const std::string translated_runtime_error = clot::runtime::TranslateDiagnostic(runtime_error);
+        if (IsUnhandledExceptionDiagnostic(translated_runtime_error)) {
+            std::cerr << translated_runtime_error << "\n";
+        } else {
+            std::cerr << clot::runtime::Tr("Error de ejecucion: ", "Runtime error: ")
+                      << translated_runtime_error << "\n";
+        }
         return 1;
     }
 
