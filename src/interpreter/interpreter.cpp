@@ -171,9 +171,15 @@ void Interpreter::SetEntryFilePath(const std::string& file_path) {
 bool Interpreter::Execute(const frontend::Program& program, std::string* out_error) {
     environment_.clear();
     functions_.clear();
+    interfaces_.clear();
+    classes_.clear();
     imported_modules_.clear();
     loaded_module_programs_.clear();
     return_stack_.clear();
+    class_execution_stack_.clear();
+    constructor_execution_stack_.clear();
+    constructor_super_called_stack_.clear();
+    constructor_instance_stack_.clear();
     module_base_dirs_.clear();
     importing_modules_.clear();
     async_tasks_.clear();
@@ -312,6 +318,14 @@ bool Interpreter::ExecuteStatement(const frontend::Statement& statement, std::st
         return true;
     }
 
+    if (const auto* interface_decl = dynamic_cast<const frontend::InterfaceDeclStmt*>(&statement)) {
+        return ExecuteInterfaceDeclaration(*interface_decl, out_error);
+    }
+
+    if (const auto* class_decl = dynamic_cast<const frontend::ClassDeclStmt*>(&statement)) {
+        return ExecuteClassDeclaration(*class_decl, out_error);
+    }
+
     if (const auto* import_stmt = dynamic_cast<const frontend::ImportStmt*>(&statement)) {
         return ImportModule(import_stmt->module_name, out_error);
     }
@@ -381,6 +395,613 @@ bool Interpreter::ExecuteMutation(const frontend::MutationStmt& statement, std::
     }
 
     return ApplyTargetMutation(*statement.target, statement.op, value, out_error);
+}
+
+const frontend::ClassDeclStmt* Interpreter::FindClass(const std::string& class_name) const {
+    const auto found = classes_.find(class_name);
+    if (found == classes_.end()) {
+        return nullptr;
+    }
+    return found->second.declaration;
+}
+
+bool Interpreter::IsClassInstance(const runtime::Value& value, std::string* out_class_name) const {
+    const auto* object = value.AsObject();
+    if (object == nullptr) {
+        return false;
+    }
+
+    for (const auto& entry : *object) {
+        if (entry.first == "__class__" && entry.second.IsString()) {
+            if (out_class_name != nullptr) {
+                *out_class_name = entry.second.ToString();
+            }
+            return true;
+        }
+    }
+    return false;
+}
+
+bool Interpreter::CanAccessMember(frontend::MemberVisibility visibility, const std::string& owner_class) const {
+    if (visibility == frontend::MemberVisibility::Public) {
+        return true;
+    }
+    return HasClassContextAccess(owner_class);
+}
+
+bool Interpreter::HasClassContextAccess(const std::string& owner_class) const {
+    return !class_execution_stack_.empty() && class_execution_stack_.back() == owner_class;
+}
+
+bool Interpreter::ResolveClassField(const frontend::ClassDeclStmt& declaration,
+                                    const std::string& field_name,
+                                    const frontend::ClassFieldDecl** out_field,
+                                    std::string* out_owner_class) const {
+    for (const auto& field : declaration.fields) {
+        if (field.name == field_name) {
+            if (out_field != nullptr) {
+                *out_field = &field;
+            }
+            if (out_owner_class != nullptr) {
+                *out_owner_class = declaration.name;
+            }
+            return true;
+        }
+    }
+
+    if (!declaration.base_class.empty()) {
+        const frontend::ClassDeclStmt* base = FindClass(declaration.base_class);
+        if (base == nullptr) {
+            return false;
+        }
+        return ResolveClassField(*base, field_name, out_field, out_owner_class);
+    }
+    return false;
+}
+
+bool Interpreter::ResolveClassMethod(const frontend::ClassDeclStmt& declaration,
+                                     const std::string& method_name,
+                                     const frontend::ClassMethodDecl** out_method,
+                                     std::string* out_owner_class) const {
+    for (const auto& method : declaration.methods) {
+        if (method.name == method_name) {
+            if (out_method != nullptr) {
+                *out_method = &method;
+            }
+            if (out_owner_class != nullptr) {
+                *out_owner_class = declaration.name;
+            }
+            return true;
+        }
+    }
+
+    if (!declaration.base_class.empty()) {
+        const frontend::ClassDeclStmt* base = FindClass(declaration.base_class);
+        if (base == nullptr) {
+            return false;
+        }
+        return ResolveClassMethod(*base, method_name, out_method, out_owner_class);
+    }
+    return false;
+}
+
+bool Interpreter::ResolveClassAccessor(const frontend::ClassDeclStmt& declaration,
+                                       const std::string& property_name,
+                                       bool setter,
+                                       const frontend::ClassAccessorDecl** out_accessor,
+                                       std::string* out_owner_class) const {
+    for (const auto& accessor : declaration.accessors) {
+        if (accessor.name == property_name && accessor.is_setter == setter) {
+            if (out_accessor != nullptr) {
+                *out_accessor = &accessor;
+            }
+            if (out_owner_class != nullptr) {
+                *out_owner_class = declaration.name;
+            }
+            return true;
+        }
+    }
+
+    if (!declaration.base_class.empty()) {
+        const frontend::ClassDeclStmt* base = FindClass(declaration.base_class);
+        if (base == nullptr) {
+            return false;
+        }
+        return ResolveClassAccessor(*base, property_name, setter, out_accessor, out_owner_class);
+    }
+    return false;
+}
+
+bool Interpreter::ValidateOverrideRules(const frontend::ClassDeclStmt& declaration, std::string* out_error) const {
+    const frontend::ClassDeclStmt* base = nullptr;
+    if (!declaration.base_class.empty()) {
+        base = FindClass(declaration.base_class);
+        if (base == nullptr) {
+            *out_error = "Clase base no definida: " + declaration.base_class;
+            return false;
+        }
+    }
+
+    for (const auto& method : declaration.methods) {
+        const frontend::ClassMethodDecl* base_method = nullptr;
+        std::string base_owner;
+        const bool has_base_method =
+            base != nullptr && ResolveClassMethod(*base, method.name, &base_method, &base_owner);
+
+        if (method.is_override && !has_base_method) {
+            *out_error = "Metodo override sin base: " + declaration.name + "." + method.name;
+            return false;
+        }
+
+        if (!method.is_override && has_base_method) {
+            *out_error = "Metodo sobrescribe base y requiere 'override': " + declaration.name + "." + method.name;
+            return false;
+        }
+
+        if (has_base_method) {
+            if (method.params.size() != base_method->params.size()) {
+                *out_error = "Override invalido por aridad en metodo: " + declaration.name + "." + method.name;
+                return false;
+            }
+            if (method.is_static != base_method->is_static) {
+                *out_error = "Override invalido por static/instancia en metodo: " + declaration.name + "." + method.name;
+                return false;
+            }
+            if (method.return_type != base_method->return_type) {
+                *out_error = "Override invalido por retorno en metodo: " + declaration.name + "." + method.name;
+                return false;
+            }
+            for (std::size_t i = 0; i < method.params.size(); ++i) {
+                if (method.params[i].by_reference != base_method->params[i].by_reference ||
+                    method.params[i].type_hint != base_method->params[i].type_hint) {
+                    *out_error = "Override invalido por firma en metodo: " + declaration.name + "." + method.name;
+                    return false;
+                }
+            }
+        }
+    }
+
+    return true;
+}
+
+bool Interpreter::ValidateInterfaceImplementation(const frontend::ClassDeclStmt& declaration,
+                                                  std::string* out_error) const {
+    for (const auto& interface_name : declaration.interfaces) {
+        const auto interface_it = interfaces_.find(interface_name);
+        if (interface_it == interfaces_.end()) {
+            *out_error = "Interface no definida: " + interface_name;
+            return false;
+        }
+
+        const frontend::InterfaceDeclStmt* interface_decl = interface_it->second;
+        for (const auto& signature : interface_decl->methods) {
+            const frontend::ClassMethodDecl* method = nullptr;
+            std::string owner;
+            if (!ResolveClassMethod(declaration, signature.name, &method, &owner)) {
+                *out_error = "Clase '" + declaration.name + "' no implementa metodo '" + signature.name +
+                             "' de interface '" + interface_name + "'.";
+                return false;
+            }
+
+            if (method->is_static) {
+                *out_error = "Metodo de interface no puede implementarse como static: " + declaration.name + "." +
+                             signature.name;
+                return false;
+            }
+
+            if (method->visibility != frontend::MemberVisibility::Public) {
+                *out_error = "Metodo de interface debe ser public: " + declaration.name + "." + signature.name;
+                return false;
+            }
+
+            if (method->params.size() != signature.params.size()) {
+                *out_error = "Firma incompatible en metodo de interface: " + declaration.name + "." + signature.name;
+                return false;
+            }
+
+            if (method->return_type != signature.return_type) {
+                *out_error = "Retorno incompatible en metodo de interface: " + declaration.name + "." + signature.name;
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+bool Interpreter::ResolveClassStaticField(const std::string& class_name,
+                                          const std::string& field_name,
+                                          runtime::Value** out_value,
+                                          bool create_missing,
+                                          std::string* out_error) {
+    if (out_value == nullptr) {
+        if (out_error != nullptr) {
+            *out_error = "Error interno: out_value nulo en ResolveClassStaticField.";
+        }
+        return false;
+    }
+
+    const frontend::ClassDeclStmt* class_decl = FindClass(class_name);
+    if (class_decl == nullptr) {
+        *out_error = "Clase no definida: " + class_name;
+        return false;
+    }
+
+    const frontend::ClassFieldDecl* field = nullptr;
+    std::string owner_class;
+    if (!ResolveClassField(*class_decl, field_name, &field, &owner_class)) {
+        *out_error = "Campo no definido: " + class_name + "." + field_name;
+        return false;
+    }
+
+    if (!field->is_static) {
+        *out_error = "Campo de instancia requiere objeto: " + class_name + "." + field_name;
+        return false;
+    }
+
+    if (!CanAccessMember(field->visibility, owner_class)) {
+        *out_error = "Campo no accesible por visibilidad: " + class_name + "." + field_name;
+        return false;
+    }
+
+    auto owner_it = classes_.find(owner_class);
+    if (owner_it == classes_.end()) {
+        *out_error = "Clase no definida: " + owner_class;
+        return false;
+    }
+
+    auto static_field = owner_it->second.static_fields.find(field_name);
+    if (static_field == owner_it->second.static_fields.end()) {
+        if (!create_missing) {
+            *out_error = "Campo static no inicializado: " + owner_class + "." + field_name;
+            return false;
+        }
+        owner_it->second.static_fields[field_name] =
+            runtime::VariableSlot{runtime::Value(nullptr), runtime::VariableKind::Dynamic};
+        static_field = owner_it->second.static_fields.find(field_name);
+    }
+
+    *out_value = &static_field->second.value;
+    return true;
+}
+
+bool Interpreter::ExecuteInterfaceDeclaration(const frontend::InterfaceDeclStmt& declaration, std::string* out_error) {
+    if (interfaces_.find(declaration.name) != interfaces_.end()) {
+        *out_error = "Interface duplicada: " + declaration.name;
+        return false;
+    }
+    interfaces_[declaration.name] = &declaration;
+    return true;
+}
+
+bool Interpreter::ExecuteClassDeclaration(const frontend::ClassDeclStmt& declaration, std::string* out_error) {
+    if (classes_.find(declaration.name) != classes_.end()) {
+        *out_error = "Clase duplicada: " + declaration.name;
+        return false;
+    }
+
+    if (!declaration.base_class.empty() && FindClass(declaration.base_class) == nullptr) {
+        *out_error = "Clase base no definida: " + declaration.base_class;
+        return false;
+    }
+
+    ClassRuntimeInfo info;
+    info.declaration = &declaration;
+    classes_[declaration.name] = std::move(info);
+
+    if (!ValidateOverrideRules(declaration, out_error) || !ValidateInterfaceImplementation(declaration, out_error)) {
+        classes_.erase(declaration.name);
+        return false;
+    }
+
+    std::set<std::string> seen_fields;
+    for (const auto& field : declaration.fields) {
+        if (!seen_fields.insert(field.name).second) {
+            *out_error = "Campo duplicado en clase '" + declaration.name + "': " + field.name;
+            classes_.erase(declaration.name);
+            return false;
+        }
+
+        if (!field.is_static) {
+            continue;
+        }
+
+        runtime::Value value(nullptr);
+        if (field.default_value != nullptr) {
+            if (!EvaluateExpression(*field.default_value, &value, out_error)) {
+                classes_.erase(declaration.name);
+                return false;
+            }
+        }
+
+        if (field.type_hint != frontend::TypeHint::Inferred &&
+            !(field.default_value == nullptr && value.IsNull())) {
+            runtime::Value normalized;
+            std::string type_error;
+            if (!NormalizeValueForTypeHint(field.type_hint, value, &normalized, &type_error)) {
+                *out_error = "Campo static '" + declaration.name + "." + field.name +
+                             "' no coincide con type hint '" + TypeHintName(field.type_hint) + "': " + type_error;
+                classes_.erase(declaration.name);
+                return false;
+            }
+            value = std::move(normalized);
+        }
+
+        classes_[declaration.name].static_fields[field.name] =
+            runtime::VariableSlot{value, runtime::VariableKind::Dynamic};
+        if (field.is_readonly) {
+            classes_[declaration.name].readonly_static_fields.insert(field.name);
+        }
+    }
+
+    return true;
+}
+
+bool Interpreter::InitializeInstanceFields(const frontend::ClassDeclStmt& declaration,
+                                           runtime::Value* instance,
+                                           std::string* out_error) {
+    if (instance == nullptr || !instance->IsObject()) {
+        *out_error = "Error interno: instancia invalida en inicializacion de campos.";
+        return false;
+    }
+
+    if (!declaration.base_class.empty()) {
+        const frontend::ClassDeclStmt* base = FindClass(declaration.base_class);
+        if (base == nullptr) {
+            *out_error = "Clase base no definida: " + declaration.base_class;
+            return false;
+        }
+        if (!InitializeInstanceFields(*base, instance, out_error)) {
+            return false;
+        }
+    }
+
+    for (const auto& field : declaration.fields) {
+        if (field.is_static) {
+            continue;
+        }
+
+        runtime::Value value(nullptr);
+        if (field.default_value != nullptr) {
+            if (!EvaluateExpression(*field.default_value, &value, out_error)) {
+                return false;
+            }
+        }
+
+        if (field.type_hint != frontend::TypeHint::Inferred &&
+            !(field.default_value == nullptr && value.IsNull())) {
+            runtime::Value normalized;
+            std::string type_error;
+            if (!NormalizeValueForTypeHint(field.type_hint, value, &normalized, &type_error)) {
+                *out_error = "Campo '" + declaration.name + "." + field.name + "' no coincide con type hint '" +
+                             TypeHintName(field.type_hint) + "': " + type_error;
+                return false;
+            }
+            value = std::move(normalized);
+        }
+
+        runtime::Value* slot = instance->EnsureObjectProperty(field.name);
+        if (slot == nullptr) {
+            *out_error = "No se pudo inicializar campo de instancia: " + field.name;
+            return false;
+        }
+        *slot = std::move(value);
+    }
+
+    return true;
+}
+
+bool Interpreter::ExecuteClassConstructor(const frontend::ClassDeclStmt& declaration,
+                                          runtime::Value* instance,
+                                          const frontend::CallExpr& call,
+                                          std::string* out_error) {
+    if (declaration.constructor_body.empty()) {
+        if (!declaration.constructor_params.empty() || !call.arguments.empty()) {
+            *out_error = "Numero incorrecto de argumentos para constructor de clase '" + declaration.name + "'.";
+            return false;
+        }
+        if (!declaration.base_class.empty()) {
+            const frontend::ClassDeclStmt* base = FindClass(declaration.base_class);
+            if (base == nullptr) {
+                *out_error = "Clase base no definida: " + declaration.base_class;
+                return false;
+            }
+            frontend::CallExpr base_call("super", {});
+            if (!ExecuteClassConstructor(*base, instance, base_call, out_error)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    if (declaration.constructor_is_private && !HasClassContextAccess(declaration.name)) {
+        *out_error = "Constructor privado no accesible para clase '" + declaration.name + "'.";
+        return false;
+    }
+
+    if (!declaration.base_class.empty()) {
+        const auto* first_statement = declaration.constructor_body.empty() ? nullptr : declaration.constructor_body.front().get();
+        const auto* expression_stmt = dynamic_cast<const frontend::ExpressionStmt*>(first_statement);
+        const auto* first_call = expression_stmt != nullptr
+                                     ? dynamic_cast<const frontend::CallExpr*>(expression_stmt->expr.get())
+                                     : nullptr;
+        if (first_call == nullptr || first_call->callee != "super") {
+            *out_error = "El constructor de '" + declaration.name +
+                         "' debe invocar super(...) como primera sentencia.";
+            return false;
+        }
+    }
+
+    bool constructor_called_super = false;
+    runtime::Value ignored(nullptr);
+    if (!ExecuteClassCallable(
+        declaration.name,
+        declaration.name + "::__constructor__",
+        frontend::TypeHint::Inferred,
+        declaration.constructor_params,
+        declaration.constructor_body,
+        call,
+        false,
+        &ignored,
+        out_error,
+        instance,
+        true,
+        &constructor_called_super)) {
+        return false;
+    }
+
+    if (!declaration.base_class.empty() && !constructor_called_super) {
+        *out_error = "El constructor de '" + declaration.name + "' debe invocar super(...).";
+        return false;
+    }
+
+    return true;
+}
+
+bool Interpreter::InstantiateClass(const frontend::ClassDeclStmt& declaration,
+                                   const frontend::CallExpr& call,
+                                   runtime::Value* out_value,
+                                   std::string* out_error) {
+    runtime::Value::Object entries;
+    entries.push_back({"__class__", runtime::Value(declaration.name)});
+    runtime::Value instance(std::move(entries));
+
+    if (!InitializeInstanceFields(declaration, &instance, out_error)) {
+        return false;
+    }
+
+    if (!ExecuteClassConstructor(declaration, &instance, call, out_error)) {
+        return false;
+    }
+
+    *out_value = std::move(instance);
+    return true;
+}
+
+bool Interpreter::ExecuteClassSetter(runtime::Value* instance,
+                                     const std::string& class_name,
+                                     const std::string& property_name,
+                                     const runtime::Value& value,
+                                     std::string* out_error) {
+    if (instance == nullptr || !instance->IsObject()) {
+        *out_error = "Error interno: instancia invalida para setter de clase.";
+        return false;
+    }
+
+    const frontend::ClassDeclStmt* class_decl = FindClass(class_name);
+    if (class_decl == nullptr) {
+        *out_error = "Clase no definida: " + class_name;
+        return false;
+    }
+
+    const frontend::ClassAccessorDecl* accessor = nullptr;
+    std::string owner_class;
+    if (!ResolveClassAccessor(*class_decl, property_name, true, &accessor, &owner_class)) {
+        return false;
+    }
+
+    if (!CanAccessMember(accessor->visibility, owner_class)) {
+        *out_error = "Setter no accesible por visibilidad: " + class_name + "." + property_name;
+        return false;
+    }
+
+    runtime::Value normalized_value = value;
+    if (accessor->setter_param_type != frontend::TypeHint::Inferred) {
+        std::string type_error;
+        if (!NormalizeValueForTypeHint(accessor->setter_param_type, value, &normalized_value, &type_error)) {
+            *out_error = "Setter '" + class_name + "." + property_name +
+                         "' recibio valor incompatible con type hint '" +
+                         TypeHintName(accessor->setter_param_type) + "': " + type_error;
+            return false;
+        }
+    }
+
+    auto caller_environment = environment_;
+    auto local_environment = environment_;
+    local_environment["this"] = runtime::VariableSlot{*instance, runtime::VariableKind::Dynamic};
+    local_environment[accessor->setter_param_name] =
+        runtime::VariableSlot{normalized_value, runtime::VariableKind::Dynamic};
+
+    class_execution_stack_.push_back(owner_class);
+    environment_ = std::move(local_environment);
+    return_stack_.push_back(std::nullopt);
+
+    const bool ok = ExecuteBlock(accessor->body, out_error);
+    return_stack_.pop_back();
+
+    if (ok) {
+        const auto this_it = environment_.find("this");
+        if (this_it != environment_.end()) {
+            *instance = this_it->second.value;
+        }
+    }
+
+    environment_ = std::move(caller_environment);
+    if (!class_execution_stack_.empty()) {
+        class_execution_stack_.pop_back();
+    }
+    return ok;
+}
+
+bool Interpreter::TryExecuteClassGetter(runtime::Value* instance,
+                                        const std::string& class_name,
+                                        const std::string& property_name,
+                                        runtime::Value* out_value,
+                                        std::string* out_error) {
+    if (instance == nullptr || out_value == nullptr || !instance->IsObject()) {
+        if (out_error != nullptr) {
+            *out_error = "Error interno: instancia invalida para getter de clase.";
+        }
+        return false;
+    }
+
+    const frontend::ClassDeclStmt* class_decl = FindClass(class_name);
+    if (class_decl == nullptr) {
+        *out_error = "Clase no definida: " + class_name;
+        return false;
+    }
+
+    const frontend::ClassAccessorDecl* accessor = nullptr;
+    std::string owner_class;
+    if (!ResolveClassAccessor(*class_decl, property_name, false, &accessor, &owner_class)) {
+        return false;
+    }
+
+    if (!CanAccessMember(accessor->visibility, owner_class)) {
+        *out_error = "Getter no accesible por visibilidad: " + class_name + "." + property_name;
+        return false;
+    }
+
+    auto caller_environment = environment_;
+    auto local_environment = environment_;
+    local_environment["this"] = runtime::VariableSlot{*instance, runtime::VariableKind::Dynamic};
+
+    class_execution_stack_.push_back(owner_class);
+    environment_ = std::move(local_environment);
+    return_stack_.push_back(std::nullopt);
+
+    const bool ok = ExecuteBlock(accessor->body, out_error);
+    std::optional<runtime::Value> returned = return_stack_.back();
+    return_stack_.pop_back();
+
+    if (ok) {
+        const auto this_it = environment_.find("this");
+        if (this_it != environment_.end()) {
+            *instance = this_it->second.value;
+        }
+    }
+
+    environment_ = std::move(caller_environment);
+    if (!class_execution_stack_.empty()) {
+        class_execution_stack_.pop_back();
+    }
+
+    if (!ok) {
+        return false;
+    }
+
+    *out_value = returned.has_value() ? *returned : runtime::Value(nullptr);
+    return true;
 }
 
 bool Interpreter::ExecuteReturn(const frontend::ReturnStmt& statement, std::string* out_error) {
@@ -924,6 +1545,179 @@ bool Interpreter::ExecuteCall(const frontend::CallExpr& call, bool require_retur
         return true;
     }
 
+    if (call.callee == "super") {
+        return ExecuteSuperCall(call, require_return_value, out_value, out_error);
+    }
+
+    const std::size_t last_dot = call.callee.rfind('.');
+    if (last_dot != std::string::npos && last_dot > 0 && last_dot + 1 < call.callee.size()) {
+        const std::string target_name = call.callee.substr(0, last_dot);
+        const std::string member_name = call.callee.substr(last_dot + 1);
+
+        if (target_name == "super") {
+            if (class_execution_stack_.empty()) {
+                *out_error = "super.metodo(...) solo se permite dentro de metodos de clase.";
+                return false;
+            }
+
+            const std::string current_class = class_execution_stack_.back();
+            const frontend::ClassDeclStmt* current_decl = FindClass(current_class);
+            if (current_decl == nullptr) {
+                *out_error = "Clase no definida: " + current_class;
+                return false;
+            }
+            if (current_decl->base_class.empty()) {
+                *out_error = "La clase '" + current_class + "' no tiene clase base para super.";
+                return false;
+            }
+
+            auto this_it = environment_.find("this");
+            if (this_it == environment_.end()) {
+                *out_error = "super.metodo(...) requiere contexto de instancia valido.";
+                return false;
+            }
+            std::string this_class;
+            if (!IsClassInstance(this_it->second.value, &this_class)) {
+                *out_error = "super.metodo(...) requiere contexto de instancia valido.";
+                return false;
+            }
+
+            const frontend::ClassDeclStmt* base_decl = FindClass(current_decl->base_class);
+            if (base_decl == nullptr) {
+                *out_error = "Clase base no definida: " + current_decl->base_class;
+                return false;
+            }
+
+            const frontend::ClassMethodDecl* method = nullptr;
+            std::string owner_class;
+            if (!ResolveClassMethod(*base_decl, member_name, &method, &owner_class)) {
+                *out_error = "Metodo no definido en super: " + member_name;
+                return false;
+            }
+            if (method->is_static) {
+                *out_error = "super.metodo(...) solo aplica a metodos de instancia.";
+                return false;
+            }
+            if (!CanAccessMember(method->visibility, owner_class)) {
+                *out_error = "Metodo no accesible por visibilidad: " + call.callee;
+                return false;
+            }
+
+            runtime::Value bound_instance = this_it->second.value;
+            if (!ExecuteClassCallable(
+                owner_class,
+                call.callee,
+                method->return_type,
+                method->params,
+                method->body,
+                call,
+                require_return_value,
+                out_value,
+                out_error,
+                &bound_instance,
+                false)) {
+                return false;
+            }
+
+            const auto this_after_call = environment_.find("this");
+            if (this_after_call != environment_.end()) {
+                this_after_call->second.value = std::move(bound_instance);
+            }
+            return true;
+        }
+
+        if (const frontend::ClassDeclStmt* static_class = FindClass(target_name)) {
+            const frontend::ClassMethodDecl* method = nullptr;
+            std::string owner_class;
+            if (!ResolveClassMethod(*static_class, member_name, &method, &owner_class)) {
+                *out_error = "Metodo no definido: " + call.callee;
+                return false;
+            }
+            if (!method->is_static) {
+                *out_error = "Metodo de instancia requiere objeto: " + call.callee;
+                return false;
+            }
+            if (!CanAccessMember(method->visibility, owner_class)) {
+                *out_error = "Metodo no accesible por visibilidad: " + call.callee;
+                return false;
+            }
+
+            return ExecuteClassCallable(
+                owner_class,
+                call.callee,
+                method->return_type,
+                method->params,
+                method->body,
+                call,
+                require_return_value,
+                out_value,
+                out_error,
+                nullptr,
+                false);
+        }
+
+        runtime::Value* target_object = nullptr;
+        if (!ResolveMutableVariable(target_name, false, &target_object, out_error)) {
+            return false;
+        }
+
+        std::string class_name;
+        if (!IsClassInstance(*target_object, &class_name)) {
+            *out_error = "Llamada de metodo requiere instancia de clase: " + call.callee;
+            return false;
+        }
+
+        const frontend::ClassDeclStmt* class_decl = FindClass(class_name);
+        if (class_decl == nullptr) {
+            *out_error = "Clase no definida para instancia: " + class_name;
+            return false;
+        }
+
+        const frontend::ClassMethodDecl* method = nullptr;
+        std::string owner_class;
+        if (!ResolveClassMethod(*class_decl, member_name, &method, &owner_class)) {
+            *out_error = "Metodo no definido: " + call.callee;
+            return false;
+        }
+
+        if (method->is_static) {
+            *out_error = "Metodo static debe invocarse por nombre de clase: " + call.callee;
+            return false;
+        }
+
+        if (!CanAccessMember(method->visibility, owner_class)) {
+            *out_error = "Metodo no accesible por visibilidad: " + call.callee;
+            return false;
+        }
+
+        runtime::Value bound_instance = *target_object;
+        if (!ExecuteClassCallable(
+            owner_class,
+            call.callee,
+            method->return_type,
+            method->params,
+            method->body,
+            call,
+            require_return_value,
+            out_value,
+            out_error,
+            &bound_instance,
+            false)) {
+            return false;
+        }
+
+        runtime::Value* target_after_call = nullptr;
+        if (!ResolveMutableVariable(target_name, false, &target_after_call, out_error)) {
+            return false;
+        }
+        *target_after_call = std::move(bound_instance);
+        return true;
+    }
+
+    if (const frontend::ClassDeclStmt* class_decl = FindClass(call.callee)) {
+        return InstantiateClass(*class_decl, call, out_value, out_error);
+    }
+
     std::string target_function = call.callee;
     const auto variable_it = environment_.find(call.callee);
     if (variable_it != environment_.end()) {
@@ -942,10 +1736,65 @@ bool Interpreter::ExecuteCall(const frontend::CallExpr& call, bool require_retur
     return ExecuteUserFunction(*function_it->second, call, require_return_value, out_value, out_error);
 }
 
-bool Interpreter::ExecuteUserFunction(const frontend::FunctionDeclStmt& function, const frontend::CallExpr& call,
-                                      bool require_return_value, runtime::Value* out_value, std::string* out_error) {
-    if (call.arguments.size() > function.params.size()) {
-        *out_error = "Numero incorrecto de argumentos para funcion '" + function.name + "'.";
+bool Interpreter::ExecuteClassCallable(const std::string& class_name,
+                                       const std::string& callable_name,
+                                       frontend::TypeHint return_type,
+                                       const std::vector<frontend::FunctionParam>& params,
+                                       const std::vector<std::unique_ptr<frontend::Statement>>& body,
+                                       const frontend::CallExpr& call,
+                                       bool require_return_value,
+                                       runtime::Value* out_value,
+                                       std::string* out_error,
+                                       runtime::Value* bound_this,
+                                       bool is_constructor,
+                                       bool* out_constructor_called_super) {
+    class_execution_stack_.push_back(class_name);
+    if (is_constructor) {
+        constructor_execution_stack_.push_back(class_name);
+        constructor_super_called_stack_.push_back(false);
+        constructor_instance_stack_.push_back(bound_this);
+    }
+
+    const bool ok = ExecuteCallable(
+        callable_name,
+        return_type,
+        params,
+        body,
+        call,
+        require_return_value,
+        out_value,
+        out_error,
+        bound_this);
+
+    if (is_constructor && !constructor_execution_stack_.empty()) {
+        if (out_constructor_called_super != nullptr && !constructor_super_called_stack_.empty()) {
+            *out_constructor_called_super = constructor_super_called_stack_.back();
+        }
+        if (!constructor_super_called_stack_.empty()) {
+            constructor_super_called_stack_.pop_back();
+        }
+        if (!constructor_instance_stack_.empty()) {
+            constructor_instance_stack_.pop_back();
+        }
+        constructor_execution_stack_.pop_back();
+    }
+    if (!class_execution_stack_.empty()) {
+        class_execution_stack_.pop_back();
+    }
+    return ok;
+}
+
+bool Interpreter::ExecuteCallable(const std::string& callable_name,
+                                  frontend::TypeHint return_type,
+                                  const std::vector<frontend::FunctionParam>& params,
+                                  const std::vector<std::unique_ptr<frontend::Statement>>& body,
+                                  const frontend::CallExpr& call,
+                                  bool require_return_value,
+                                  runtime::Value* out_value,
+                                  std::string* out_error,
+                                  runtime::Value* bound_this) {
+    if (call.arguments.size() > params.size()) {
+        *out_error = "Numero incorrecto de argumentos para funcion '" + callable_name + "'.";
         return false;
     }
 
@@ -959,11 +1808,15 @@ bool Interpreter::ExecuteUserFunction(const frontend::FunctionDeclStmt& function
     auto caller_environment = environment_;
     auto local_environment = environment_;
 
-    for (std::size_t i = 0; i < function.params.size(); ++i) {
-        const frontend::FunctionParam& param = function.params[i];
+    if (bound_this != nullptr) {
+        local_environment["this"] = runtime::VariableSlot{*bound_this, runtime::VariableKind::Dynamic};
+    }
+
+    for (std::size_t i = 0; i < params.size(); ++i) {
+        const frontend::FunctionParam& param = params[i];
         const bool has_argument = i < call.arguments.size();
         if (!has_argument && param.default_value == nullptr) {
-            *out_error = "Numero incorrecto de argumentos para funcion '" + function.name + "'.";
+            *out_error = "Numero incorrecto de argumentos para funcion '" + callable_name + "'.";
             return false;
         }
 
@@ -1022,7 +1875,7 @@ bool Interpreter::ExecuteUserFunction(const frontend::FunctionDeclStmt& function
             }
         } else {
             if (param.default_value == nullptr) {
-                *out_error = "Error interno: parametro sin argumento ni default en '" + function.name + "'.";
+                *out_error = "Error interno: parametro sin argumento ni default en '" + callable_name + "'.";
                 return false;
             }
 
@@ -1049,7 +1902,7 @@ bool Interpreter::ExecuteUserFunction(const frontend::FunctionDeclStmt& function
     environment_ = std::move(local_environment);
     return_stack_.push_back(std::nullopt);
 
-    if (!ExecuteBlock(function.body, out_error)) {
+    if (!ExecuteBlock(body, out_error)) {
         return_stack_.pop_back();
         environment_ = std::move(caller_environment);
         return false;
@@ -1058,21 +1911,28 @@ bool Interpreter::ExecuteUserFunction(const frontend::FunctionDeclStmt& function
     std::optional<runtime::Value> returned = return_stack_.back();
     return_stack_.pop_back();
 
-    if (function.return_type != frontend::TypeHint::Inferred) {
+    if (bound_this != nullptr) {
+        const auto this_it = environment_.find("this");
+        if (this_it != environment_.end()) {
+            *bound_this = this_it->second.value;
+        }
+    }
+
+    if (return_type != frontend::TypeHint::Inferred) {
         if (!returned.has_value()) {
             *out_error =
-                "La funcion '" + function.name +
-                "' debe retornar un valor de tipo '" + TypeHintName(function.return_type) + "'.";
+                "La funcion '" + callable_name +
+                "' debe retornar un valor de tipo '" + TypeHintName(return_type) + "'.";
             environment_ = std::move(caller_environment);
             return false;
         }
 
         runtime::Value normalized_return;
         std::string type_error;
-        if (!NormalizeValueForTypeHint(function.return_type, *returned, &normalized_return, &type_error)) {
+        if (!NormalizeValueForTypeHint(return_type, *returned, &normalized_return, &type_error)) {
             *out_error =
-                "El retorno de la funcion '" + function.name +
-                "' no coincide con type hint '" + TypeHintName(function.return_type) + "': " + type_error;
+                "El retorno de la funcion '" + callable_name +
+                "' no coincide con type hint '" + TypeHintName(return_type) + "': " + type_error;
             environment_ = std::move(caller_environment);
             return false;
         }
@@ -1112,6 +1972,77 @@ bool Interpreter::ExecuteUserFunction(const frontend::FunctionDeclStmt& function
         *out_value = returned.has_value() ? *returned : runtime::Value(nullptr);
     }
 
+    return true;
+}
+
+bool Interpreter::ExecuteUserFunction(const frontend::FunctionDeclStmt& function, const frontend::CallExpr& call,
+                                      bool require_return_value, runtime::Value* out_value, std::string* out_error) {
+    return ExecuteCallable(
+        function.name,
+        function.return_type,
+        function.params,
+        function.body,
+        call,
+        require_return_value,
+        out_value,
+        out_error,
+        nullptr);
+}
+
+bool Interpreter::ExecuteSuperCall(const frontend::CallExpr& call, bool require_return_value, runtime::Value* out_value,
+                                   std::string* out_error) {
+    (void)require_return_value;
+
+    if (constructor_execution_stack_.empty()) {
+        *out_error = "super(...) solo se permite dentro de constructor de clase.";
+        return false;
+    }
+    if (constructor_instance_stack_.empty() || constructor_super_called_stack_.empty()) {
+        *out_error = "Error interno: estado invalido para super(...).";
+        return false;
+    }
+
+    if (constructor_super_called_stack_.back()) {
+        *out_error = "super(...) solo puede invocarse una vez por constructor.";
+        return false;
+    }
+
+    runtime::Value* instance = constructor_instance_stack_.back();
+    if (instance == nullptr || !instance->IsObject()) {
+        *out_error = "Error interno: instancia invalida en super(...).";
+        return false;
+    }
+
+    const std::string current_class = constructor_execution_stack_.back();
+    const frontend::ClassDeclStmt* current_decl = FindClass(current_class);
+    if (current_decl == nullptr) {
+        *out_error = "Clase no definida: " + current_class;
+        return false;
+    }
+    if (current_decl->base_class.empty()) {
+        *out_error = "super(...) requiere una clase base en '" + current_class + "'.";
+        return false;
+    }
+
+    const frontend::ClassDeclStmt* base_decl = FindClass(current_decl->base_class);
+    if (base_decl == nullptr) {
+        *out_error = "Clase base no definida: " + current_decl->base_class;
+        return false;
+    }
+
+    if (!ExecuteClassConstructor(*base_decl, instance, call, out_error)) {
+        return false;
+    }
+
+    auto this_it = environment_.find("this");
+    if (this_it != environment_.end()) {
+        this_it->second.value = *instance;
+    }
+
+    constructor_super_called_stack_.back() = true;
+    if (out_value != nullptr) {
+        *out_value = runtime::Value(nullptr);
+    }
     return true;
 }
 

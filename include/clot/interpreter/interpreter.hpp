@@ -59,6 +59,31 @@ private:
         runtime::Value* out_value,
         std::string* out_error);
 
+    bool ExecuteCallable(
+        const std::string& callable_name,
+        frontend::TypeHint return_type,
+        const std::vector<frontend::FunctionParam>& params,
+        const std::vector<std::unique_ptr<frontend::Statement>>& body,
+        const frontend::CallExpr& call,
+        bool require_return_value,
+        runtime::Value* out_value,
+        std::string* out_error,
+        runtime::Value* bound_this = nullptr);
+
+    bool ExecuteClassCallable(
+        const std::string& class_name,
+        const std::string& callable_name,
+        frontend::TypeHint return_type,
+        const std::vector<frontend::FunctionParam>& params,
+        const std::vector<std::unique_ptr<frontend::Statement>>& body,
+        const frontend::CallExpr& call,
+        bool require_return_value,
+        runtime::Value* out_value,
+        std::string* out_error,
+        runtime::Value* bound_this = nullptr,
+        bool is_constructor = false,
+        bool* out_constructor_called_super = nullptr);
+
     bool ExecuteUserFunction(
         const frontend::FunctionDeclStmt& function,
         const frontend::CallExpr& call,
@@ -66,10 +91,73 @@ private:
         runtime::Value* out_value,
         std::string* out_error);
 
+    bool ExecuteInterfaceDeclaration(const frontend::InterfaceDeclStmt& declaration, std::string* out_error);
+    bool ExecuteClassDeclaration(const frontend::ClassDeclStmt& declaration, std::string* out_error);
+    bool ExecuteSuperCall(
+        const frontend::CallExpr& call,
+        bool require_return_value,
+        runtime::Value* out_value,
+        std::string* out_error);
+    bool InstantiateClass(
+        const frontend::ClassDeclStmt& declaration,
+        const frontend::CallExpr& call,
+        runtime::Value* out_value,
+        std::string* out_error);
+    bool InitializeInstanceFields(
+        const frontend::ClassDeclStmt& declaration,
+        runtime::Value* instance,
+        std::string* out_error);
+    bool ExecuteClassConstructor(
+        const frontend::ClassDeclStmt& declaration,
+        runtime::Value* instance,
+        const frontend::CallExpr& call,
+        std::string* out_error);
+    bool ExecuteClassSetter(
+        runtime::Value* instance,
+        const std::string& class_name,
+        const std::string& property_name,
+        const runtime::Value& value,
+        std::string* out_error);
+    bool TryExecuteClassGetter(
+        runtime::Value* instance,
+        const std::string& class_name,
+        const std::string& property_name,
+        runtime::Value* out_value,
+        std::string* out_error);
+
+    const frontend::ClassDeclStmt* FindClass(const std::string& class_name) const;
+    bool IsClassInstance(const runtime::Value& value, std::string* out_class_name) const;
+    bool ResolveClassField(
+        const frontend::ClassDeclStmt& declaration,
+        const std::string& field_name,
+        const frontend::ClassFieldDecl** out_field,
+        std::string* out_owner_class) const;
+    bool ResolveClassMethod(
+        const frontend::ClassDeclStmt& declaration,
+        const std::string& method_name,
+        const frontend::ClassMethodDecl** out_method,
+        std::string* out_owner_class) const;
+    bool ResolveClassAccessor(
+        const frontend::ClassDeclStmt& declaration,
+        const std::string& property_name,
+        bool setter,
+        const frontend::ClassAccessorDecl** out_accessor,
+        std::string* out_owner_class) const;
+    bool HasClassContextAccess(const std::string& owner_class) const;
+    bool CanAccessMember(frontend::MemberVisibility visibility, const std::string& owner_class) const;
+    bool ValidateInterfaceImplementation(const frontend::ClassDeclStmt& declaration, std::string* out_error) const;
+    bool ValidateOverrideRules(const frontend::ClassDeclStmt& declaration, std::string* out_error) const;
+    bool ResolveClassStaticField(
+        const std::string& class_name,
+        const std::string& field_name,
+        runtime::Value** out_value,
+        bool create_missing,
+        std::string* out_error);
+
     bool ResolveVariable(
         const std::string& name,
         runtime::Value* out_value,
-        std::string* out_error) const;
+        std::string* out_error);
 
     bool ResolveMutableVariable(
         const std::string& name,
@@ -118,9 +206,20 @@ private:
 
     std::map<std::string, runtime::VariableSlot> environment_;
     std::map<std::string, const frontend::FunctionDeclStmt*> functions_;
+    std::unordered_map<std::string, const frontend::InterfaceDeclStmt*> interfaces_;
+    struct ClassRuntimeInfo {
+        const frontend::ClassDeclStmt* declaration = nullptr;
+        std::map<std::string, runtime::VariableSlot> static_fields;
+        std::set<std::string> readonly_static_fields;
+    };
+    std::unordered_map<std::string, ClassRuntimeInfo> classes_;
     std::set<std::string> imported_modules_;
     std::set<std::string> importing_modules_;
     std::vector<std::optional<runtime::Value>> return_stack_;
+    std::vector<std::string> class_execution_stack_;
+    std::vector<std::string> constructor_execution_stack_;
+    std::vector<bool> constructor_super_called_stack_;
+    std::vector<runtime::Value*> constructor_instance_stack_;
     std::vector<std::filesystem::path> module_base_dirs_;
     std::filesystem::path entry_file_path_;
     std::vector<std::unique_ptr<frontend::Program>> loaded_module_programs_;

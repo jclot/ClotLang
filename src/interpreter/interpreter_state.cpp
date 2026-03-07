@@ -109,6 +109,34 @@ const char* TypeHintName(frontend::TypeHint hint) {
     return "dynamic";
 }
 
+bool SplitQualifiedName(const std::string& text, std::vector<std::string>* out_segments) {
+    if (out_segments == nullptr) {
+        return false;
+    }
+
+    out_segments->clear();
+    if (text.empty()) {
+        return false;
+    }
+
+    std::size_t start = 0;
+    while (start <= text.size()) {
+        const std::size_t dot = text.find('.', start);
+        const std::string segment = text.substr(start, dot == std::string::npos ? std::string::npos : dot - start);
+        if (segment.empty()) {
+            return false;
+        }
+        out_segments->push_back(segment);
+
+        if (dot == std::string::npos) {
+            break;
+        }
+        start = dot + 1;
+    }
+
+    return !out_segments->empty();
+}
+
 bool TryMapTypeHintToVariableKind(frontend::TypeHint hint, runtime::VariableKind* out_kind) {
     if (out_kind == nullptr) {
         return false;
@@ -164,7 +192,7 @@ bool TryMapTypeHintToVariableKind(frontend::TypeHint hint, runtime::VariableKind
 bool Interpreter::ResolveVariable(
     const std::string& name,
     runtime::Value* out_value,
-    std::string* out_error) const {
+    std::string* out_error) {
     const std::size_t dot = name.find('.');
     if (dot == std::string::npos) {
         const auto found = environment_.find(name);
@@ -204,38 +232,92 @@ bool Interpreter::ResolveVariable(
         return true;
     }
 
-    const std::string root_name = name.substr(0, dot);
-    const auto root = environment_.find(root_name);
-    if (root == environment_.end()) {
-        *out_error = "Variable no definida: " + root_name;
+    std::vector<std::string> segments;
+    if (!SplitQualifiedName(name, &segments) || segments.size() < 2) {
+        *out_error = "Acceso de propiedad invalido: " + name;
         return false;
     }
 
-    const runtime::Value* current = &root->second.value;
-    std::size_t segment_start = dot + 1;
-    while (segment_start <= name.size()) {
-        const std::size_t next_dot = name.find('.', segment_start);
-        const std::string segment = name.substr(
-            segment_start,
-            next_dot == std::string::npos ? std::string::npos : next_dot - segment_start);
-
-        if (segment.empty()) {
-            *out_error = "Acceso de propiedad invalido: " + name;
+    runtime::Value* current = nullptr;
+    runtime::Value static_root_storage(nullptr);
+    if (FindClass(segments[0]) != nullptr) {
+        runtime::Value* static_value = nullptr;
+        if (!ResolveClassStaticField(segments[0], segments[1], &static_value, false, out_error)) {
             return false;
         }
+        static_root_storage = *static_value;
+        current = &static_root_storage;
+    } else {
+        const auto root = environment_.find(segments[0]);
+        if (root == environment_.end()) {
+            *out_error = "Variable no definida: " + segments[0];
+            return false;
+        }
+        current = &root->second.value;
+    }
 
-        const runtime::Value* nested = current->GetObjectProperty(segment);
+    std::vector<runtime::Value> temporary_values;
+    const std::size_t start_segment = FindClass(segments[0]) != nullptr ? 2 : 1;
+    for (std::size_t index = start_segment; index < segments.size(); ++index) {
+        const std::string& segment = segments[index];
+        const bool is_last = index + 1 == segments.size();
+
+        std::string class_name;
+        if (IsClassInstance(*current, &class_name)) {
+            const frontend::ClassDeclStmt* class_decl = FindClass(class_name);
+            if (class_decl == nullptr) {
+                *out_error = "Clase no definida para instancia: " + class_name;
+                return false;
+            }
+
+            const frontend::ClassAccessorDecl* getter = nullptr;
+            std::string getter_owner;
+            if (ResolveClassAccessor(*class_decl, segment, false, &getter, &getter_owner)) {
+                runtime::Value getter_value;
+                runtime::Value instance_copy = *current;
+                if (!TryExecuteClassGetter(&instance_copy, class_name, segment, &getter_value, out_error)) {
+                    return false;
+                }
+                if (is_last) {
+                    *out_value = getter_value;
+                    return true;
+                }
+                temporary_values.push_back(std::move(getter_value));
+                current = &temporary_values.back();
+                continue;
+            }
+
+            const frontend::ClassFieldDecl* field = nullptr;
+            std::string owner_class;
+            if (!ResolveClassField(*class_decl, segment, &field, &owner_class) || field->is_static) {
+                *out_error = "Propiedad no encontrada: " + segment;
+                return false;
+            }
+            if (!CanAccessMember(field->visibility, owner_class)) {
+                *out_error = "Campo no accesible por visibilidad: " + class_name + "." + segment;
+                return false;
+            }
+
+            runtime::Value* nested = current->GetMutableObjectProperty(segment);
+            if (nested == nullptr) {
+                *out_error = "Propiedad no encontrada: " + segment;
+                return false;
+            }
+
+            current = nested;
+            continue;
+        }
+
+        runtime::Value* nested = current->GetMutableObjectProperty(segment);
         if (nested == nullptr) {
-            *out_error = "Propiedad no encontrada: " + segment;
+            if (!current->IsObject()) {
+                *out_error = "No se puede acceder propiedad en un valor no objeto: " + segment;
+            } else {
+                *out_error = "Propiedad no encontrada: " + segment;
+            }
             return false;
         }
-
         current = nested;
-        if (next_dot == std::string::npos) {
-            break;
-        }
-
-        segment_start = next_dot + 1;
     }
 
     *out_value = *current;
@@ -266,25 +348,82 @@ bool Interpreter::ResolveMutableVariable(
         return true;
     }
 
-    const std::string root_name = name.substr(0, dot);
-    const auto root = environment_.find(root_name);
-    if (root == environment_.end()) {
-        *out_error = "Variable no definida: " + root_name;
+    std::vector<std::string> segments;
+    if (!SplitQualifiedName(name, &segments) || segments.size() < 2) {
+        *out_error = "Acceso de propiedad invalido: " + name;
         return false;
     }
 
-    runtime::Value* current = &root->second.value;
-    std::size_t segment_start = dot + 1;
-    while (segment_start <= name.size()) {
-        const std::size_t next_dot = name.find('.', segment_start);
-        const bool is_last_segment = next_dot == std::string::npos;
-        const std::string segment = name.substr(
-            segment_start,
-            is_last_segment ? std::string::npos : next_dot - segment_start);
-
-        if (segment.empty()) {
-            *out_error = "Acceso de propiedad invalido: " + name;
+    runtime::Value* current = nullptr;
+    if (FindClass(segments[0]) != nullptr) {
+        if (segments.size() != 2) {
+            *out_error = "Mutacion de propiedades anidadas sobre campo static no soportada: " + name;
             return false;
+        }
+        runtime::Value* static_slot = nullptr;
+        if (!ResolveClassStaticField(segments[0], segments[1], &static_slot, create_missing_property, out_error)) {
+            return false;
+        }
+        *out_value = static_slot;
+        return true;
+    } else {
+        const auto root = environment_.find(segments[0]);
+        if (root == environment_.end()) {
+            *out_error = "Variable no definida: " + segments[0];
+            return false;
+        }
+        current = &root->second.value;
+    }
+
+    std::vector<runtime::Value> temporary_values;
+    const std::size_t start_segment = 1;
+    for (std::size_t index = start_segment; index < segments.size(); ++index) {
+        const std::string& segment = segments[index];
+        const bool is_last_segment = index + 1 == segments.size();
+
+        std::string class_name;
+        if (IsClassInstance(*current, &class_name)) {
+            const frontend::ClassDeclStmt* class_decl = FindClass(class_name);
+            if (class_decl == nullptr) {
+                *out_error = "Clase no definida para instancia: " + class_name;
+                return false;
+            }
+
+            const frontend::ClassAccessorDecl* getter = nullptr;
+            std::string getter_owner;
+            if (ResolveClassAccessor(*class_decl, segment, false, &getter, &getter_owner)) {
+                runtime::Value getter_value;
+                runtime::Value instance_copy = *current;
+                if (!TryExecuteClassGetter(&instance_copy, class_name, segment, &getter_value, out_error)) {
+                    return false;
+                }
+                if (is_last_segment) {
+                    *out_error = "No se puede mutar una propiedad calculada por getter: " + segment;
+                    return false;
+                }
+                temporary_values.push_back(std::move(getter_value));
+                current = &temporary_values.back();
+                continue;
+            }
+
+            const frontend::ClassFieldDecl* field = nullptr;
+            std::string owner_class;
+            if (!ResolveClassField(*class_decl, segment, &field, &owner_class) || field->is_static) {
+                *out_error = "Propiedad no encontrada: " + segment;
+                return false;
+            }
+            if (!CanAccessMember(field->visibility, owner_class)) {
+                *out_error = "Campo no accesible por visibilidad: " + class_name + "." + segment;
+                return false;
+            }
+
+            runtime::Value* nested = current->GetMutableObjectProperty(segment);
+            if (nested == nullptr) {
+                *out_error = "Propiedad no encontrada: " + segment;
+                return false;
+            }
+            current = nested;
+            continue;
         }
 
         runtime::Value* nested = nullptr;
@@ -304,10 +443,6 @@ bool Interpreter::ResolveMutableVariable(
         }
 
         current = nested;
-        if (is_last_segment) {
-            break;
-        }
-        segment_start = next_dot + 1;
     }
 
     *out_value = current;
@@ -786,25 +921,294 @@ bool Interpreter::ApplyTargetMutation(
     frontend::AssignmentOp op,
     const runtime::Value& value,
     std::string* out_error) {
+    auto merge_value = [&](const runtime::Value& current_value, runtime::Value* out_merged) -> bool {
+        if (out_merged == nullptr) {
+            if (out_error != nullptr) {
+                *out_error = "Error interno: salida nula en mutacion.";
+            }
+            return false;
+        }
+        if (op == frontend::AssignmentOp::Set) {
+            *out_merged = value;
+            return true;
+        }
+        return EvaluateBinary(
+            op == frontend::AssignmentOp::AddAssign ? frontend::BinaryOp::Add : frontend::BinaryOp::Subtract,
+            current_value,
+            value,
+            out_merged,
+            out_error);
+    };
+
+    if (const auto* variable = dynamic_cast<const frontend::VariableExpr*>(&target)) {
+        std::vector<std::string> segments;
+        if (SplitQualifiedName(variable->name, &segments) && segments.size() >= 2) {
+            if (FindClass(segments[0]) != nullptr) {
+                if (segments.size() != 2) {
+                    *out_error = "Mutacion de propiedades anidadas sobre campo static no soportada: " + variable->name;
+                    return false;
+                }
+
+                const std::string& class_name = segments[0];
+                const std::string& field_name = segments[1];
+                const frontend::ClassDeclStmt* class_decl = FindClass(class_name);
+                if (class_decl == nullptr) {
+                    *out_error = "Clase no definida: " + class_name;
+                    return false;
+                }
+
+                const frontend::ClassFieldDecl* field = nullptr;
+                std::string owner_class;
+                if (!ResolveClassField(*class_decl, field_name, &field, &owner_class) || !field->is_static) {
+                    *out_error = "Campo static no definido: " + class_name + "." + field_name;
+                    return false;
+                }
+
+                auto owner_it = classes_.find(owner_class);
+                if (owner_it != classes_.end() &&
+                    owner_it->second.readonly_static_fields.count(field_name) > 0) {
+                    *out_error = "No se puede modificar campo readonly static: " + owner_class + "." + field_name;
+                    return false;
+                }
+
+                runtime::Value* static_slot = nullptr;
+                if (!ResolveClassStaticField(class_name, field_name, &static_slot, true, out_error)) {
+                    return false;
+                }
+
+                runtime::Value merged_value;
+                if (!merge_value(*static_slot, &merged_value)) {
+                    return false;
+                }
+
+                if (field->type_hint != frontend::TypeHint::Inferred) {
+                    runtime::Value normalized;
+                    std::string type_error;
+                    if (!NormalizeValueForTypeHint(field->type_hint, merged_value, &normalized, &type_error)) {
+                        *out_error = "Campo static '" + owner_class + "." + field_name +
+                                     "' no coincide con type hint '" +
+                                     TypeHintName(field->type_hint) + "': " + type_error;
+                        return false;
+                    }
+                    merged_value = std::move(normalized);
+                }
+
+                *static_slot = std::move(merged_value);
+                return true;
+            }
+
+            runtime::Value* current = nullptr;
+            if (!ResolveMutableVariable(segments[0], false, &current, out_error)) {
+                return false;
+            }
+
+            std::vector<runtime::Value> temporary_values;
+            for (std::size_t i = 1; i + 1 < segments.size(); ++i) {
+                const std::string& segment = segments[i];
+
+                std::string class_name;
+                if (IsClassInstance(*current, &class_name)) {
+                    const frontend::ClassDeclStmt* class_decl = FindClass(class_name);
+                    if (class_decl == nullptr) {
+                        *out_error = "Clase no definida para instancia: " + class_name;
+                        return false;
+                    }
+
+                    const frontend::ClassAccessorDecl* getter = nullptr;
+                    std::string getter_owner;
+                    if (ResolveClassAccessor(*class_decl, segment, false, &getter, &getter_owner)) {
+                        runtime::Value getter_value;
+                        runtime::Value instance_copy = *current;
+                        if (!TryExecuteClassGetter(&instance_copy, class_name, segment, &getter_value, out_error)) {
+                            return false;
+                        }
+                        temporary_values.push_back(std::move(getter_value));
+                        current = &temporary_values.back();
+                        continue;
+                    }
+
+                    const frontend::ClassFieldDecl* field = nullptr;
+                    std::string owner_class;
+                    if (!ResolveClassField(*class_decl, segment, &field, &owner_class) || field->is_static) {
+                        *out_error = "Propiedad no encontrada: " + segment;
+                        return false;
+                    }
+                    if (!CanAccessMember(field->visibility, owner_class)) {
+                        *out_error = "Campo no accesible por visibilidad: " + class_name + "." + segment;
+                        return false;
+                    }
+
+                    runtime::Value* nested = current->GetMutableObjectProperty(segment);
+                    if (nested == nullptr) {
+                        *out_error = "Propiedad no encontrada: " + segment;
+                        return false;
+                    }
+                    current = nested;
+                    continue;
+                }
+
+                runtime::Value* nested = current->GetMutableObjectProperty(segment);
+                if (nested == nullptr) {
+                    if (!current->IsObject()) {
+                        *out_error = "No se puede acceder propiedad en un valor no objeto: " + segment;
+                    } else {
+                        *out_error = "Propiedad no encontrada: " + segment;
+                    }
+                    return false;
+                }
+                current = nested;
+            }
+
+            const std::string& final_segment = segments.back();
+            std::string class_name;
+            if (IsClassInstance(*current, &class_name)) {
+                const frontend::ClassDeclStmt* class_decl = FindClass(class_name);
+                if (class_decl == nullptr) {
+                    *out_error = "Clase no definida para instancia: " + class_name;
+                    return false;
+                }
+
+                const frontend::ClassAccessorDecl* setter = nullptr;
+                std::string setter_owner;
+                if (ResolveClassAccessor(*class_decl, final_segment, true, &setter, &setter_owner)) {
+                    runtime::Value value_to_set = value;
+                    if (op != frontend::AssignmentOp::Set) {
+                        runtime::Value current_value;
+                        const frontend::ClassAccessorDecl* getter = nullptr;
+                        std::string getter_owner;
+                        if (ResolveClassAccessor(*class_decl, final_segment, false, &getter, &getter_owner)) {
+                            runtime::Value instance_copy = *current;
+                            if (!TryExecuteClassGetter(&instance_copy, class_name, final_segment, &current_value, out_error)) {
+                                return false;
+                            }
+                        } else {
+                            const frontend::ClassFieldDecl* field = nullptr;
+                            std::string owner_class;
+                            if (!ResolveClassField(*class_decl, final_segment, &field, &owner_class) || field->is_static) {
+                                *out_error = "Propiedad no encontrada: " + final_segment;
+                                return false;
+                            }
+                            if (!CanAccessMember(field->visibility, owner_class)) {
+                                *out_error = "Campo no accesible por visibilidad: " + class_name + "." + final_segment;
+                                return false;
+                            }
+                            runtime::Value* field_slot = current->GetMutableObjectProperty(final_segment);
+                            if (field_slot == nullptr) {
+                                *out_error = "Propiedad no encontrada: " + final_segment;
+                                return false;
+                            }
+                            current_value = *field_slot;
+                        }
+
+                        if (!EvaluateBinary(
+                                op == frontend::AssignmentOp::AddAssign ? frontend::BinaryOp::Add : frontend::BinaryOp::Subtract,
+                                current_value,
+                                value,
+                                &value_to_set,
+                                out_error)) {
+                            return false;
+                        }
+                    }
+                    runtime::Value instance_copy = *current;
+                    if (!ExecuteClassSetter(&instance_copy, class_name, final_segment, value_to_set, out_error)) {
+                        return false;
+                    }
+
+                    std::string instance_path = segments[0];
+                    for (std::size_t path_index = 1; path_index + 1 < segments.size(); ++path_index) {
+                        instance_path += "." + segments[path_index];
+                    }
+
+                    runtime::Value* instance_slot_after = nullptr;
+                    if (!ResolveMutableVariable(instance_path, false, &instance_slot_after, out_error)) {
+                        return false;
+                    }
+                    *instance_slot_after = std::move(instance_copy);
+                    return true;
+                }
+
+                const frontend::ClassFieldDecl* field = nullptr;
+                std::string owner_class;
+                if (!ResolveClassField(*class_decl, final_segment, &field, &owner_class) || field->is_static) {
+                    *out_error = "Propiedad no encontrada: " + final_segment;
+                    return false;
+                }
+                if (!CanAccessMember(field->visibility, owner_class)) {
+                    *out_error = "Campo no accesible por visibilidad: " + class_name + "." + final_segment;
+                    return false;
+                }
+
+                if (field->is_readonly) {
+                    const bool inside_owner_constructor =
+                        !constructor_execution_stack_.empty() &&
+                        constructor_execution_stack_.back() == owner_class;
+                    if (!inside_owner_constructor) {
+                        *out_error = "No se puede modificar campo readonly: " + owner_class + "." + final_segment;
+                        return false;
+                    }
+                }
+
+                runtime::Value* field_slot = current->GetMutableObjectProperty(final_segment);
+                if (field_slot == nullptr) {
+                    *out_error = "Propiedad no encontrada: " + final_segment;
+                    return false;
+                }
+
+                runtime::Value value_to_store;
+                if (!merge_value(*field_slot, &value_to_store)) {
+                    return false;
+                }
+
+                if (field->type_hint != frontend::TypeHint::Inferred) {
+                    runtime::Value normalized;
+                    std::string type_error;
+                    if (!NormalizeValueForTypeHint(field->type_hint, value_to_store, &normalized, &type_error)) {
+                        *out_error = "Campo '" + owner_class + "." + final_segment +
+                                     "' no coincide con type hint '" +
+                                     TypeHintName(field->type_hint) + "': " + type_error;
+                        return false;
+                    }
+                    value_to_store = std::move(normalized);
+                }
+
+                *field_slot = std::move(value_to_store);
+                return true;
+            }
+
+            runtime::Value* object_slot = nullptr;
+            if (op == frontend::AssignmentOp::Set) {
+                object_slot = current->EnsureObjectProperty(final_segment);
+            } else {
+                object_slot = current->GetMutableObjectProperty(final_segment);
+            }
+            if (object_slot == nullptr) {
+                if (!current->IsObject()) {
+                    *out_error = "No se puede acceder propiedad en un valor no objeto: " + final_segment;
+                } else {
+                    *out_error = "Propiedad no encontrada: " + final_segment;
+                }
+                return false;
+            }
+
+            runtime::Value value_to_store;
+            if (!merge_value(*object_slot, &value_to_store)) {
+                return false;
+            }
+
+            *object_slot = std::move(value_to_store);
+            return true;
+        }
+    }
+
     runtime::Value* target_value = nullptr;
     if (!ResolveMutableTarget(target, op == frontend::AssignmentOp::Set, &target_value, out_error)) {
         return false;
     }
 
-    runtime::Value value_to_store = value;
-    if (op == frontend::AssignmentOp::AddAssign || op == frontend::AssignmentOp::SubAssign) {
-        runtime::Value merged;
-        if (!EvaluateBinary(
-                op == frontend::AssignmentOp::AddAssign ? frontend::BinaryOp::Add : frontend::BinaryOp::Subtract,
-                *target_value,
-                value,
-                &merged,
-                out_error)) {
-            return false;
-        }
-        value_to_store = std::move(merged);
+    runtime::Value value_to_store;
+    if (!merge_value(*target_value, &value_to_store)) {
+        return false;
     }
-
     *target_value = std::move(value_to_store);
     return true;
 }
