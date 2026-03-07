@@ -72,6 +72,14 @@ bool Parser::ParseStatement(
         return ParseFunctionDeclaration(line_index, tokens, out_statements, out_error);
     }
 
+    if (tokens[0].kind == TokenKind::KeywordInterface) {
+        return ParseInterfaceDeclaration(line_index, tokens, out_statements, out_error);
+    }
+
+    if (tokens[0].kind == TokenKind::KeywordClass) {
+        return ParseClassDeclaration(line_index, tokens, out_statements, out_error);
+    }
+
     if (tokens[0].kind == TokenKind::KeywordImport) {
         return ParseImport(line_index, tokens, out_statements, out_error);
     }
@@ -97,7 +105,12 @@ bool Parser::ParseStatement(
         tokens[0].kind == TokenKind::KeywordCatch ||
         tokens[0].kind == TokenKind::KeywordEndTry ||
         tokens[0].kind == TokenKind::KeywordEndWhile ||
-        tokens[0].kind == TokenKind::KeywordEndFunc) {
+        tokens[0].kind == TokenKind::KeywordEndFunc ||
+        tokens[0].kind == TokenKind::KeywordEndClass ||
+        tokens[0].kind == TokenKind::KeywordEndInterface ||
+        tokens[0].kind == TokenKind::KeywordEndConstructor ||
+        tokens[0].kind == TokenKind::KeywordEndGet ||
+        tokens[0].kind == TokenKind::KeywordEndSet) {
         *out_error = MakeError(
             *line_index + 1,
             tokens[0].column,

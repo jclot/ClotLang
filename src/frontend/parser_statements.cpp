@@ -601,6 +601,827 @@ bool Parser::ParseFunctionDeclaration(std::size_t* line_index, const std::vector
     return false;
 }
 
+bool Parser::ParseInterfaceDeclaration(std::size_t* line_index, const std::vector<Token>& tokens,
+                                       std::vector<std::unique_ptr<Statement>>* out_statements,
+                                       Diagnostic* out_error) const {
+    if (tokens.size() < 3 || tokens[1].kind != TokenKind::Identifier || tokens.back().kind != TokenKind::Colon) {
+        *out_error = MakeError(
+            *line_index + 1,
+            tokens[0].column,
+            "Formato invalido en interface. Use: interface Nombre:");
+        return false;
+    }
+
+    if (tokens.size() != 3) {
+        *out_error = MakeError(
+            *line_index + 1,
+            tokens[2].column,
+            "Tokens extra en declaracion de interface.");
+        return false;
+    }
+
+    const std::string interface_name = tokens[1].lexeme;
+    std::vector<InterfaceMethodSignature> methods;
+
+    ++(*line_index);
+    while (*line_index < lines_.size()) {
+        const std::vector<Token> body_tokens = Tokenizer::TokenizeLine(lines_[*line_index]);
+        if (body_tokens.empty()) {
+            ++(*line_index);
+            continue;
+        }
+
+        if (body_tokens[0].kind == TokenKind::KeywordEndInterface) {
+            if (body_tokens.size() != 1) {
+                *out_error =
+                    MakeError(*line_index + 1, body_tokens[1].column, "'endinterface' no acepta tokens adicionales.");
+                return false;
+            }
+
+            out_statements->push_back(std::make_unique<InterfaceDeclStmt>(interface_name, std::move(methods)));
+            ++(*line_index);
+            return true;
+        }
+
+        if (body_tokens[0].kind != TokenKind::KeywordFunc) {
+            *out_error = MakeError(
+                *line_index + 1,
+                body_tokens[0].column,
+                "Solo se permiten firmas 'func ...;' dentro de interface.");
+            return false;
+        }
+
+        if (body_tokens.back().kind != TokenKind::Semicolon) {
+            *out_error = MakeError(
+                *line_index + 1,
+                body_tokens.back().column,
+                "Las firmas en interface deben terminar en ';'.");
+            return false;
+        }
+
+        TypeHint return_type_hint = TypeHint::Inferred;
+        std::size_t name_index = 1;
+        if (body_tokens.size() >= 6) {
+            TypeHint parsed_return_type = TypeHint::Inferred;
+            if (TryParseTypeHintToken(body_tokens[1], &parsed_return_type) &&
+                body_tokens[2].kind == TokenKind::Identifier &&
+                body_tokens[3].kind == TokenKind::LeftParen) {
+                return_type_hint = parsed_return_type;
+                name_index = 2;
+            }
+        }
+
+        if (name_index >= body_tokens.size() || body_tokens[name_index].kind != TokenKind::Identifier) {
+            const std::size_t error_index = name_index < body_tokens.size() ? name_index : 1;
+            *out_error = MakeError(
+                *line_index + 1,
+                body_tokens[error_index].column,
+                "Firma invalida en interface: falta nombre de metodo.");
+            return false;
+        }
+
+        if (name_index + 1 >= body_tokens.size() || body_tokens[name_index + 1].kind != TokenKind::LeftParen) {
+            *out_error = MakeError(
+                *line_index + 1,
+                body_tokens[name_index].column,
+                "Firma invalida en interface: se esperaba '('.");
+            return false;
+        }
+
+        std::vector<FunctionParam> params;
+        std::size_t cursor = name_index + 2;
+        while (cursor < body_tokens.size()) {
+            if (body_tokens[cursor].kind == TokenKind::RightParen) {
+                ++cursor;
+                break;
+            }
+
+            bool by_reference = false;
+            if (body_tokens[cursor].kind == TokenKind::Ampersand) {
+                by_reference = true;
+                ++cursor;
+            }
+
+            if (cursor >= body_tokens.size() || body_tokens[cursor].kind != TokenKind::Identifier) {
+                const std::size_t bad = cursor < body_tokens.size() ? cursor : body_tokens.size() - 1;
+                *out_error = MakeError(
+                    *line_index + 1,
+                    body_tokens[bad].column,
+                    "Parametro invalido en firma de interface.");
+                return false;
+            }
+
+            const std::string param_name = body_tokens[cursor].lexeme;
+            ++cursor;
+
+            TypeHint param_type_hint = TypeHint::Inferred;
+            if (cursor < body_tokens.size() && body_tokens[cursor].kind == TokenKind::Colon) {
+                ++cursor;
+                if (cursor >= body_tokens.size()) {
+                    *out_error = MakeError(
+                        *line_index + 1,
+                        body_tokens.back().column,
+                        "Falta tipo de parametro despues de ':'.");
+                    return false;
+                }
+                if (!TryParseTypeHintToken(body_tokens[cursor], &param_type_hint)) {
+                    *out_error = MakeError(
+                        *line_index + 1,
+                        body_tokens[cursor].column,
+                        "Tipo de parametro no reconocido en interface.");
+                    return false;
+                }
+                ++cursor;
+            }
+
+            if (cursor < body_tokens.size() && body_tokens[cursor].kind == TokenKind::Assign) {
+                *out_error = MakeError(
+                    *line_index + 1,
+                    body_tokens[cursor].column,
+                    "Las firmas de interface no aceptan valores por defecto.");
+                return false;
+            }
+
+            params.push_back(FunctionParam{
+                param_name,
+                by_reference,
+                param_type_hint,
+                nullptr,
+            });
+
+            if (cursor < body_tokens.size() && body_tokens[cursor].kind == TokenKind::Comma) {
+                ++cursor;
+                continue;
+            }
+
+            if (cursor < body_tokens.size() && body_tokens[cursor].kind == TokenKind::RightParen) {
+                continue;
+            }
+
+            *out_error = MakeError(
+                *line_index + 1,
+                body_tokens[cursor].column,
+                "Se esperaba ',' o ')' en firma de interface.");
+            return false;
+        }
+
+        if (cursor >= body_tokens.size() || body_tokens[cursor].kind != TokenKind::Semicolon) {
+            const std::size_t error_cursor = cursor < body_tokens.size() ? cursor : body_tokens.size() - 1;
+            *out_error = MakeError(
+                *line_index + 1,
+                body_tokens[error_cursor].column,
+                "Falta ';' al final de firma de interface.");
+            return false;
+        }
+
+        methods.push_back(InterfaceMethodSignature{
+            body_tokens[name_index].lexeme,
+            return_type_hint,
+            std::move(params),
+        });
+
+        ++(*line_index);
+    }
+
+    *out_error = MakeError(*line_index, 1, "Falta 'endinterface' para cerrar la interface '" + interface_name + "'.");
+    return false;
+}
+
+bool Parser::ParseClassDeclaration(std::size_t* line_index, const std::vector<Token>& tokens,
+                                   std::vector<std::unique_ptr<Statement>>* out_statements,
+                                   Diagnostic* out_error) const {
+    if (tokens.size() < 3 || tokens[1].kind != TokenKind::Identifier || tokens.back().kind != TokenKind::Colon) {
+        *out_error = MakeError(
+            *line_index + 1,
+            tokens[0].column,
+            "Formato invalido en class. Use: class Nombre:");
+        return false;
+    }
+
+    std::string class_name = tokens[1].lexeme;
+    std::string base_class;
+    std::vector<std::string> interfaces;
+
+    std::size_t cursor = 2;
+    while (cursor + 1 < tokens.size()) {
+        if (tokens[cursor].kind == TokenKind::KeywordExtends) {
+            ++cursor;
+            if (cursor >= tokens.size() - 1 || tokens[cursor].kind != TokenKind::Identifier) {
+                *out_error = MakeError(
+                    *line_index + 1,
+                    tokens[cursor < tokens.size() ? cursor : tokens.size() - 1].column,
+                    "Se esperaba clase base valida despues de 'extends'.");
+                return false;
+            }
+            base_class = tokens[cursor].lexeme;
+            ++cursor;
+            continue;
+        }
+
+        if (tokens[cursor].kind == TokenKind::KeywordImplements) {
+            ++cursor;
+            if (cursor >= tokens.size() - 1 || tokens[cursor].kind != TokenKind::Identifier) {
+                *out_error = MakeError(
+                    *line_index + 1,
+                    tokens[cursor < tokens.size() ? cursor : tokens.size() - 1].column,
+                    "Se esperaba interface valida despues de 'implements'.");
+                return false;
+            }
+
+            while (cursor < tokens.size() - 1) {
+                if (tokens[cursor].kind != TokenKind::Identifier) {
+                    *out_error = MakeError(
+                        *line_index + 1,
+                        tokens[cursor].column,
+                        "Nombre de interface invalido en 'implements'.");
+                    return false;
+                }
+                interfaces.push_back(tokens[cursor].lexeme);
+                ++cursor;
+
+                if (cursor < tokens.size() - 1 && tokens[cursor].kind == TokenKind::Comma) {
+                    ++cursor;
+                    continue;
+                }
+                break;
+            }
+            continue;
+        }
+
+        *out_error = MakeError(
+            *line_index + 1,
+            tokens[cursor].column,
+            "Token no esperado en cabecera de class: '" + tokens[cursor].lexeme + "'.");
+        return false;
+    }
+
+    auto parse_params = [&](const std::vector<Token>& header_tokens,
+                            std::size_t params_start,
+                            std::vector<FunctionParam>* out_params) -> bool {
+        std::size_t local_cursor = params_start;
+        bool seen_default_parameter = false;
+        out_params->clear();
+
+        while (local_cursor < header_tokens.size()) {
+            if (header_tokens[local_cursor].kind == TokenKind::RightParen) {
+                ++local_cursor;
+                break;
+            }
+
+            bool by_reference = false;
+            if (header_tokens[local_cursor].kind == TokenKind::Ampersand) {
+                by_reference = true;
+                ++local_cursor;
+            }
+
+            if (local_cursor >= header_tokens.size() || header_tokens[local_cursor].kind != TokenKind::Identifier) {
+                const std::size_t bad = local_cursor < header_tokens.size() ? local_cursor : header_tokens.size() - 1;
+                *out_error = MakeError(
+                    *line_index + 1,
+                    header_tokens[bad].column,
+                    "Parametro invalido en declaracion.");
+                return false;
+            }
+
+            const std::string param_name = header_tokens[local_cursor].lexeme;
+            ++local_cursor;
+
+            TypeHint param_type_hint = TypeHint::Inferred;
+            if (local_cursor < header_tokens.size() && header_tokens[local_cursor].kind == TokenKind::Colon) {
+                ++local_cursor;
+                if (local_cursor >= header_tokens.size()) {
+                    *out_error = MakeError(
+                        *line_index + 1,
+                        header_tokens.back().column,
+                        "Falta tipo de parametro despues de ':'.");
+                    return false;
+                }
+
+                if (!TryParseTypeHintToken(header_tokens[local_cursor], &param_type_hint)) {
+                    *out_error = MakeError(
+                        *line_index + 1,
+                        header_tokens[local_cursor].column,
+                        "Tipo de parametro no reconocido: '" + header_tokens[local_cursor].lexeme + "'.");
+                    return false;
+                }
+                ++local_cursor;
+            }
+
+            std::unique_ptr<Expr> default_expr;
+            if (local_cursor < header_tokens.size() && header_tokens[local_cursor].kind == TokenKind::Assign) {
+                ++local_cursor;
+                if (local_cursor >= header_tokens.size()) {
+                    *out_error = MakeError(
+                        *line_index + 1,
+                        header_tokens.back().column,
+                        "Falta expresion de valor por defecto despues de '='.");
+                    return false;
+                }
+
+                const std::size_t default_start = local_cursor;
+                int paren_depth = 0;
+                int bracket_depth = 0;
+                int brace_depth = 0;
+                for (; local_cursor < header_tokens.size(); ++local_cursor) {
+                    const TokenKind kind = header_tokens[local_cursor].kind;
+                    if (paren_depth == 0 && bracket_depth == 0 && brace_depth == 0 &&
+                        (kind == TokenKind::Comma || kind == TokenKind::RightParen)) {
+                        break;
+                    }
+
+                    if (kind == TokenKind::LeftParen) {
+                        ++paren_depth;
+                    } else if (kind == TokenKind::RightParen) {
+                        --paren_depth;
+                    } else if (kind == TokenKind::LeftBracket) {
+                        ++bracket_depth;
+                    } else if (kind == TokenKind::RightBracket) {
+                        --bracket_depth;
+                    } else if (kind == TokenKind::LeftBrace) {
+                        ++brace_depth;
+                    } else if (kind == TokenKind::RightBrace) {
+                        --brace_depth;
+                    }
+                }
+
+                if (local_cursor == default_start) {
+                    *out_error = MakeError(
+                        *line_index + 1,
+                        header_tokens[default_start - 1].column,
+                        "Falta expresion de valor por defecto despues de '='.");
+                    return false;
+                }
+
+                std::vector<Token> default_tokens(
+                    header_tokens.begin() + static_cast<std::ptrdiff_t>(default_start),
+                    header_tokens.begin() + static_cast<std::ptrdiff_t>(local_cursor));
+                if (!ParseExpression(*line_index + 1, std::move(default_tokens), &default_expr, out_error)) {
+                    return false;
+                }
+                seen_default_parameter = true;
+            } else if (seen_default_parameter) {
+                *out_error = MakeError(
+                    *line_index + 1,
+                    header_tokens[local_cursor].column,
+                    "Los parametros sin valor por defecto no pueden ir despues de parametros con default.");
+                return false;
+            }
+
+            if (by_reference && default_expr != nullptr) {
+                *out_error = MakeError(
+                    *line_index + 1,
+                    header_tokens[local_cursor - 1].column,
+                    "Los parametros por referencia no aceptan valor por defecto.");
+                return false;
+            }
+
+            out_params->push_back(FunctionParam{
+                param_name,
+                by_reference,
+                param_type_hint,
+                std::move(default_expr),
+            });
+
+            if (local_cursor < header_tokens.size() && header_tokens[local_cursor].kind == TokenKind::Comma) {
+                ++local_cursor;
+                continue;
+            }
+
+            if (local_cursor < header_tokens.size() && header_tokens[local_cursor].kind == TokenKind::RightParen) {
+                continue;
+            }
+
+            if (local_cursor >= header_tokens.size()) {
+                break;
+            }
+
+            *out_error = MakeError(
+                *line_index + 1,
+                header_tokens[local_cursor].column,
+                "Se esperaba ',' o ')' en parametros.");
+            return false;
+        }
+
+        if (local_cursor >= header_tokens.size() || header_tokens[local_cursor].kind != TokenKind::Colon) {
+            const std::size_t bad = local_cursor < header_tokens.size() ? local_cursor : header_tokens.size() - 1;
+            *out_error = MakeError(*line_index + 1, header_tokens[bad].column, "Falta ':' al final de declaracion.");
+            return false;
+        }
+
+        if (local_cursor != header_tokens.size() - 1) {
+            *out_error = MakeError(
+                *line_index + 1,
+                header_tokens[local_cursor + 1].column,
+                "Tokens extra despues de declaracion.");
+            return false;
+        }
+
+        return true;
+    };
+
+    auto parse_body_until = [&](TokenKind end_token,
+                                std::vector<std::unique_ptr<Statement>>* out_body,
+                                const std::string& end_lexeme) -> bool {
+        out_body->clear();
+        ++(*line_index);
+        while (*line_index < lines_.size()) {
+            const std::vector<Token> body_tokens = Tokenizer::TokenizeLine(lines_[*line_index]);
+            if (body_tokens.empty()) {
+                ++(*line_index);
+                continue;
+            }
+
+            if (body_tokens[0].kind == end_token) {
+                if (body_tokens.size() != 1) {
+                    *out_error = MakeError(
+                        *line_index + 1,
+                        body_tokens[1].column,
+                        "'" + end_lexeme + "' no acepta tokens adicionales.");
+                    return false;
+                }
+                ++(*line_index);
+                return true;
+            }
+
+            if (!ParseStatement(line_index, body_tokens, out_body, out_error)) {
+                return false;
+            }
+        }
+
+        *out_error = MakeError(*line_index, 1, "Falta '" + end_lexeme + "' para cerrar bloque.");
+        return false;
+    };
+
+    std::vector<ClassFieldDecl> fields;
+    bool has_constructor = false;
+    bool constructor_is_private = false;
+    std::vector<FunctionParam> constructor_params;
+    std::vector<std::unique_ptr<Statement>> constructor_body;
+    std::vector<ClassMethodDecl> methods;
+    std::vector<ClassAccessorDecl> accessors;
+
+    ++(*line_index);
+    while (*line_index < lines_.size()) {
+        const std::vector<Token> member_tokens = Tokenizer::TokenizeLine(lines_[*line_index]);
+        if (member_tokens.empty()) {
+            ++(*line_index);
+            continue;
+        }
+
+        if (member_tokens[0].kind == TokenKind::KeywordEndClass) {
+            if (member_tokens.size() != 1) {
+                *out_error =
+                    MakeError(*line_index + 1, member_tokens[1].column, "'endclass' no acepta tokens adicionales.");
+                return false;
+            }
+
+            out_statements->push_back(std::make_unique<ClassDeclStmt>(
+                class_name,
+                std::move(base_class),
+                std::move(interfaces),
+                std::move(fields),
+                constructor_is_private,
+                std::move(constructor_params),
+                std::move(constructor_body),
+                std::move(methods),
+                std::move(accessors)));
+            ++(*line_index);
+            return true;
+        }
+
+        std::size_t member_cursor = 0;
+        MemberVisibility visibility = MemberVisibility::Public;
+        bool is_static = false;
+        bool is_readonly = false;
+        bool is_override = false;
+
+        while (member_cursor < member_tokens.size()) {
+            const TokenKind kind = member_tokens[member_cursor].kind;
+            if (kind == TokenKind::KeywordPublic) {
+                visibility = MemberVisibility::Public;
+                ++member_cursor;
+                continue;
+            }
+            if (kind == TokenKind::KeywordPrivate) {
+                visibility = MemberVisibility::Private;
+                ++member_cursor;
+                continue;
+            }
+            if (kind == TokenKind::KeywordStatic) {
+                is_static = true;
+                ++member_cursor;
+                continue;
+            }
+            if (kind == TokenKind::KeywordReadonly) {
+                is_readonly = true;
+                ++member_cursor;
+                continue;
+            }
+            if (kind == TokenKind::KeywordOverride) {
+                is_override = true;
+                ++member_cursor;
+                continue;
+            }
+            break;
+        }
+
+        if (member_cursor >= member_tokens.size()) {
+            *out_error = MakeError(*line_index + 1, member_tokens.back().column, "Declaracion de miembro vacia.");
+            return false;
+        }
+
+        const TokenKind member_kind = member_tokens[member_cursor].kind;
+
+        if (member_kind == TokenKind::KeywordConstructor) {
+            if (is_static || is_readonly || is_override) {
+                *out_error = MakeError(
+                    *line_index + 1,
+                    member_tokens[member_cursor].column,
+                    "constructor no acepta modificadores static/readonly/override.");
+                return false;
+            }
+            if (has_constructor) {
+                *out_error = MakeError(
+                    *line_index + 1,
+                    member_tokens[member_cursor].column,
+                    "Solo se permite un constructor por class.");
+                return false;
+            }
+            if (member_cursor + 1 >= member_tokens.size() || member_tokens[member_cursor + 1].kind != TokenKind::LeftParen) {
+                *out_error = MakeError(
+                    *line_index + 1,
+                    member_tokens[member_cursor].column,
+                    "Se esperaba '(' en constructor.");
+                return false;
+            }
+
+            std::vector<FunctionParam> parsed_params;
+            if (!parse_params(member_tokens, member_cursor + 2, &parsed_params)) {
+                return false;
+            }
+
+            std::vector<std::unique_ptr<Statement>> parsed_body;
+            if (!parse_body_until(TokenKind::KeywordEndConstructor, &parsed_body, "endconstructor")) {
+                return false;
+            }
+
+            has_constructor = true;
+            constructor_is_private = visibility == MemberVisibility::Private;
+            constructor_params = std::move(parsed_params);
+            constructor_body = std::move(parsed_body);
+            continue;
+        }
+
+        if (member_kind == TokenKind::KeywordGet) {
+            if (is_static || is_readonly || is_override) {
+                *out_error = MakeError(
+                    *line_index + 1,
+                    member_tokens[member_cursor].column,
+                    "get no acepta modificadores static/readonly/override.");
+                return false;
+            }
+
+            if (member_cursor + 4 >= member_tokens.size() ||
+                member_tokens[member_cursor + 1].kind != TokenKind::Identifier ||
+                member_tokens[member_cursor + 2].kind != TokenKind::LeftParen ||
+                member_tokens[member_cursor + 3].kind != TokenKind::RightParen ||
+                member_tokens.back().kind != TokenKind::Colon) {
+                *out_error = MakeError(
+                    *line_index + 1,
+                    member_tokens[member_cursor].column,
+                    "Formato invalido en get. Use: get nombre():");
+                return false;
+            }
+
+            std::vector<std::unique_ptr<Statement>> parsed_body;
+            if (!parse_body_until(TokenKind::KeywordEndGet, &parsed_body, "endget")) {
+                return false;
+            }
+
+            ClassAccessorDecl accessor;
+            accessor.name = member_tokens[member_cursor + 1].lexeme;
+            accessor.is_setter = false;
+            accessor.visibility = visibility;
+            accessor.body = std::move(parsed_body);
+            accessors.push_back(std::move(accessor));
+            continue;
+        }
+
+        if (member_kind == TokenKind::KeywordSet &&
+            member_cursor + 2 < member_tokens.size() &&
+            member_tokens[member_cursor + 1].kind == TokenKind::Identifier &&
+            member_tokens[member_cursor + 2].kind == TokenKind::LeftParen) {
+            if (is_static || is_readonly || is_override) {
+                *out_error = MakeError(
+                    *line_index + 1,
+                    member_tokens[member_cursor].column,
+                    "set no acepta modificadores static/readonly/override.");
+                return false;
+            }
+
+            std::size_t setter_cursor = member_cursor + 3;
+            if (setter_cursor >= member_tokens.size() || member_tokens[setter_cursor].kind != TokenKind::Identifier) {
+                *out_error = MakeError(
+                    *line_index + 1,
+                    member_tokens[member_cursor].column,
+                    "set requiere un parametro.");
+                return false;
+            }
+            const std::string setter_param_name = member_tokens[setter_cursor].lexeme;
+            ++setter_cursor;
+
+            TypeHint setter_param_type = TypeHint::Inferred;
+            if (setter_cursor < member_tokens.size() && member_tokens[setter_cursor].kind == TokenKind::Colon) {
+                ++setter_cursor;
+                if (setter_cursor >= member_tokens.size()) {
+                    *out_error = MakeError(
+                        *line_index + 1,
+                        member_tokens.back().column,
+                        "Falta tipo en parametro de set.");
+                    return false;
+                }
+                if (!TryParseTypeHintToken(member_tokens[setter_cursor], &setter_param_type)) {
+                    *out_error = MakeError(
+                        *line_index + 1,
+                        member_tokens[setter_cursor].column,
+                        "Tipo invalido en parametro de set.");
+                    return false;
+                }
+                ++setter_cursor;
+            }
+
+            if (setter_cursor >= member_tokens.size() || member_tokens[setter_cursor].kind != TokenKind::RightParen) {
+                *out_error = MakeError(
+                    *line_index + 1,
+                    member_tokens[member_cursor].column,
+                    "set requiere cerrar ')' en su parametro.");
+                return false;
+            }
+            ++setter_cursor;
+
+            if (setter_cursor >= member_tokens.size() || member_tokens[setter_cursor].kind != TokenKind::Colon) {
+                *out_error = MakeError(
+                    *line_index + 1,
+                    member_tokens[member_cursor].column,
+                    "Falta ':' al final de set.");
+                return false;
+            }
+
+            if (setter_cursor != member_tokens.size() - 1) {
+                *out_error = MakeError(
+                    *line_index + 1,
+                    member_tokens[setter_cursor + 1].column,
+                    "Tokens extra despues de set.");
+                return false;
+            }
+
+            std::vector<std::unique_ptr<Statement>> parsed_body;
+            if (!parse_body_until(TokenKind::KeywordEndSet, &parsed_body, "endset")) {
+                return false;
+            }
+
+            ClassAccessorDecl accessor;
+            accessor.name = member_tokens[member_cursor + 1].lexeme;
+            accessor.is_setter = true;
+            accessor.setter_param_name = setter_param_name;
+            accessor.setter_param_type = setter_param_type;
+            accessor.visibility = visibility;
+            accessor.body = std::move(parsed_body);
+            accessors.push_back(std::move(accessor));
+            continue;
+        }
+
+        if (member_kind == TokenKind::KeywordFunc) {
+            if (is_readonly) {
+                *out_error = MakeError(
+                    *line_index + 1,
+                    member_tokens[member_cursor].column,
+                    "readonly no aplica a metodos.");
+                return false;
+            }
+
+            std::vector<Token> func_tokens(
+                member_tokens.begin() + static_cast<std::ptrdiff_t>(member_cursor),
+                member_tokens.end());
+            std::vector<std::unique_ptr<Statement>> parsed_function_statements;
+            if (!ParseFunctionDeclaration(line_index, func_tokens, &parsed_function_statements, out_error)) {
+                return false;
+            }
+
+            if (parsed_function_statements.size() != 1) {
+                *out_error = MakeError(*line_index + 1, member_tokens[member_cursor].column,
+                                       "Error interno parseando metodo de class.");
+                return false;
+            }
+
+            auto* function_ptr = dynamic_cast<FunctionDeclStmt*>(parsed_function_statements[0].release());
+            if (function_ptr == nullptr) {
+                *out_error = MakeError(*line_index + 1, member_tokens[member_cursor].column,
+                                       "Error interno parseando metodo de class.");
+                return false;
+            }
+
+            std::unique_ptr<FunctionDeclStmt> function_decl(function_ptr);
+            ClassMethodDecl method;
+            method.name = function_decl->name;
+            method.return_type = function_decl->return_type;
+            method.params = std::move(function_decl->params);
+            method.body = std::move(function_decl->body);
+            method.visibility = visibility;
+            method.is_static = is_static;
+            method.is_override = is_override;
+            methods.push_back(std::move(method));
+            continue;
+        }
+
+        if (is_override) {
+            *out_error = MakeError(
+                *line_index + 1,
+                member_tokens[member_cursor].column,
+                "override solo aplica a metodos.");
+            return false;
+        }
+
+        // Campo.
+        TypeHint field_type = TypeHint::Inferred;
+        std::size_t field_cursor = member_cursor;
+        TypeHint parsed_field_type = TypeHint::Inferred;
+        if (field_cursor + 1 < member_tokens.size() &&
+            TryParseTypeHintToken(member_tokens[field_cursor], &parsed_field_type) &&
+            member_tokens[field_cursor + 1].kind == TokenKind::Identifier) {
+            field_type = parsed_field_type;
+            ++field_cursor;
+        }
+
+        if (field_cursor >= member_tokens.size() || member_tokens[field_cursor].kind != TokenKind::Identifier) {
+            *out_error = MakeError(
+                *line_index + 1,
+                member_tokens[field_cursor < member_tokens.size() ? field_cursor : member_tokens.size() - 1].column,
+                "Declaracion invalida de campo en class.");
+            return false;
+        }
+
+        const std::string field_name = member_tokens[field_cursor].lexeme;
+        ++field_cursor;
+
+        std::unique_ptr<Expr> default_expr;
+        if (field_cursor < member_tokens.size() && member_tokens[field_cursor].kind == TokenKind::Assign) {
+            ++field_cursor;
+            if (field_cursor >= member_tokens.size()) {
+                *out_error = MakeError(
+                    *line_index + 1,
+                    member_tokens.back().column,
+                    "Falta expresion de inicializacion en campo.");
+                return false;
+            }
+
+            if (member_tokens.back().kind != TokenKind::Semicolon) {
+                *out_error = MakeError(
+                    *line_index + 1,
+                    member_tokens.back().column,
+                    "Falta ';' al final de campo.");
+                return false;
+            }
+
+            std::vector<Token> expr_tokens(
+                member_tokens.begin() + static_cast<std::ptrdiff_t>(field_cursor),
+                member_tokens.end() - 1);
+            if (!ParseExpression(*line_index + 1, std::move(expr_tokens), &default_expr, out_error)) {
+                return false;
+            }
+        } else {
+            if (member_tokens.back().kind != TokenKind::Semicolon) {
+                *out_error = MakeError(
+                    *line_index + 1,
+                    member_tokens.back().column,
+                    "Falta ';' al final de campo.");
+                return false;
+            }
+
+            if (field_cursor != member_tokens.size() - 1) {
+                *out_error = MakeError(
+                    *line_index + 1,
+                    member_tokens[field_cursor].column,
+                    "Declaracion invalida de campo en class.");
+                return false;
+            }
+        }
+
+        fields.push_back(ClassFieldDecl{
+            field_name,
+            field_type,
+            visibility,
+            is_static,
+            is_readonly,
+            std::move(default_expr),
+        });
+        ++(*line_index);
+    }
+
+    *out_error = MakeError(*line_index, 1, "Falta 'endclass' para cerrar la class '" + class_name + "'.");
+    return false;
+}
+
 bool Parser::ParseImport(std::size_t* line_index, const std::vector<Token>& tokens,
                          std::vector<std::unique_ptr<Statement>>* out_statements, Diagnostic* out_error) const {
     if (tokens.size() != 3 || tokens[1].kind != TokenKind::Identifier || tokens[2].kind != TokenKind::Semicolon) {

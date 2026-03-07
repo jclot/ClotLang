@@ -96,6 +96,54 @@ TokenKind KeywordToTokenKind(const std::string& text) {
     if (text == "endwhile") {
         return TokenKind::KeywordEndWhile;
     }
+    if (text == "class") {
+        return TokenKind::KeywordClass;
+    }
+    if (text == "endclass") {
+        return TokenKind::KeywordEndClass;
+    }
+    if (text == "interface") {
+        return TokenKind::KeywordInterface;
+    }
+    if (text == "endinterface") {
+        return TokenKind::KeywordEndInterface;
+    }
+    if (text == "extends") {
+        return TokenKind::KeywordExtends;
+    }
+    if (text == "implements") {
+        return TokenKind::KeywordImplements;
+    }
+    if (text == "constructor") {
+        return TokenKind::KeywordConstructor;
+    }
+    if (text == "endconstructor") {
+        return TokenKind::KeywordEndConstructor;
+    }
+    if (text == "get") {
+        return TokenKind::KeywordGet;
+    }
+    if (text == "endget") {
+        return TokenKind::KeywordEndGet;
+    }
+    if (text == "endset") {
+        return TokenKind::KeywordEndSet;
+    }
+    if (text == "public") {
+        return TokenKind::KeywordPublic;
+    }
+    if (text == "private") {
+        return TokenKind::KeywordPrivate;
+    }
+    if (text == "static") {
+        return TokenKind::KeywordStatic;
+    }
+    if (text == "readonly") {
+        return TokenKind::KeywordReadonly;
+    }
+    if (text == "override") {
+        return TokenKind::KeywordOverride;
+    }
     if (text == "true" || text == "false") {
         return TokenKind::Boolean;
     }
@@ -170,6 +218,38 @@ const char* ToString(TokenKind kind) {
         return "while";
     case TokenKind::KeywordEndWhile:
         return "endwhile";
+    case TokenKind::KeywordClass:
+        return "class";
+    case TokenKind::KeywordEndClass:
+        return "endclass";
+    case TokenKind::KeywordInterface:
+        return "interface";
+    case TokenKind::KeywordEndInterface:
+        return "endinterface";
+    case TokenKind::KeywordExtends:
+        return "extends";
+    case TokenKind::KeywordImplements:
+        return "implements";
+    case TokenKind::KeywordConstructor:
+        return "constructor";
+    case TokenKind::KeywordEndConstructor:
+        return "endconstructor";
+    case TokenKind::KeywordGet:
+        return "get";
+    case TokenKind::KeywordEndGet:
+        return "endget";
+    case TokenKind::KeywordEndSet:
+        return "endset";
+    case TokenKind::KeywordPublic:
+        return "public";
+    case TokenKind::KeywordPrivate:
+        return "private";
+    case TokenKind::KeywordStatic:
+        return "static";
+    case TokenKind::KeywordReadonly:
+        return "readonly";
+    case TokenKind::KeywordOverride:
+        return "override";
     case TokenKind::Assign:
         return "=";
     case TokenKind::PlusEqual:

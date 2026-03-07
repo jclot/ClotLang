@@ -20,6 +20,11 @@ inline bool IsControlToken(const std::vector<Token>& tokens) {
     case TokenKind::KeywordEndFunc:
     case TokenKind::KeywordCatch:
     case TokenKind::KeywordEndTry:
+    case TokenKind::KeywordEndClass:
+    case TokenKind::KeywordEndInterface:
+    case TokenKind::KeywordEndConstructor:
+    case TokenKind::KeywordEndGet:
+    case TokenKind::KeywordEndSet:
         return true;
     default:
         return false;

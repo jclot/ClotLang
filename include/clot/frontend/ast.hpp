@@ -73,6 +73,11 @@ enum class TypeHint {
     Null,
 };
 
+enum class MemberVisibility {
+    Public,
+    Private,
+};
+
 struct Expr {
     virtual ~Expr() = default;
 };
@@ -262,6 +267,83 @@ struct FunctionDeclStmt final : Statement {
     TypeHint return_type = TypeHint::Inferred;
     std::vector<FunctionParam> params;
     std::vector<std::unique_ptr<Statement>> body;
+};
+
+struct InterfaceMethodSignature {
+    std::string name;
+    TypeHint return_type = TypeHint::Inferred;
+    std::vector<FunctionParam> params;
+};
+
+struct InterfaceDeclStmt final : Statement {
+    InterfaceDeclStmt(
+        std::string in_name,
+        std::vector<InterfaceMethodSignature> in_methods)
+        : name(std::move(in_name)),
+          methods(std::move(in_methods)) {}
+
+    std::string name;
+    std::vector<InterfaceMethodSignature> methods;
+};
+
+struct ClassFieldDecl {
+    std::string name;
+    TypeHint type_hint = TypeHint::Inferred;
+    MemberVisibility visibility = MemberVisibility::Public;
+    bool is_static = false;
+    bool is_readonly = false;
+    std::unique_ptr<Expr> default_value;
+};
+
+struct ClassMethodDecl {
+    std::string name;
+    TypeHint return_type = TypeHint::Inferred;
+    std::vector<FunctionParam> params;
+    std::vector<std::unique_ptr<Statement>> body;
+    MemberVisibility visibility = MemberVisibility::Public;
+    bool is_static = false;
+    bool is_override = false;
+};
+
+struct ClassAccessorDecl {
+    std::string name;
+    bool is_setter = false;
+    std::string setter_param_name = "value";
+    TypeHint setter_param_type = TypeHint::Inferred;
+    std::vector<std::unique_ptr<Statement>> body;
+    MemberVisibility visibility = MemberVisibility::Public;
+};
+
+struct ClassDeclStmt final : Statement {
+    ClassDeclStmt(
+        std::string in_name,
+        std::string in_base_class,
+        std::vector<std::string> in_interfaces,
+        std::vector<ClassFieldDecl> in_fields,
+        bool in_constructor_is_private,
+        std::vector<FunctionParam> in_constructor_params,
+        std::vector<std::unique_ptr<Statement>> in_constructor_body,
+        std::vector<ClassMethodDecl> in_methods,
+        std::vector<ClassAccessorDecl> in_accessors)
+        : name(std::move(in_name)),
+          base_class(std::move(in_base_class)),
+          interfaces(std::move(in_interfaces)),
+          fields(std::move(in_fields)),
+          constructor_is_private(in_constructor_is_private),
+          constructor_params(std::move(in_constructor_params)),
+          constructor_body(std::move(in_constructor_body)),
+          methods(std::move(in_methods)),
+          accessors(std::move(in_accessors)) {}
+
+    std::string name;
+    std::string base_class;
+    std::vector<std::string> interfaces;
+    std::vector<ClassFieldDecl> fields;
+    bool constructor_is_private = false;
+    std::vector<FunctionParam> constructor_params;
+    std::vector<std::unique_ptr<Statement>> constructor_body;
+    std::vector<ClassMethodDecl> methods;
+    std::vector<ClassAccessorDecl> accessors;
 };
 
 struct ImportStmt final : Statement {
