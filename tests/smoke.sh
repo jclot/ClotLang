@@ -10,6 +10,7 @@ fi
 
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 cat > "$TMP_DIR/arithmetic.clot" <<'PROG'
 a = 2;
@@ -184,6 +185,102 @@ if [[ "$ACTUAL_PACKAGE_NESTED" != "$EXPECTED_PACKAGE_NESTED" ]]; then
     exit 1
 fi
 
+mkdir -p "$TMP_DIR/clot/science"
+cp -r "$REPO_ROOT/clot/science/physics" "$TMP_DIR/clot/science/physics"
+
+cat > "$TMP_DIR/physics_electromagnetism.clot" <<'PROG'
+import clot.science.physics;
+println(ohms_current(10, 2));
+println(resistor_parallel(6, 3));
+println(capacitor_series(3, 6));
+println(wave_speed(4, 5));
+
+import clot.science.physics.electromagnetism;
+println(electric_flux(1));
+PROG
+
+EXPECTED_PHYSICS_ELECTROMAGNETISM=$'5\n2\n2\n20\n112940906737.302'
+ACTUAL_PHYSICS_ELECTROMAGNETISM="$($BIN_PATH "$TMP_DIR/physics_electromagnetism.clot")"
+if [[ "$ACTUAL_PHYSICS_ELECTROMAGNETISM" != "$EXPECTED_PHYSICS_ELECTROMAGNETISM" ]]; then
+    echo "Fallo test physics_electromagnetism" >&2
+    echo "Esperado:" >&2
+    printf '%s\n' "$EXPECTED_PHYSICS_ELECTROMAGNETISM" >&2
+    echo "Actual:" >&2
+    printf '%s\n' "$ACTUAL_PHYSICS_ELECTROMAGNETISM" >&2
+    exit 1
+fi
+
+mkdir -p "$TMP_DIR/project_root/scripts" "$TMP_DIR/project_root/apps/deep/nested"
+
+cat > "$TMP_DIR/project_root/scripts/math.clot" <<'PROG'
+func add(a, b):
+    return a + b;
+endfunc
+
+class Box:
+    public int value = 0;
+
+    constructor(v):
+        this.value = v;
+    endconstructor
+endclass
+PROG
+
+cat > "$TMP_DIR/project_root/apps/deep/nested/import_alias_from_root.clot" <<'PROG'
+import scripts.math as math;
+from scripts.math import add;
+from scripts.math import Box as Caja;
+
+println(add(2, 3));
+println(math.add(4, 5));
+
+box_one = Caja(7);
+println(box_one.value);
+
+box_two = math.Box(9);
+println(box_two.value);
+PROG
+
+EXPECTED_IMPORT_ALIAS_FROM_ROOT=$'5\n9\n7\n9'
+ACTUAL_IMPORT_ALIAS_FROM_ROOT="$($BIN_PATH "$TMP_DIR/project_root/apps/deep/nested/import_alias_from_root.clot")"
+if [[ "$ACTUAL_IMPORT_ALIAS_FROM_ROOT" != "$EXPECTED_IMPORT_ALIAS_FROM_ROOT" ]]; then
+    echo "Fallo test import_alias_from_root" >&2
+    echo "Esperado:" >&2
+    printf '%s\n' "$EXPECTED_IMPORT_ALIAS_FROM_ROOT" >&2
+    echo "Actual:" >&2
+    printf '%s\n' "$ACTUAL_IMPORT_ALIAS_FROM_ROOT" >&2
+    exit 1
+fi
+
+cat > "$TMP_DIR/project_root/scripts/cache.clot" <<'PROG'
+hits = 0;
+hits += 1;
+
+func hits_count():
+    return hits;
+endfunc
+PROG
+
+cat > "$TMP_DIR/project_root/apps/deep/nested/import_cache_reuse.clot" <<'PROG'
+import scripts.cache;
+import scripts.cache as cache_mod;
+from scripts.cache import hits_count;
+
+println(hits_count());
+println(cache_mod.hits_count());
+PROG
+
+EXPECTED_IMPORT_CACHE_REUSE=$'1\n1'
+ACTUAL_IMPORT_CACHE_REUSE="$($BIN_PATH "$TMP_DIR/project_root/apps/deep/nested/import_cache_reuse.clot")"
+if [[ "$ACTUAL_IMPORT_CACHE_REUSE" != "$EXPECTED_IMPORT_CACHE_REUSE" ]]; then
+    echo "Fallo test import_cache_reuse" >&2
+    echo "Esperado:" >&2
+    printf '%s\n' "$EXPECTED_IMPORT_CACHE_REUSE" >&2
+    echo "Actual:" >&2
+    printf '%s\n' "$ACTUAL_IMPORT_CACHE_REUSE" >&2
+    exit 1
+fi
+
 cat > "$TMP_DIR/i18n_en_error.clot" <<'PROG'
 print(unknown_var);
 PROG
@@ -202,6 +299,44 @@ if ! grep -q "Runtime error: Undefined variable: unknown_var" "$TMP_DIR/i18n_en.
     echo "Fallo test i18n_en_error: mensaje esperado en ingles no encontrado." >&2
     echo "stderr actual:" >&2
     cat "$TMP_DIR/i18n_en.err" >&2
+    exit 1
+fi
+
+cat > "$TMP_DIR/uncaught_throw.clot" <<'PROG'
+throw("fatal");
+PROG
+
+set +e
+"$BIN_PATH" "$TMP_DIR/uncaught_throw.clot" >"$TMP_DIR/uncaught_throw.out" 2>"$TMP_DIR/uncaught_throw.err"
+STATUS_UNCAUGHT_THROW=$?
+set -e
+
+if [[ "$STATUS_UNCAUGHT_THROW" -eq 0 ]]; then
+    echo "Fallo test uncaught_throw: se esperaba fallo de ejecucion." >&2
+    exit 1
+fi
+
+if ! grep -q "Excepcion no capturada: RuntimeError: fatal" "$TMP_DIR/uncaught_throw.err"; then
+    echo "Fallo test uncaught_throw: mensaje esperado en espanol no encontrado." >&2
+    echo "stderr actual:" >&2
+    cat "$TMP_DIR/uncaught_throw.err" >&2
+    exit 1
+fi
+
+set +e
+CLOT_LANG=en "$BIN_PATH" "$TMP_DIR/uncaught_throw.clot" >"$TMP_DIR/uncaught_throw_en.out" 2>"$TMP_DIR/uncaught_throw_en.err"
+STATUS_UNCAUGHT_THROW_EN=$?
+set -e
+
+if [[ "$STATUS_UNCAUGHT_THROW_EN" -eq 0 ]]; then
+    echo "Fallo test uncaught_throw_en: se esperaba fallo de ejecucion." >&2
+    exit 1
+fi
+
+if ! grep -q "Unhandled Exception: RuntimeError: fatal" "$TMP_DIR/uncaught_throw_en.err"; then
+    echo "Fallo test uncaught_throw_en: mensaje esperado en ingles no encontrado." >&2
+    echo "stderr actual:" >&2
+    cat "$TMP_DIR/uncaught_throw_en.err" >&2
     exit 1
 fi
 
@@ -310,6 +445,264 @@ if [[ "$ACTUAL_TRY_CATCH_EN" != "$EXPECTED_TRY_CATCH_EN" ]]; then
     printf '%s\n' "$EXPECTED_TRY_CATCH_EN" >&2
     echo "Actual:" >&2
     printf '%s\n' "$ACTUAL_TRY_CATCH_EN" >&2
+    exit 1
+fi
+
+cat > "$TMP_DIR/throw_builtin_string.clot" <<'PROG'
+try:
+    throw("boom");
+catch(err):
+    println("captured");
+    println(err);
+endtry
+PROG
+
+EXPECTED_THROW_BUILTIN=$'captured\nboom'
+ACTUAL_THROW_BUILTIN="$($BIN_PATH "$TMP_DIR/throw_builtin_string.clot")"
+if [[ "$ACTUAL_THROW_BUILTIN" != "$EXPECTED_THROW_BUILTIN" ]]; then
+    echo "Fallo test throw_builtin_string" >&2
+    echo "Esperado:" >&2
+    printf '%s\n' "$EXPECTED_THROW_BUILTIN" >&2
+    echo "Actual:" >&2
+    printf '%s\n' "$ACTUAL_THROW_BUILTIN" >&2
+    exit 1
+fi
+
+cat > "$TMP_DIR/typed_catch_runtime.clot" <<'PROG'
+try:
+    nums = [1, 2];
+    println(nums[8]);
+catch(IndexError err):
+    println("typed");
+    println(err);
+endtry
+PROG
+
+EXPECTED_TYPED_CATCH_RUNTIME=$'typed\nIndice fuera de rango en lista.'
+ACTUAL_TYPED_CATCH_RUNTIME="$($BIN_PATH "$TMP_DIR/typed_catch_runtime.clot")"
+if [[ "$ACTUAL_TYPED_CATCH_RUNTIME" != "$EXPECTED_TYPED_CATCH_RUNTIME" ]]; then
+    echo "Fallo test typed_catch_runtime" >&2
+    echo "Esperado:" >&2
+    printf '%s\n' "$EXPECTED_TYPED_CATCH_RUNTIME" >&2
+    echo "Actual:" >&2
+    printf '%s\n' "$ACTUAL_TYPED_CATCH_RUNTIME" >&2
+    exit 1
+fi
+
+cat > "$TMP_DIR/typed_catch_without_binding.clot" <<'PROG'
+try:
+    nums = [1, 2];
+    println(nums[9]);
+catch(IndexError):
+    println("typed-no-binding");
+endtry
+PROG
+
+EXPECTED_TYPED_CATCH_WITHOUT_BINDING=$'typed-no-binding'
+ACTUAL_TYPED_CATCH_WITHOUT_BINDING="$($BIN_PATH "$TMP_DIR/typed_catch_without_binding.clot")"
+if [[ "$ACTUAL_TYPED_CATCH_WITHOUT_BINDING" != "$EXPECTED_TYPED_CATCH_WITHOUT_BINDING" ]]; then
+    echo "Fallo test typed_catch_without_binding" >&2
+    echo "Esperado:" >&2
+    printf '%s\n' "$EXPECTED_TYPED_CATCH_WITHOUT_BINDING" >&2
+    echo "Actual:" >&2
+    printf '%s\n' "$ACTUAL_TYPED_CATCH_WITHOUT_BINDING" >&2
+    exit 1
+fi
+
+cat > "$TMP_DIR/typed_catch_hierarchy.clot" <<'PROG'
+class Exception:
+    public string message;
+
+    constructor(message: string):
+        this.message = message;
+    endconstructor
+endclass
+
+class TypeError extends Exception:
+    constructor(message: string):
+        super(message);
+    endconstructor
+endclass
+
+try:
+    throw(TypeError("bad-type"));
+catch(Exception ex):
+    println(ex.message);
+endtry
+PROG
+
+EXPECTED_TYPED_CATCH_HIERARCHY=$'bad-type'
+ACTUAL_TYPED_CATCH_HIERARCHY="$($BIN_PATH "$TMP_DIR/typed_catch_hierarchy.clot")"
+if [[ "$ACTUAL_TYPED_CATCH_HIERARCHY" != "$EXPECTED_TYPED_CATCH_HIERARCHY" ]]; then
+    echo "Fallo test typed_catch_hierarchy" >&2
+    echo "Esperado:" >&2
+    printf '%s\n' "$EXPECTED_TYPED_CATCH_HIERARCHY" >&2
+    echo "Actual:" >&2
+    printf '%s\n' "$ACTUAL_TYPED_CATCH_HIERARCHY" >&2
+    exit 1
+fi
+
+mkdir -p "$TMP_DIR/clot/core/exceptions"
+cp "$REPO_ROOT/clot/core/exceptions/exceptions.clot" "$TMP_DIR/clot/core/exceptions/exceptions.clot"
+
+cat > "$TMP_DIR/uncaught_throw_func_object.clot" <<'PROG'
+import clot.core.exceptions;
+
+func fail():
+    throw(Exception("Something went wrong"));
+endfunc
+
+fail();
+PROG
+
+set +e
+"$BIN_PATH" "$TMP_DIR/uncaught_throw_func_object.clot" >"$TMP_DIR/uncaught_throw_func_object.out" 2>"$TMP_DIR/uncaught_throw_func_object.err"
+STATUS_UNCAUGHT_THROW_FUNC_OBJECT=$?
+set -e
+
+if [[ "$STATUS_UNCAUGHT_THROW_FUNC_OBJECT" -eq 0 ]]; then
+    echo "Fallo test uncaught_throw_func_object: se esperaba fallo de ejecucion." >&2
+    exit 1
+fi
+
+if ! grep -q "Excepcion no capturada: Exception: Something went wrong" "$TMP_DIR/uncaught_throw_func_object.err"; then
+    echo "Fallo test uncaught_throw_func_object: mensaje esperado no encontrado." >&2
+    echo "stderr actual:" >&2
+    cat "$TMP_DIR/uncaught_throw_func_object.err" >&2
+    exit 1
+fi
+
+cat > "$TMP_DIR/typed_catch_core_module.clot" <<'PROG'
+import clot.core.exceptions;
+
+try:
+    throw(TypeError("module-type-error"));
+catch(RuntimeError err):
+    println(err.message);
+endtry
+PROG
+
+EXPECTED_TYPED_CATCH_CORE_MODULE=$'module-type-error'
+ACTUAL_TYPED_CATCH_CORE_MODULE="$($BIN_PATH "$TMP_DIR/typed_catch_core_module.clot")"
+if [[ "$ACTUAL_TYPED_CATCH_CORE_MODULE" != "$EXPECTED_TYPED_CATCH_CORE_MODULE" ]]; then
+    echo "Fallo test typed_catch_core_module" >&2
+    echo "Esperado:" >&2
+    printf '%s\n' "$EXPECTED_TYPED_CATCH_CORE_MODULE" >&2
+    echo "Actual:" >&2
+    printf '%s\n' "$ACTUAL_TYPED_CATCH_CORE_MODULE" >&2
+    exit 1
+fi
+
+cat > "$TMP_DIR/typed_catch_core_hierarchy.clot" <<'PROG'
+import clot.core.exceptions;
+
+try:
+    throw(ArgumentError("bad-args"));
+catch(TypeError err):
+    println(err.message);
+endtry
+
+try:
+    throw(IndexError("bad-index"));
+catch(RangeError err):
+    println(err.message);
+endtry
+
+try:
+    throw(MissingArgumentError("missing-arg"));
+catch(ArgumentError err):
+    println(err.message);
+endtry
+
+try:
+    throw(TooManyArgumentsError("too-many-args"));
+catch(ArgumentError err):
+    println(err.message);
+endtry
+
+try:
+    throw(FileNotFoundError("file-not-found"));
+catch(IOError err):
+    println(err.message);
+endtry
+
+try:
+    throw(ModuleNotFoundError("module-not-found"));
+catch(ImportError err):
+    println(err.message);
+endtry
+PROG
+
+EXPECTED_TYPED_CATCH_CORE_HIERARCHY=$'bad-args\nbad-index\nmissing-arg\ntoo-many-args\nfile-not-found\nmodule-not-found'
+ACTUAL_TYPED_CATCH_CORE_HIERARCHY="$($BIN_PATH "$TMP_DIR/typed_catch_core_hierarchy.clot")"
+if [[ "$ACTUAL_TYPED_CATCH_CORE_HIERARCHY" != "$EXPECTED_TYPED_CATCH_CORE_HIERARCHY" ]]; then
+    echo "Fallo test typed_catch_core_hierarchy" >&2
+    echo "Esperado:" >&2
+    printf '%s\n' "$EXPECTED_TYPED_CATCH_CORE_HIERARCHY" >&2
+    echo "Actual:" >&2
+    printf '%s\n' "$ACTUAL_TYPED_CATCH_CORE_HIERARCHY" >&2
+    exit 1
+fi
+
+cat > "$TMP_DIR/typed_catch_new_runtime_types.clot" <<'PROG'
+try:
+    println(missing_symbol);
+catch(NameError err):
+    println("name");
+endtry
+
+try:
+    obj = {name: "Ada"};
+    println(obj.age);
+catch(AttributeError err):
+    println("attr");
+endtry
+
+try:
+    type();
+catch(MissingArgumentError err):
+    println("missing-arg");
+endtry
+
+try:
+    input("a", "b");
+catch(TooManyArgumentsError err):
+    println("too-many");
+endtry
+
+try:
+    sleep_ms(-1);
+catch(RangeError err):
+    println("range");
+endtry
+
+try:
+    read_file("missing-file-for-ioerror-test.txt");
+catch(FileNotFoundError err):
+    println("file-not-found");
+endtry
+
+try:
+    import ghost.module;
+catch(ModuleNotFoundError err):
+    println("module-not-found");
+endtry
+
+try:
+    println(another_missing_symbol);
+catch(RuntimeError err):
+    println("runtime-super");
+endtry
+PROG
+
+EXPECTED_TYPED_CATCH_NEW_RUNTIME_TYPES=$'name\nattr\nmissing-arg\ntoo-many\nrange\nfile-not-found\nmodule-not-found\nruntime-super'
+ACTUAL_TYPED_CATCH_NEW_RUNTIME_TYPES="$($BIN_PATH "$TMP_DIR/typed_catch_new_runtime_types.clot")"
+if [[ "$ACTUAL_TYPED_CATCH_NEW_RUNTIME_TYPES" != "$EXPECTED_TYPED_CATCH_NEW_RUNTIME_TYPES" ]]; then
+    echo "Fallo test typed_catch_new_runtime_types" >&2
+    echo "Esperado:" >&2
+    printf '%s\n' "$EXPECTED_TYPED_CATCH_NEW_RUNTIME_TYPES" >&2
+    echo "Actual:" >&2
+    printf '%s\n' "$ACTUAL_TYPED_CATCH_NEW_RUNTIME_TYPES" >&2
     exit 1
 fi
 
