@@ -220,13 +220,16 @@ struct IfStmt final : Statement {
 struct TryCatchStmt final : Statement {
     TryCatchStmt(
         std::vector<std::unique_ptr<Statement>> in_try_branch,
+        std::string in_catch_type,
         std::string in_error_binding,
         std::vector<std::unique_ptr<Statement>> in_catch_branch)
         : try_branch(std::move(in_try_branch)),
+          catch_type(std::move(in_catch_type)),
           error_binding(std::move(in_error_binding)),
           catch_branch(std::move(in_catch_branch)) {}
 
     std::vector<std::unique_ptr<Statement>> try_branch;
+    std::string catch_type;
     std::string error_binding;
     std::vector<std::unique_ptr<Statement>> catch_branch;
 };
@@ -347,8 +350,29 @@ struct ClassDeclStmt final : Statement {
 };
 
 struct ImportStmt final : Statement {
-    explicit ImportStmt(std::string in_module) : module_name(std::move(in_module)) {}
+    enum class Style {
+        Module,
+        ModuleAlias,
+        FromImport,
+    };
+
+    ImportStmt(
+        Style in_style,
+        std::string in_module,
+        std::string in_alias_name,
+        std::string in_imported_symbol,
+        std::string in_imported_alias)
+        : style(in_style),
+          module_name(std::move(in_module)),
+          alias_name(std::move(in_alias_name)),
+          imported_symbol(std::move(in_imported_symbol)),
+          imported_alias(std::move(in_imported_alias)) {}
+
+    Style style = Style::Module;
     std::string module_name;
+    std::string alias_name;
+    std::string imported_symbol;
+    std::string imported_alias;
 };
 
 struct EnumDeclStmt final : Statement {

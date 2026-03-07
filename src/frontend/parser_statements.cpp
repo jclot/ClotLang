@@ -1424,14 +1424,90 @@ bool Parser::ParseClassDeclaration(std::size_t* line_index, const std::vector<To
 
 bool Parser::ParseImport(std::size_t* line_index, const std::vector<Token>& tokens,
                          std::vector<std::unique_ptr<Statement>>* out_statements, Diagnostic* out_error) const {
-    if (tokens.size() != 3 || tokens[1].kind != TokenKind::Identifier || tokens[2].kind != TokenKind::Semicolon) {
-        *out_error = MakeError(*line_index + 1, tokens[0].column, "Formato invalido en import. Use: import modulo;");
+    const auto invalid_import_format = [&]() {
+        *out_error = MakeError(
+            *line_index + 1,
+            tokens[0].column,
+            "Formato invalido en import. Use: import modulo;, import modulo as alias;, from modulo import simbolo; o from modulo import simbolo as alias;");
         return false;
+    };
+
+    if (tokens[0].kind == TokenKind::KeywordImport) {
+        // import modulo;
+        if (tokens.size() == 3 &&
+            tokens[1].kind == TokenKind::Identifier &&
+            tokens[2].kind == TokenKind::Semicolon) {
+            out_statements->push_back(std::make_unique<ImportStmt>(
+                ImportStmt::Style::Module,
+                tokens[1].lexeme,
+                std::string(),
+                std::string(),
+                std::string()));
+            ++(*line_index);
+            return true;
+        }
+
+        // import modulo as alias;
+        if (tokens.size() == 5 &&
+            tokens[1].kind == TokenKind::Identifier &&
+            tokens[2].kind == TokenKind::Identifier &&
+            tokens[2].lexeme == "as" &&
+            tokens[3].kind == TokenKind::Identifier &&
+            tokens[4].kind == TokenKind::Semicolon) {
+            out_statements->push_back(std::make_unique<ImportStmt>(
+                ImportStmt::Style::ModuleAlias,
+                tokens[1].lexeme,
+                tokens[3].lexeme,
+                std::string(),
+                std::string()));
+            ++(*line_index);
+            return true;
+        }
+
+        return invalid_import_format();
     }
 
-    out_statements->push_back(std::make_unique<ImportStmt>(tokens[1].lexeme));
-    ++(*line_index);
-    return true;
+    // from modulo import simbolo;
+    if (tokens[0].kind == TokenKind::Identifier &&
+        tokens[0].lexeme == "from") {
+        if (tokens.size() == 5 &&
+            tokens[1].kind == TokenKind::Identifier &&
+            tokens[2].kind == TokenKind::KeywordImport &&
+            tokens[3].kind == TokenKind::Identifier &&
+            tokens[4].kind == TokenKind::Semicolon) {
+            out_statements->push_back(std::make_unique<ImportStmt>(
+                ImportStmt::Style::FromImport,
+                tokens[1].lexeme,
+                std::string(),
+                tokens[3].lexeme,
+                tokens[3].lexeme));
+            ++(*line_index);
+            return true;
+        }
+
+        // from modulo import simbolo as alias;
+        if (tokens.size() == 7 &&
+            tokens[1].kind == TokenKind::Identifier &&
+            tokens[2].kind == TokenKind::KeywordImport &&
+            tokens[3].kind == TokenKind::Identifier &&
+            tokens[4].kind == TokenKind::Identifier &&
+            tokens[4].lexeme == "as" &&
+            tokens[5].kind == TokenKind::Identifier &&
+            tokens[6].kind == TokenKind::Semicolon) {
+            out_statements->push_back(std::make_unique<ImportStmt>(
+                ImportStmt::Style::FromImport,
+                tokens[1].lexeme,
+                std::string(),
+                tokens[3].lexeme,
+                tokens[5].lexeme));
+            ++(*line_index);
+            return true;
+        }
+
+        return invalid_import_format();
+    }
+
+    return invalid_import_format();
 }
 
 bool Parser::ParseEnum(std::size_t* line_index, const std::vector<Token>& tokens,
@@ -1608,15 +1684,30 @@ bool Parser::ParseTry(std::size_t* line_index, const std::vector<Token>& tokens,
         return false;
     }
 
+    std::string catch_type;
     std::string error_binding;
     if (control_tokens.size() == 2) {
         // catch:
     } else if (control_tokens.size() == 5 && control_tokens[1].kind == TokenKind::LeftParen &&
                control_tokens[2].kind == TokenKind::Identifier && control_tokens[3].kind == TokenKind::RightParen) {
-        error_binding = control_tokens[2].lexeme;
+        const std::string candidate = control_tokens[2].lexeme;
+        const bool looks_like_type =
+            !candidate.empty() && std::isupper(static_cast<unsigned char>(candidate.front()));
+        if (looks_like_type) {
+            catch_type = candidate;
+        } else {
+            error_binding = candidate;
+        }
+    } else if (control_tokens.size() == 6 &&
+               control_tokens[1].kind == TokenKind::LeftParen &&
+               control_tokens[2].kind == TokenKind::Identifier &&
+               control_tokens[3].kind == TokenKind::Identifier &&
+               control_tokens[4].kind == TokenKind::RightParen) {
+        catch_type = control_tokens[2].lexeme;
+        error_binding = control_tokens[3].lexeme;
     } else {
         *out_error = MakeError(*line_index + 1, control_tokens[0].column,
-                               "Formato invalido en catch. Use: catch: o catch(error):");
+                               "Formato invalido en catch. Use: catch:, catch(error):, catch(Tipo): o catch(Tipo error):");
         return false;
     }
 
@@ -1668,8 +1759,8 @@ bool Parser::ParseTry(std::size_t* line_index, const std::vector<Token>& tokens,
         return false;
     }
 
-    out_statements->push_back(
-        std::make_unique<TryCatchStmt>(std::move(try_branch), std::move(error_binding), std::move(catch_branch)));
+    out_statements->push_back(std::make_unique<TryCatchStmt>(
+        std::move(try_branch), std::move(catch_type), std::move(error_binding), std::move(catch_branch)));
     ++(*line_index);
     return true;
 }

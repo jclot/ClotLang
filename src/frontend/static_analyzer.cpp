@@ -254,7 +254,10 @@ private:
             SymbolTable catch_symbols = *symbols;
             if (!try_catch->error_binding.empty()) {
                 catch_symbols[try_catch->error_binding] =
-                    SymbolInfo{DeclarationType::Inferred, TypeHint::String};
+                    SymbolInfo{
+                        DeclarationType::Inferred,
+                        try_catch->catch_type.empty() ? TypeHint::String : TypeHint::Unknown,
+                    };
             }
             AnalyzeStatements(try_catch->catch_branch, &catch_symbols);
             return;
@@ -656,6 +659,13 @@ private:
                 AddError(statement_id, "assert(cond) o assert(cond, mensaje) requiere 1 o 2 argumentos.");
             }
             return ExpressionFacts{TypeHint::Bool, false, 0.0};
+        }
+
+        if (call.callee == "throw") {
+            if (call.arguments.size() != 1) {
+                AddError(statement_id, "throw(value) requiere 1 argumento.");
+            }
+            return ExpressionFacts{TypeHint::Unknown, false, 0.0};
         }
 
         if (call.callee == "input") {
