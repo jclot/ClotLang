@@ -707,4 +707,224 @@ if ! grep -q "por referencia no aceptan valor por defecto" "$TMP_DIR/function_de
     exit 1
 fi
 
+cat > "$TMP_DIR/oop_mvp_ok.clot" <<'PROG'
+interface Named:
+    func string name();
+endinterface
+
+class Animal:
+    private string _kind = "unknown";
+
+    constructor(kind: string):
+        this._kind = kind;
+    endconstructor
+
+    public func string kind():
+        return this._kind;
+    endfunc
+endclass
+
+class Dog extends Animal implements Named:
+    private string _name;
+    public static int total = 0;
+    public readonly string id;
+
+    constructor(name: string):
+        super("dog");
+        this._name = name;
+        this.id = "D-" + (Dog.total + 1);
+        Dog.total += 1;
+    endconstructor
+
+    public override func string kind():
+        return super.kind() + ":" + this._name;
+    endfunc
+
+    public func string name():
+        return this._name;
+    endfunc
+
+    public get alias():
+        return this._name;
+    endget
+
+    public set alias(value: string):
+        this._name = value;
+    endset
+endclass
+
+d = Dog("Neo");
+println(d.kind());
+println(d.name());
+println(d.alias);
+d.alias = "Trinity";
+println(d.alias);
+println(Dog.total);
+PROG
+
+EXPECTED_OOP_MVP_OK=$'dog:Neo\nNeo\nNeo\nTrinity\n1'
+ACTUAL_OOP_MVP_OK="$($BIN_PATH "$TMP_DIR/oop_mvp_ok.clot")"
+if [[ "$ACTUAL_OOP_MVP_OK" != "$EXPECTED_OOP_MVP_OK" ]]; then
+    echo "Fallo test oop_mvp_ok" >&2
+    echo "Esperado:" >&2
+    printf '%s\n' "$EXPECTED_OOP_MVP_OK" >&2
+    echo "Actual:" >&2
+    printf '%s\n' "$ACTUAL_OOP_MVP_OK" >&2
+    exit 1
+fi
+
+cat > "$TMP_DIR/oop_private_error.clot" <<'PROG'
+class Secret:
+    private string token = "x";
+endclass
+
+s = Secret();
+println(s.token);
+PROG
+
+set +e
+"$BIN_PATH" "$TMP_DIR/oop_private_error.clot" >"$TMP_DIR/oop_private_error.out" 2>"$TMP_DIR/oop_private_error.err"
+STATUS_OOP_PRIVATE=$?
+set -e
+
+if [[ "$STATUS_OOP_PRIVATE" -eq 0 ]]; then
+    echo "Fallo test oop_private_error: se esperaba error." >&2
+    exit 1
+fi
+
+if ! grep -q "Campo no accesible por visibilidad: Secret.token" "$TMP_DIR/oop_private_error.err"; then
+    echo "Fallo test oop_private_error: mensaje esperado no encontrado." >&2
+    cat "$TMP_DIR/oop_private_error.err" >&2
+    exit 1
+fi
+
+set +e
+"$BIN_PATH" "$TMP_DIR/oop_private_error.clot" --lang en >"$TMP_DIR/oop_private_error_en.out" 2>"$TMP_DIR/oop_private_error_en.err"
+STATUS_OOP_PRIVATE_EN=$?
+set -e
+
+if [[ "$STATUS_OOP_PRIVATE_EN" -eq 0 ]]; then
+    echo "Fallo test oop_private_error_en: se esperaba error." >&2
+    exit 1
+fi
+
+if ! grep -q "Runtime error: Field not accessible due to visibility: Secret.token" "$TMP_DIR/oop_private_error_en.err"; then
+    echo "Fallo test oop_private_error_en: mensaje esperado en ingles no encontrado." >&2
+    cat "$TMP_DIR/oop_private_error_en.err" >&2
+    exit 1
+fi
+
+cat > "$TMP_DIR/oop_readonly_error.clot" <<'PROG'
+class Box:
+    public readonly int value = 10;
+endclass
+
+b = Box();
+b.value = 20;
+PROG
+
+set +e
+"$BIN_PATH" "$TMP_DIR/oop_readonly_error.clot" >"$TMP_DIR/oop_readonly_error.out" 2>"$TMP_DIR/oop_readonly_error.err"
+STATUS_OOP_READONLY=$?
+set -e
+
+if [[ "$STATUS_OOP_READONLY" -eq 0 ]]; then
+    echo "Fallo test oop_readonly_error: se esperaba error." >&2
+    exit 1
+fi
+
+if ! grep -q "No se puede modificar campo readonly: Box.value" "$TMP_DIR/oop_readonly_error.err"; then
+    echo "Fallo test oop_readonly_error: mensaje esperado no encontrado." >&2
+    cat "$TMP_DIR/oop_readonly_error.err" >&2
+    exit 1
+fi
+
+cat > "$TMP_DIR/oop_override_required_error.clot" <<'PROG'
+class A:
+    public func int f():
+        return 1;
+    endfunc
+endclass
+
+class B extends A:
+    public func int f():
+        return 2;
+    endfunc
+endclass
+PROG
+
+set +e
+"$BIN_PATH" "$TMP_DIR/oop_override_required_error.clot" >"$TMP_DIR/oop_override_required_error.out" 2>"$TMP_DIR/oop_override_required_error.err"
+STATUS_OOP_OVERRIDE=$?
+set -e
+
+if [[ "$STATUS_OOP_OVERRIDE" -eq 0 ]]; then
+    echo "Fallo test oop_override_required_error: se esperaba error." >&2
+    exit 1
+fi
+
+if ! grep -q "Metodo sobrescribe base y requiere 'override': B.f" "$TMP_DIR/oop_override_required_error.err"; then
+    echo "Fallo test oop_override_required_error: mensaje esperado no encontrado." >&2
+    cat "$TMP_DIR/oop_override_required_error.err" >&2
+    exit 1
+fi
+
+cat > "$TMP_DIR/oop_interface_missing_error.clot" <<'PROG'
+interface Pinger:
+    func ping();
+endinterface
+
+class Bot implements Pinger:
+endclass
+PROG
+
+set +e
+"$BIN_PATH" "$TMP_DIR/oop_interface_missing_error.clot" >"$TMP_DIR/oop_interface_missing_error.out" 2>"$TMP_DIR/oop_interface_missing_error.err"
+STATUS_OOP_INTERFACE=$?
+set -e
+
+if [[ "$STATUS_OOP_INTERFACE" -eq 0 ]]; then
+    echo "Fallo test oop_interface_missing_error: se esperaba error." >&2
+    exit 1
+fi
+
+if ! grep -q "no implementa metodo 'ping'" "$TMP_DIR/oop_interface_missing_error.err"; then
+    echo "Fallo test oop_interface_missing_error: mensaje esperado no encontrado." >&2
+    cat "$TMP_DIR/oop_interface_missing_error.err" >&2
+    exit 1
+fi
+
+cat > "$TMP_DIR/oop_super_first_error.clot" <<'PROG'
+class Base:
+    constructor():
+    endconstructor
+endclass
+
+class Child extends Base:
+    constructor():
+        x = 1;
+        super();
+    endconstructor
+endclass
+
+c = Child();
+println(c);
+PROG
+
+set +e
+"$BIN_PATH" "$TMP_DIR/oop_super_first_error.clot" >"$TMP_DIR/oop_super_first_error.out" 2>"$TMP_DIR/oop_super_first_error.err"
+STATUS_OOP_SUPER=$?
+set -e
+
+if [[ "$STATUS_OOP_SUPER" -eq 0 ]]; then
+    echo "Fallo test oop_super_first_error: se esperaba error." >&2
+    exit 1
+fi
+
+if ! grep -q "debe invocar super(...) como primera sentencia" "$TMP_DIR/oop_super_first_error.err"; then
+    echo "Fallo test oop_super_first_error: mensaje esperado no encontrado." >&2
+    cat "$TMP_DIR/oop_super_first_error.err" >&2
+    exit 1
+fi
+
 echo "Smoke tests OK"

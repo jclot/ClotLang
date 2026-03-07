@@ -69,6 +69,46 @@ if [[ "$ACTUAL_INT_BRIDGE" != "$EXPECTED_INT_BRIDGE" ]]; then
     exit 1
 fi
 
+cat > "$TMP_DIR/oop_bridge.clot" <<'PROG'
+class Counter:
+    private int _value = 0;
+
+    constructor(start: int):
+        this._value = start;
+    endconstructor
+
+    public func int inc():
+        this._value += 1;
+        return this._value;
+    endfunc
+endclass
+
+c = Counter(2);
+println(c.inc());
+println(c.inc());
+PROG
+
+OOP_BRIDGE_EXE="$TMP_DIR/oop_bridge"
+OOP_BRIDGE_LOG="$TMP_DIR/oop_bridge.log"
+"$BIN_PATH" "$TMP_DIR/oop_bridge.clot" --mode compile --emit exe -o "$OOP_BRIDGE_EXE" --verbose >"$OOP_BRIDGE_LOG" 2>&1
+
+if ! grep -q "runtime bridge LLVM activado" "$OOP_BRIDGE_LOG"; then
+    echo "Fallo llvm_smoke: oop_bridge debe activar runtime bridge." >&2
+    cat "$OOP_BRIDGE_LOG" >&2
+    exit 1
+fi
+
+EXPECTED_OOP_BRIDGE=$'3\n4'
+ACTUAL_OOP_BRIDGE="$($OOP_BRIDGE_EXE)"
+if [[ "$ACTUAL_OOP_BRIDGE" != "$EXPECTED_OOP_BRIDGE" ]]; then
+    echo "Fallo llvm_smoke (oop_bridge)" >&2
+    echo "Esperado:" >&2
+    printf '%s\n' "$EXPECTED_OOP_BRIDGE" >&2
+    echo "Actual:" >&2
+    printf '%s\n' "$ACTUAL_OOP_BRIDGE" >&2
+    exit 1
+fi
+
 cat > "$TMP_DIR/external_bridge.clot" <<'PROG'
 nums = [1, 2, 3];
 print(nums[1]);
