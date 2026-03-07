@@ -11,7 +11,7 @@
 ## Frontend Internal Split
 
 - `src/frontend/parser_core.cpp`: bloque principal (`Parse`, `ParseBlock`, despacho de sentencias).
-- `src/frontend/parser_statements.cpp`: parseo de sentencias (`assignment`, `if`, `func`, `import`, `mutation`, `return`).
+- `src/frontend/parser_statements.cpp`: parseo de sentencias (`assignment`, `if`, `func`, `import`, `mutation`, `return`, `try/catch`) y formatos de `catch` tipado.
 - `src/frontend/parser_expression.cpp`: parser de expresiones por precedencia.
 - `src/frontend/parser_support.hpp`: utilidades internas compartidas del parser.
 
@@ -33,14 +33,21 @@
 ## Interpreter Internal Split
 
 - `src/interpreter/interpreter.cpp`: execution core (statements, expressions, calls).
+- Manejo de errores runtime: `throw(value)`, inferencia de tipo de excepcion para fallas internas y filtro por tipo en `catch`.
 - `src/interpreter/interpreter_state.cpp`: state/mutation/value-normalization logic.
 - `src/interpreter/interpreter_modules.cpp`: module resolution/loading/import graph control.
 
 ## Module Resolution
 
+- Supported forms:
+  - `import a.b.c;`
+  - `import a.b.c as alias;`
+  - `from a.b.c import symbol;`
+  - `from a.b.c import symbol as alias;`
 - `import a.b.c;` resolves to `a/b/c.clot`.
-- Resolution is relative to the importing file directory.
+- Resolution scans the current module directory and all ancestor directories (root-based lookup).
 - Circular imports are detected and rejected.
+- Runtime pipeline: resolve module -> load file -> parse -> execute -> cache exports.
 
 ## Internationalization
 

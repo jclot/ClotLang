@@ -374,6 +374,7 @@ Archivos impactados:
 - [x] soporte de `super(...)` y `super.metodo(...)`.
 - [x] cobertura de pruebas OOP en `tests/smoke.sh` y fallback compile/bridge en `tests/llvm_smoke.sh`.
 - [x] documentacion e i18n actualizadas para mensajes OOP.
+- [x] base de excepciones multiparadigma: `throw(value)`, `catch` tipado (`catch(Tipo)` / `catch(Tipo err)`) y modulo `clot.core.exceptions`.
 
 Archivos impactados:
 
@@ -383,6 +384,7 @@ Archivos impactados:
 - `include/clot/frontend/{ast.hpp,parser.hpp,token.hpp}`
 - `src/frontend/{tokenizer.cpp,parser_core.cpp,parser_statements.cpp,parser_support.hpp}`
 - `src/runtime/i18n.cpp`
+- `clot/core/exceptions/exceptions.clot`
 - `README.md`
 - `docs/docs-page.html`
 - `tests/smoke.sh`
