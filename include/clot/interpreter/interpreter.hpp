@@ -28,6 +28,7 @@ private:
     bool ExecuteMutation(const frontend::MutationStmt& statement, std::string* out_error);
     bool ExecuteReturn(const frontend::ReturnStmt& statement, std::string* out_error);
     bool ExecuteTryCatch(const frontend::TryCatchStmt& statement, std::string* out_error);
+    bool RaiseExceptionValue(const runtime::Value& value, std::string* out_error);
 
     bool EvaluateExpression(
         const frontend::Expr& expression,
@@ -154,6 +155,17 @@ private:
         bool create_missing,
         std::string* out_error);
 
+    struct RuntimeExceptionRecord {
+        std::string type_name;
+        runtime::Value payload;
+        std::string message;
+    };
+
+    RuntimeExceptionRecord BuildRuntimeExceptionFromError(const std::string& runtime_error) const;
+    std::string InferRuntimeExceptionTypeName(const std::string& runtime_error) const;
+    bool ExceptionMatchesCatchType(const RuntimeExceptionRecord& exception, const std::string& catch_type) const;
+    bool IsClassTypeOrDerived(const std::string& type_name, const std::string& base_type_name) const;
+
     bool ResolveVariable(
         const std::string& name,
         runtime::Value* out_value,
@@ -199,8 +211,18 @@ private:
         const runtime::Value& value,
         std::string* out_error);
 
-    bool ImportModule(const std::string& module_name, std::string* out_error);
-    bool ExecuteModuleFile(const std::filesystem::path& module_path, std::string* out_error);
+    struct ModuleExports {
+        std::map<std::string, runtime::VariableSlot> variables;
+        std::set<std::string> functions;
+        std::set<std::string> classes;
+    };
+
+    bool ImportModule(const std::string& module_name, std::string* out_module_id, std::string* out_error);
+    bool ExecuteModuleFile(const std::filesystem::path& module_path, ModuleExports* out_exports, std::string* out_error);
+    bool BindImportedSymbol(const frontend::ImportStmt& import_statement,
+                            const ModuleExports& exports,
+                            std::string* out_error);
+    runtime::Value BuildModuleAliasValue(const ModuleExports& exports) const;
     std::filesystem::path ResolveModulePath(const std::string& module_name) const;
     std::filesystem::path CurrentModuleBaseDir() const;
 
@@ -223,6 +245,9 @@ private:
     std::vector<std::filesystem::path> module_base_dirs_;
     std::filesystem::path entry_file_path_;
     std::vector<std::unique_ptr<frontend::Program>> loaded_module_programs_;
+    std::unordered_map<std::string, ModuleExports> module_exports_cache_;
+    std::unordered_map<std::string, std::string> class_aliases_;
+    std::optional<RuntimeExceptionRecord> pending_exception_;
 
     struct AsyncTaskResult {
         bool ok = false;

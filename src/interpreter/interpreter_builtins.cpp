@@ -1059,6 +1059,21 @@ bool Interpreter::ExecuteBuiltinCall(const frontend::CallExpr& call, bool* out_w
         return false;
     }
 
+    if (call.callee == "throw") {
+        *out_was_builtin = true;
+        if (call.arguments.size() != 1) {
+            *out_error = "throw(value) requiere 1 argumento.";
+            return false;
+        }
+
+        runtime::Value value;
+        if (!evaluate_argument(0, &value)) {
+            return false;
+        }
+
+        return RaiseExceptionValue(value, out_error);
+    }
+
     if (call.callee == "input") {
         *out_was_builtin = true;
 

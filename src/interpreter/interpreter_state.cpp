@@ -240,9 +240,16 @@ bool Interpreter::ResolveVariable(
 
     runtime::Value* current = nullptr;
     runtime::Value static_root_storage(nullptr);
-    if (FindClass(segments[0]) != nullptr) {
+    std::string root_class_name = segments[0];
+    const auto class_alias = class_aliases_.find(segments[0]);
+    if (class_alias != class_aliases_.end()) {
+        root_class_name = class_alias->second;
+    }
+    const bool root_is_class = FindClass(root_class_name) != nullptr;
+
+    if (root_is_class) {
         runtime::Value* static_value = nullptr;
-        if (!ResolveClassStaticField(segments[0], segments[1], &static_value, false, out_error)) {
+        if (!ResolveClassStaticField(root_class_name, segments[1], &static_value, false, out_error)) {
             return false;
         }
         static_root_storage = *static_value;
@@ -257,7 +264,7 @@ bool Interpreter::ResolveVariable(
     }
 
     std::vector<runtime::Value> temporary_values;
-    const std::size_t start_segment = FindClass(segments[0]) != nullptr ? 2 : 1;
+    const std::size_t start_segment = root_is_class ? 2 : 1;
     for (std::size_t index = start_segment; index < segments.size(); ++index) {
         const std::string& segment = segments[index];
         const bool is_last = index + 1 == segments.size();
@@ -355,13 +362,20 @@ bool Interpreter::ResolveMutableVariable(
     }
 
     runtime::Value* current = nullptr;
-    if (FindClass(segments[0]) != nullptr) {
+    std::string root_class_name = segments[0];
+    const auto class_alias = class_aliases_.find(segments[0]);
+    if (class_alias != class_aliases_.end()) {
+        root_class_name = class_alias->second;
+    }
+    const bool root_is_class = FindClass(root_class_name) != nullptr;
+
+    if (root_is_class) {
         if (segments.size() != 2) {
             *out_error = "Mutacion de propiedades anidadas sobre campo static no soportada: " + name;
             return false;
         }
         runtime::Value* static_slot = nullptr;
-        if (!ResolveClassStaticField(segments[0], segments[1], &static_slot, create_missing_property, out_error)) {
+        if (!ResolveClassStaticField(root_class_name, segments[1], &static_slot, create_missing_property, out_error)) {
             return false;
         }
         *out_value = static_slot;
@@ -943,13 +957,19 @@ bool Interpreter::ApplyTargetMutation(
     if (const auto* variable = dynamic_cast<const frontend::VariableExpr*>(&target)) {
         std::vector<std::string> segments;
         if (SplitQualifiedName(variable->name, &segments) && segments.size() >= 2) {
-            if (FindClass(segments[0]) != nullptr) {
+            std::string class_root_name = segments[0];
+            const auto class_alias = class_aliases_.find(segments[0]);
+            if (class_alias != class_aliases_.end()) {
+                class_root_name = class_alias->second;
+            }
+
+            if (FindClass(class_root_name) != nullptr) {
                 if (segments.size() != 2) {
                     *out_error = "Mutacion de propiedades anidadas sobre campo static no soportada: " + variable->name;
                     return false;
                 }
 
-                const std::string& class_name = segments[0];
+                const std::string& class_name = class_root_name;
                 const std::string& field_name = segments[1];
                 const frontend::ClassDeclStmt* class_decl = FindClass(class_name);
                 if (class_decl == nullptr) {

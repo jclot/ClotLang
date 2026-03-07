@@ -183,6 +183,9 @@ bool Interpreter::Execute(const frontend::Program& program, std::string* out_err
     module_base_dirs_.clear();
     importing_modules_.clear();
     async_tasks_.clear();
+    module_exports_cache_.clear();
+    class_aliases_.clear();
+    pending_exception_.reset();
     next_async_task_id_ = 1;
 
     if (!entry_file_path_.empty()) {
@@ -191,6 +194,23 @@ bool Interpreter::Execute(const frontend::Program& program, std::string* out_err
 
     for (const auto& statement : program.statements) {
         if (!ExecuteStatement(*statement, out_error)) {
+            if (pending_exception_.has_value()) {
+                RuntimeExceptionRecord uncaught = *pending_exception_;
+                pending_exception_.reset();
+
+                if (out_error != nullptr) {
+                    std::string type_name = uncaught.type_name.empty() ? "RuntimeError" : uncaught.type_name;
+                    std::string message = uncaught.message;
+                    if (message.empty() && !out_error->empty()) {
+                        message = *out_error;
+                    }
+                    if (message.empty()) {
+                        message = "Exception lanzada.";
+                    }
+
+                    *out_error = "Excepcion no capturada: " + type_name + ": " + message;
+                }
+            }
             return false;
         }
     }
@@ -327,7 +347,27 @@ bool Interpreter::ExecuteStatement(const frontend::Statement& statement, std::st
     }
 
     if (const auto* import_stmt = dynamic_cast<const frontend::ImportStmt*>(&statement)) {
-        return ImportModule(import_stmt->module_name, out_error);
+        std::string module_id;
+        if (!ImportModule(import_stmt->module_name, &module_id, out_error)) {
+            return false;
+        }
+
+        if (import_stmt->style == frontend::ImportStmt::Style::Module) {
+            return true;
+        }
+
+        if (module_id == "math") {
+            *out_error = "Import directo/alias para 'math' no soportado; use 'import math;'.";
+            return false;
+        }
+
+        const auto exports_it = module_exports_cache_.find(module_id);
+        if (exports_it == module_exports_cache_.end()) {
+            *out_error = "Error interno: cache de exportaciones no encontrada para modulo '" + module_id + "'.";
+            return false;
+        }
+
+        return BindImportedSymbol(*import_stmt, exports_it->second, out_error);
     }
 
     if (const auto* enum_decl = dynamic_cast<const frontend::EnumDeclStmt*>(&statement)) {
@@ -1021,9 +1061,238 @@ bool Interpreter::ExecuteReturn(const frontend::ReturnStmt& statement, std::stri
     return true;
 }
 
+bool Interpreter::IsClassTypeOrDerived(const std::string& type_name, const std::string& base_type_name) const {
+    if (type_name.empty() || base_type_name.empty()) {
+        return false;
+    }
+    if (type_name == base_type_name) {
+        return true;
+    }
+
+    const frontend::ClassDeclStmt* current = FindClass(type_name);
+    std::set<std::string> visited;
+    while (current != nullptr && !current->base_class.empty()) {
+        if (!visited.insert(current->name).second) {
+            break;
+        }
+        if (current->base_class == base_type_name) {
+            return true;
+        }
+        current = FindClass(current->base_class);
+    }
+    return false;
+}
+
+std::string Interpreter::InferRuntimeExceptionTypeName(const std::string& runtime_error) const {
+    std::string lowered = runtime_error;
+    std::transform(lowered.begin(), lowered.end(), lowered.begin(), [](unsigned char ch) {
+        return static_cast<char>(std::tolower(ch));
+    });
+
+    if (lowered.find("assert") != std::string::npos) {
+        return "AssertionError";
+    }
+    if (lowered.find("import") != std::string::npos) {
+        if ((lowered.find("error importando modulo") != std::string::npos ||
+             lowered.find("error importing module") != std::string::npos) &&
+            (lowered.find("no se pudo abrir el archivo") != std::string::npos ||
+             lowered.find("could not open file") != std::string::npos)) {
+            return "ModuleNotFoundError";
+        }
+        return "ImportError";
+    }
+    if (lowered.find("permiso denegado") != std::string::npos ||
+        lowered.find("permission denied") != std::string::npos) {
+        return "PermissionError";
+    }
+    if (lowered.find("archivo ya existe") != std::string::npos ||
+        lowered.find("file already exists") != std::string::npos) {
+        return "FileExistsError";
+    }
+    if (lowered.find("archivo cerrado") != std::string::npos ||
+        lowered.find("file closed") != std::string::npos) {
+        return "FileClosedError";
+    }
+    if (lowered.find("no se pudo abrir el archivo") != std::string::npos ||
+        lowered.find("could not open file") != std::string::npos) {
+        return "FileNotFoundError";
+    }
+    if (lowered.find("error leyendo el archivo") != std::string::npos ||
+        lowered.find("error escribiendo el archivo") != std::string::npos ||
+        lowered.find("error reading file") != std::string::npos ||
+        lowered.find("error writing file") != std::string::npos) {
+        return "IOError";
+    }
+    if (lowered.find("variable no definida") != std::string::npos ||
+        lowered.find("funcion no definida") != std::string::npos ||
+        lowered.find("undefined variable") != std::string::npos ||
+        lowered.find("undefined function") != std::string::npos) {
+        return "NameError";
+    }
+    if (lowered.find("propiedad no encontrada") != std::string::npos ||
+        lowered.find("property not found") != std::string::npos ||
+        lowered.find("acceso de propiedad invalido") != std::string::npos ||
+        lowered.find("invalid property access") != std::string::npos ||
+        lowered.find("no se puede acceder propiedad en un valor no objeto") != std::string::npos ||
+        lowered.find("cannot access property on non-object value") != std::string::npos ||
+        lowered.find("clave no encontrada") != std::string::npos ||
+        lowered.find("key not found") != std::string::npos) {
+        return "AttributeError";
+    }
+    if (lowered.find("indice fuera de rango") != std::string::npos ||
+        lowered.find("index out of bounds") != std::string::npos ||
+        lowered.find("tuple index out of bounds") != std::string::npos) {
+        return "IndexError";
+    }
+    if (lowered.find("fuera de rango") != std::string::npos ||
+        lowered.find("out of range") != std::string::npos ||
+        lowered.find("demasiado grande") != std::string::npos ||
+        lowered.find("too large") != std::string::npos ||
+        lowered.find("negativo") != std::string::npos ||
+        lowered.find("negative") != std::string::npos ||
+        lowered.find(">= 0") != std::string::npos ||
+        lowered.find("0-255") != std::string::npos) {
+        return "RangeError";
+    }
+    if (lowered.find("acepta 0 o 1 argumento") != std::string::npos ||
+        lowered.find("accepts 0 or 1 argument") != std::string::npos) {
+        return "TooManyArgumentsError";
+    }
+    if ((lowered.find("requiere") != std::string::npos &&
+         lowered.find("argumento") != std::string::npos) ||
+        (lowered.find("requires") != std::string::npos &&
+         lowered.find("argument") != std::string::npos)) {
+        return "MissingArgumentError";
+    }
+    if (lowered.find("argumento") != std::string::npos ||
+        lowered.find("arguments") != std::string::npos ||
+        lowered.find("argument") != std::string::npos) {
+        return "ArgumentError";
+    }
+    if (lowered.find("type hint") != std::string::npos ||
+        lowered.find("requiere un") != std::string::npos ||
+        lowered.find("requires a") != std::string::npos ||
+        lowered.find("incompatible") != std::string::npos) {
+        return "TypeError";
+    }
+    if (lowered.find("valor invalido para") != std::string::npos ||
+        lowered.find("invalid value for") != std::string::npos ||
+        lowered.find("debe ser") != std::string::npos ||
+        lowered.find("must be") != std::string::npos) {
+        return "ValueError";
+    }
+    return "RuntimeError";
+}
+
+Interpreter::RuntimeExceptionRecord Interpreter::BuildRuntimeExceptionFromError(const std::string& runtime_error) const {
+    RuntimeExceptionRecord exception;
+    exception.type_name = InferRuntimeExceptionTypeName(runtime_error);
+    exception.payload = runtime::Value(runtime::TranslateDiagnostic(runtime_error));
+    exception.message = runtime_error;
+    return exception;
+}
+
+bool Interpreter::ExceptionMatchesCatchType(const RuntimeExceptionRecord& exception, const std::string& catch_type) const {
+    if (catch_type.empty()) {
+        return true;
+    }
+    if (exception.type_name == catch_type) {
+        return true;
+    }
+    if (catch_type == "Exception") {
+        return true;
+    }
+    if (IsClassTypeOrDerived(exception.type_name, catch_type)) {
+        return true;
+    }
+
+    const auto builtin_base_type = [](const std::string& type_name) -> std::string {
+        if (type_name == "MissingArgumentError" ||
+            type_name == "TooManyArgumentsError") {
+            return "ArgumentError";
+        }
+        if (type_name == "ArgumentError") {
+            return "TypeError";
+        }
+        if (type_name == "TypeError") {
+            return "RuntimeError";
+        }
+        if (type_name == "IndexError") {
+            return "RangeError";
+        }
+        if (type_name == "RangeError") {
+            return "ValueError";
+        }
+        if (type_name == "ValueError") {
+            return "RuntimeError";
+        }
+        if (type_name == "NameError" ||
+            type_name == "AttributeError" ||
+            type_name == "AssertionError" ||
+            type_name == "ImportError") {
+            return "RuntimeError";
+        }
+        if (type_name == "FileNotFoundError" ||
+            type_name == "PermissionError" ||
+            type_name == "FileExistsError" ||
+            type_name == "FileClosedError") {
+            return "IOError";
+        }
+        if (type_name == "IOError") {
+            return "RuntimeError";
+        }
+        if (type_name == "ModuleNotFoundError") {
+            return "ImportError";
+        }
+        if (type_name == "RuntimeError") {
+            return "Exception";
+        }
+        return "";
+    };
+
+    std::string current_type = exception.type_name;
+    std::set<std::string> visited_builtin_types;
+    while (!current_type.empty() && visited_builtin_types.insert(current_type).second) {
+        if (current_type == catch_type) {
+            return true;
+        }
+        current_type = builtin_base_type(current_type);
+    }
+
+    return false;
+}
+
+bool Interpreter::RaiseExceptionValue(const runtime::Value& value, std::string* out_error) {
+    RuntimeExceptionRecord exception;
+    exception.type_name = "RuntimeError";
+    exception.payload = value;
+
+    std::string class_name;
+    if (IsClassInstance(value, &class_name)) {
+        exception.type_name = class_name;
+        if (const runtime::Value* message_value = value.GetObjectProperty("message")) {
+            exception.message = message_value->ToString();
+        }
+    }
+
+    if (exception.message.empty()) {
+        exception.message = value.ToString();
+    }
+    if (exception.message.empty()) {
+        exception.message = "Exception lanzada.";
+    }
+
+    pending_exception_ = exception;
+    if (out_error != nullptr) {
+        *out_error = exception.message;
+    }
+    return false;
+}
+
 bool Interpreter::ExecuteTryCatch(const frontend::TryCatchStmt& statement, std::string* out_error) {
     std::string try_error;
     if (ExecuteBlock(statement.try_branch, &try_error)) {
+        pending_exception_.reset();
         return true;
     }
 
@@ -1035,6 +1304,22 @@ bool Interpreter::ExecuteTryCatch(const frontend::TryCatchStmt& statement, std::
         return false;
     }
 
+    RuntimeExceptionRecord exception = pending_exception_.has_value()
+                                           ? *pending_exception_
+                                           : BuildRuntimeExceptionFromError(try_error);
+    pending_exception_.reset();
+    if (exception.message.empty()) {
+        exception.message = try_error;
+    }
+
+    if (!statement.catch_type.empty() && !ExceptionMatchesCatchType(exception, statement.catch_type)) {
+        pending_exception_ = exception;
+        if (out_error != nullptr) {
+            *out_error = exception.message;
+        }
+        return false;
+    }
+
     std::optional<runtime::VariableSlot> previous_slot;
     if (!statement.error_binding.empty()) {
         const auto existing = environment_.find(statement.error_binding);
@@ -1042,9 +1327,8 @@ bool Interpreter::ExecuteTryCatch(const frontend::TryCatchStmt& statement, std::
             previous_slot = existing->second;
         }
 
-        const std::string localized_try_error = runtime::TranslateDiagnostic(try_error);
         environment_[statement.error_binding] = runtime::VariableSlot{
-            runtime::Value(localized_try_error),
+            exception.payload,
             runtime::VariableKind::Dynamic,
         };
     }
@@ -1067,6 +1351,7 @@ bool Interpreter::ExecuteTryCatch(const frontend::TryCatchStmt& statement, std::
         return false;
     }
 
+    pending_exception_.reset();
     return true;
 }
 
@@ -1626,7 +1911,13 @@ bool Interpreter::ExecuteCall(const frontend::CallExpr& call, bool require_retur
             return true;
         }
 
-        if (const frontend::ClassDeclStmt* static_class = FindClass(target_name)) {
+        std::string resolved_static_target = target_name;
+        const auto class_alias_target = class_aliases_.find(target_name);
+        if (class_alias_target != class_aliases_.end()) {
+            resolved_static_target = class_alias_target->second;
+        }
+
+        if (const frontend::ClassDeclStmt* static_class = FindClass(resolved_static_target)) {
             const frontend::ClassMethodDecl* method = nullptr;
             std::string owner_class;
             if (!ResolveClassMethod(*static_class, member_name, &method, &owner_class)) {
@@ -1663,7 +1954,44 @@ bool Interpreter::ExecuteCall(const frontend::CallExpr& call, bool require_retur
 
         std::string class_name;
         if (!IsClassInstance(*target_object, &class_name)) {
-            *out_error = "Llamada de metodo requiere instancia de clase: " + call.callee;
+            const auto dotted_class_alias = class_aliases_.find(target_name + "." + member_name);
+            if (dotted_class_alias != class_aliases_.end()) {
+                const frontend::ClassDeclStmt* class_decl = FindClass(dotted_class_alias->second);
+                if (class_decl == nullptr) {
+                    *out_error = "Clase no definida: " + dotted_class_alias->second;
+                    return false;
+                }
+                return InstantiateClass(*class_decl, call, out_value, out_error);
+            }
+
+            if (!target_object->IsObject()) {
+                *out_error = "Llamada de metodo requiere instancia de clase: " + call.callee;
+                return false;
+            }
+
+            const runtime::Value* module_member = target_object->GetObjectProperty(member_name);
+            if (module_member == nullptr) {
+                *out_error = "Propiedad no encontrada: " + member_name;
+                return false;
+            }
+
+            if (const auto* function_ref = module_member->AsFunctionRefValue()) {
+                const auto function_it = functions_.find(function_ref->name);
+                if (function_it == functions_.end()) {
+                    *out_error = "Funcion no definida: " + function_ref->name;
+                    return false;
+                }
+                return ExecuteUserFunction(*function_it->second, call, require_return_value, out_value, out_error);
+            }
+
+            if (module_member->IsString()) {
+                const std::string class_from_member = module_member->ToString();
+                if (const frontend::ClassDeclStmt* member_class = FindClass(class_from_member)) {
+                    return InstantiateClass(*member_class, call, out_value, out_error);
+                }
+            }
+
+            *out_error = "Miembro no invocable: " + call.callee;
             return false;
         }
 
@@ -1714,7 +2042,13 @@ bool Interpreter::ExecuteCall(const frontend::CallExpr& call, bool require_retur
         return true;
     }
 
-    if (const frontend::ClassDeclStmt* class_decl = FindClass(call.callee)) {
+    std::string resolved_constructor_name = call.callee;
+    const auto class_alias = class_aliases_.find(call.callee);
+    if (class_alias != class_aliases_.end()) {
+        resolved_constructor_name = class_alias->second;
+    }
+
+    if (const frontend::ClassDeclStmt* class_decl = FindClass(resolved_constructor_name)) {
         return InstantiateClass(*class_decl, call, out_value, out_error);
     }
 
