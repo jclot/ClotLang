@@ -1,0 +1,38 @@
+// module: clot.science.physics.electromagnetism.induction
+
+import math;
+
+func faraday_emf(turns, delta_flux, delta_time):
+    if (delta_time == 0):
+        return null;
+    endif
+    return -turns * delta_flux / delta_time;
+endfunc
+
+func induced_current(emf, resistance):
+    if (resistance == 0):
+        return null;
+    endif
+    return emf / resistance;
+endfunc
+
+func self_induced_emf(inductance, delta_current, delta_time):
+    if (inductance < 0 || delta_time == 0):
+        return null;
+    endif
+    return -inductance * delta_current / delta_time;
+endfunc
+
+func inductor_energy(inductance, current):
+    if (inductance < 0):
+        return null;
+    endif
+    return 0.5 * inductance * pow(current, 2);
+endfunc
+
+func mutual_induced_emf(mutual_inductance, delta_current, delta_time):
+    if (mutual_inductance < 0 || delta_time == 0):
+        return null;
+    endif
+    return -mutual_inductance * delta_current / delta_time;
+endfunc

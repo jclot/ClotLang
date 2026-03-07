@@ -1,0 +1,63 @@
+// module: clot.science.physics.electromagnetism.electrostatics
+
+import math;
+import clot.science.physics.electromagnetism.constants;
+
+func coulomb_force(q1, q2, r):
+    if (r <= 0):
+        return null;
+    endif
+    return _KE * q1 * q2 / pow(r, 2);
+endfunc
+
+func electric_field_point(q, r):
+    if (r <= 0):
+        return null;
+    endif
+    return _KE * q / pow(r, 2);
+endfunc
+
+func electric_field_magnitude(q, r):
+    field = electric_field_point(q, r);
+    if (field == null):
+        return null;
+    endif
+    return abs(field);
+endfunc
+
+func electric_potential_point(q, r):
+    if (r <= 0):
+        return null;
+    endif
+    return _KE * q / r;
+endfunc
+
+func electric_potential_energy(q1, q2, r):
+    if (r <= 0):
+        return null;
+    endif
+    return _KE * q1 * q2 / r;
+endfunc
+
+func electric_flux(q_enclosed):
+    return q_enclosed / _EPS0;
+endfunc
+
+func electric_force_from_field(q, e):
+    return q * e;
+endfunc
+
+func field_between_parallel_plates(voltage, distance):
+    if (distance <= 0):
+        return null;
+    endif
+    return voltage / distance;
+endfunc
+
+func dipole_moment(charge, separation):
+    return charge * separation;
+endfunc
+
+func dipole_torque(p, e, theta_rad):
+    return p * e * sin(theta_rad);
+endfunc

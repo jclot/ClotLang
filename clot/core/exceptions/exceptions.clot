@@ -1,0 +1,119 @@
+class Exception:
+    public string message = "Exception";
+
+    constructor(message: string = "Exception"):
+        this.message = message;
+    endconstructor
+
+    public func string to_string():
+        return this.message;
+    endfunc
+endclass
+
+class RuntimeError extends Exception:
+    constructor(message: string = "Runtime error"):
+        super(message);
+    endconstructor
+endclass
+
+class TypeError extends RuntimeError:
+    constructor(message: string = "Type error"):
+        super(message);
+    endconstructor
+endclass
+
+class ArgumentError extends TypeError:
+    constructor(message: string = "Argument error"):
+        super(message);
+    endconstructor
+endclass
+
+class MissingArgumentError extends ArgumentError:
+    constructor(message: string = "Missing argument"):
+        super(message);
+    endconstructor
+endclass
+
+class TooManyArgumentsError extends ArgumentError:
+    constructor(message: string = "Too many arguments"):
+        super(message);
+    endconstructor
+endclass
+
+class ValueError extends RuntimeError:
+    constructor(message: string = "Value error"):
+        super(message);
+    endconstructor
+endclass
+
+class RangeError extends ValueError:
+    constructor(message: string = "Range error"):
+        super(message);
+    endconstructor
+endclass
+
+class IndexError extends RangeError:
+    constructor(message: string = "Index error"):
+        super(message);
+    endconstructor
+endclass
+
+class NameError extends RuntimeError:
+    constructor(message: string = "Name error"):
+        super(message);
+    endconstructor
+endclass
+
+class AttributeError extends RuntimeError:
+    constructor(message: string = "Attribute error"):
+        super(message);
+    endconstructor
+endclass
+
+class IOError extends RuntimeError:
+    constructor(message: string = "I/O error"):
+        super(message);
+    endconstructor
+endclass
+
+class FileNotFoundError extends IOError:
+    constructor(message: string = "File not found"):
+        super(message);
+    endconstructor
+endclass
+
+class PermissionError extends IOError:
+    constructor(message: string = "Permission denied"):
+        super(message);
+    endconstructor
+endclass
+
+class FileExistsError extends IOError:
+    constructor(message: string = "File already exists"):
+        super(message);
+    endconstructor
+endclass
+
+class FileClosedError extends IOError:
+    constructor(message: string = "File closed"):
+        super(message);
+    endconstructor
+endclass
+
+class AssertionError extends RuntimeError:
+    constructor(message: string = "Assertion failed"):
+        super(message);
+    endconstructor
+endclass
+
+class ImportError extends RuntimeError:
+    constructor(message: string = "Import error"):
+        super(message);
+    endconstructor
+endclass
+
+class ModuleNotFoundError extends ImportError:
+    constructor(message: string = "Module not found"):
+        super(message);
+    endconstructor
+endclass

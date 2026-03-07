@@ -1,0 +1,67 @@
+// module: clot.science.physics.electromagnetism.dc_circuits
+
+import math;
+
+func ohms_current(v, r):
+    if (r == 0):
+        return null;
+    endif
+    return v / r;
+endfunc
+
+func ohms_voltage(i, r):
+    return i * r;
+endfunc
+
+func ohms_resistance(v, i):
+    if (i == 0):
+        return null;
+    endif
+    return v / i;
+endfunc
+
+func resistor_series(r1, r2):
+    if (r1 < 0 || r2 < 0):
+        return null;
+    endif
+    return r1 + r2;
+endfunc
+
+func resistor_parallel(r1, r2):
+    if (r1 <= 0 || r2 <= 0):
+        return null;
+    endif
+    return (r1 * r2) / (r1 + r2);
+endfunc
+
+func electric_power_vi(v, i):
+    return v * i;
+endfunc
+
+func electric_power_i2r(i, r):
+    if (r < 0):
+        return null;
+    endif
+    return pow(i, 2) * r;
+endfunc
+
+func electric_power_v2r(v, r):
+    if (r <= 0):
+        return null;
+    endif
+    return pow(v, 2) / r;
+endfunc
+
+func voltage_divider(v_in, r1, r2):
+    if (r1 < 0 || r2 < 0 || (r1 + r2) == 0):
+        return null;
+    endif
+    return v_in * r2 / (r1 + r2);
+endfunc
+
+func joule_energy(power, time_s):
+    if (time_s < 0):
+        return null;
+    endif
+    return power * time_s;
+endfunc

@@ -1,0 +1,59 @@
+// module: clot.science.physics.electromagnetism.ac_circuits
+
+import math;
+
+func capacitive_reactance(frequency, capacitance):
+    if (frequency <= 0 || capacitance <= 0):
+        return null;
+    endif
+    return 1 / (2 * PI * frequency * capacitance);
+endfunc
+
+func inductive_reactance(frequency, inductance):
+    if (frequency < 0 || inductance < 0):
+        return null;
+    endif
+    return 2 * PI * frequency * inductance;
+endfunc
+
+func impedance_rlc_series(resistance, inductance, capacitance, frequency):
+    if (resistance < 0 || inductance < 0 || capacitance <= 0 || frequency <= 0):
+        return null;
+    endif
+    xl = inductive_reactance(frequency, inductance);
+    xc = capacitive_reactance(frequency, capacitance);
+    if (xl == null || xc == null):
+        return null;
+    endif
+    return sqrt(pow(resistance, 2) + pow((xl - xc), 2));
+endfunc
+
+func resonance_frequency(inductance, capacitance):
+    if (inductance <= 0 || capacitance <= 0):
+        return null;
+    endif
+    return 1 / (2 * PI * sqrt(inductance * capacitance));
+endfunc
+
+func rms_voltage(v_peak):
+    return v_peak / sqrt(2);
+endfunc
+
+func rms_current(i_peak):
+    return i_peak / sqrt(2);
+endfunc
+
+func apparent_power(v_rms, i_rms):
+    return v_rms * i_rms;
+endfunc
+
+func power_factor(resistance, impedance):
+    if (impedance <= 0):
+        return null;
+    endif
+    return resistance / impedance;
+endfunc
+
+func real_power_ac(v_rms, i_rms, power_factor_value):
+    return v_rms * i_rms * power_factor_value;
+endfunc

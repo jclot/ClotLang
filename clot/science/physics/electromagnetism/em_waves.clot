@@ -1,0 +1,75 @@
+// module: clot.science.physics.electromagnetism.em_waves
+
+import math;
+import clot.science.physics.electromagnetism.constants;
+
+func wave_speed(wavelength, frequency):
+    if (wavelength < 0 || frequency < 0):
+        return null;
+    endif
+    return wavelength * frequency;
+endfunc
+
+func wavelength_from_frequency(frequency):
+    if (frequency <= 0):
+        return null;
+    endif
+    return _C / frequency;
+endfunc
+
+func frequency_from_wavelength(wavelength):
+    if (wavelength <= 0):
+        return null;
+    endif
+    return _C / wavelength;
+endfunc
+
+func photon_energy_from_frequency(frequency):
+    if (frequency < 0):
+        return null;
+    endif
+    return _H * frequency;
+endfunc
+
+func photon_energy_from_wavelength(wavelength):
+    if (wavelength <= 0):
+        return null;
+    endif
+    return _H * _C / wavelength;
+endfunc
+
+func refractive_index_from_speed(speed_in_medium):
+    if (speed_in_medium <= 0):
+        return null;
+    endif
+    return _C / speed_in_medium;
+endfunc
+
+func snell_theta2(n1, n2, theta1_rad):
+    if (n1 <= 0 || n2 <= 0):
+        return null;
+    endif
+    sin_theta2 = n1 * sin(theta1_rad) / n2;
+    if (abs(sin_theta2) > 1):
+        return null;
+    endif
+    return asin(sin_theta2);
+endfunc
+
+func critical_angle(n1, n2):
+    if (n1 <= 0 || n2 <= 0 || n1 <= n2):
+        return null;
+    endif
+    return asin(n2 / n1);
+endfunc
+
+func intensity_spherical(power, radius):
+    if (radius <= 0):
+        return null;
+    endif
+    return power / (4 * PI * pow(radius, 2));
+endfunc
+
+func poynting_magnitude(e_field, b_field):
+    return (e_field * b_field) / _MU0;
+endfunc

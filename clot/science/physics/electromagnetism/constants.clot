@@ -1,0 +1,39 @@
+// module: clot.science.physics.electromagnetism.constants
+// Fundamental electromagnetic constants.
+
+import math;
+
+_EPS0 = 8.8541878128 * pow(10, -12);   # Vacuum permittivity (F/m)
+_MU0  = 1.25663706212 * pow(10, -6);   # Vacuum permeability (H/m)
+_KE   = 8.9875517923 * pow(10, 9);     # Coulomb constant (N·m^2/C^2)
+_C    = 299792458.0;                   # Speed of light in vacuum (m/s)
+_H    = 6.62607015 * pow(10, -34);     # Planck constant (J·s)
+_QE   = 1.602176634 * pow(10, -19);    # Elementary charge magnitude (C)
+
+func eps0():
+    return _EPS0;
+endfunc
+
+func mu0():
+    return _MU0;
+endfunc
+
+func coulomb_constant():
+    return _KE;
+endfunc
+
+func speed_of_light():
+    return _C;
+endfunc
+
+func planck_constant():
+    return _H;
+endfunc
+
+func elementary_charge():
+    return _QE;
+endfunc
+
+func vacuum_impedance():
+    return sqrt(_MU0 / _EPS0);
+endfunc

@@ -1,0 +1,68 @@
+// module: clot.science.physics.electromagnetism.magnetostatics
+
+import math;
+import clot.science.physics.electromagnetism.constants;
+
+func magnetic_field_long_wire(i, r):
+    if (r <= 0):
+        return null;
+    endif
+    return _MU0 * i / (2 * PI * r);
+endfunc
+
+func magnetic_field_solenoid(mu_r, turns_per_meter, current):
+    if (mu_r <= 0 || turns_per_meter < 0):
+        return null;
+    endif
+    return _MU0 * mu_r * turns_per_meter * current;
+endfunc
+
+func magnetic_field_toroid(mu_r, turns, current, radius):
+    if (mu_r <= 0 || turns < 0 || radius <= 0):
+        return null;
+    endif
+    return _MU0 * mu_r * turns * current / (2 * PI * radius);
+endfunc
+
+func magnetic_force_on_charge(q, v, b, theta_rad):
+    return q * v * b * sin(theta_rad);
+endfunc
+
+func magnetic_force_on_wire(current, length, b, theta_rad):
+    return current * length * b * sin(theta_rad);
+endfunc
+
+func magnetic_flux(b, area, theta_rad):
+    if (area < 0):
+        return null;
+    endif
+    return b * area * cos(theta_rad);
+endfunc
+
+func biot_savart_differential(current, dl, r, theta_rad):
+    if (r <= 0):
+        return null;
+    endif
+    return (_MU0 / (4 * PI)) * current * dl * sin(theta_rad) / pow(r, 2);
+endfunc
+
+func force_between_parallel_wires(i1, i2, length, distance):
+    if (distance <= 0 || length < 0):
+        return null;
+    endif
+    return _MU0 * i1 * i2 * length / (2 * PI * distance);
+endfunc
+
+func cyclotron_radius(mass, speed, q, b):
+    if (mass <= 0 || b == 0 || q == 0):
+        return null;
+    endif
+    return mass * speed / (abs(q) * abs(b));
+endfunc
+
+func cyclotron_frequency(q, b, mass):
+    if (mass <= 0):
+        return null;
+    endif
+    return abs(q) * abs(b) / (2 * PI * mass);
+endfunc

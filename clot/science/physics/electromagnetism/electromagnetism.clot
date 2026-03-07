@@ -1,0 +1,11 @@
+// module: clot.science.physics.electromagnetism
+// Public facade for electromagnetism APIs.
+
+import clot.science.physics.electromagnetism.constants;
+import clot.science.physics.electromagnetism.electrostatics;
+import clot.science.physics.electromagnetism.capacitors;
+import clot.science.physics.electromagnetism.dc_circuits;
+import clot.science.physics.electromagnetism.magnetostatics;
+import clot.science.physics.electromagnetism.induction;
+import clot.science.physics.electromagnetism.ac_circuits;
+import clot.science.physics.electromagnetism.em_waves;

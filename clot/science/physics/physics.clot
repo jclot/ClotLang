@@ -1,42 +1,6 @@
-// module: physics
-// vectors, kinematics, dynamics, electromagnetism.
+// module: clot.science.physics
+// Public facade for physics science APIs.
+//
+// Current scope: electromagnetism.
 
-import math;
-
-# =============================================================================
-#  ELECTROMAGNETISM 
-#
-#  Covers:
-#   1.  Electrostatics          (Coulomb, field, potential, flux)
-#   2.  Capacitors              (geometry, series/parallel, energy)
-#   3.  DC Circuits             (Ohm's law, resistors, power)
-#   4.  Magnetostatics          (Biot-Savart helpers, force, flux)
-#   5.  Electromagnetic Induction
-#   6.  AC Circuits             (reactance, impedance, resonance)
-#   7.  EM Waves                (speed, wavelength, energy, Snell's law)
-# =============================================================================
-
-# Constantes físicas fundamentales
-_EPS0 = 8.8541878128 * pow(10, -12);     # Permisividad del vacío (F/m)
-_MU0  = 1.25663706212 * pow(10, -6);     # Permeabilidad del vacío (H/m)
-_KE   = 8.9875517923 * pow(10, 9);       # Constante de Coulomb (N·m²/C²)
-_C    = 299792458.0;                     # Velocidad de la luz (m/s)
-_H    = 6.62607015 * pow(10, -34);       # Constante de Planck (J·s)
-_E = 1.602176634 * pow(10, -19);         # Carga elemental (C)
-
-# =============================================================================
-#  1. ELECTROSTATICS
-# =============================================================================
-func coulomb_force(q1, q2, r):
-    if (r <= 0):
-        return null;
-    endif
-    return _KE * q1 * q2 / (pow(r, 2));
-endfunc
-
-func electric_field_point(q, r):
-    if (r <= 0):
-        return null;
-    endif
-    return _KE * abs(q) / (pow(r, 2));
-endfunc
+import clot.science.physics.electromagnetism;

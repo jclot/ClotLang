@@ -1,0 +1,53 @@
+// module: clot.science.physics.electromagnetism.capacitors
+
+import math;
+import clot.science.physics.electromagnetism.constants;
+
+func capacitance_parallel_plate(area, distance, epsilon_r):
+    if (area <= 0 || distance <= 0 || epsilon_r <= 0):
+        return null;
+    endif
+    return _EPS0 * epsilon_r * area / distance;
+endfunc
+
+func capacitor_charge(c, v):
+    if (c < 0):
+        return null;
+    endif
+    return c * v;
+endfunc
+
+func capacitor_voltage(q, c):
+    if (c <= 0):
+        return null;
+    endif
+    return q / c;
+endfunc
+
+func capacitor_energy_cv(c, v):
+    if (c < 0):
+        return null;
+    endif
+    return 0.5 * c * pow(v, 2);
+endfunc
+
+func capacitor_energy_qc(q, c):
+    if (c <= 0):
+        return null;
+    endif
+    return pow(q, 2) / (2 * c);
+endfunc
+
+func capacitor_series(c1, c2):
+    if (c1 <= 0 || c2 <= 0):
+        return null;
+    endif
+    return (c1 * c2) / (c1 + c2);
+endfunc
+
+func capacitor_parallel(c1, c2):
+    if (c1 < 0 || c2 < 0):
+        return null;
+    endif
+    return c1 + c2;
+endfunc
