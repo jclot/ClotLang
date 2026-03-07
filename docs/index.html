@@ -219,23 +219,22 @@
             <span class="portal-badge mt-4"><i class="fas fa-book"></i> Official Documentation</span>
             <h1 class="portal-title mt-3">Clot Programming Language</h1>
             <p class="portal-subtitle">
-                Portal de documentacion profesional con estructura estilo referencia tecnica: tutorial, language
-                reference, library reference, indices globales, glosario, contribucion y estado de evolucion del
-                proyecto.
+                Documentacion oficial para aprender Clot desde cero: ruta guiada para principiantes, referencia tecnica,
+                ejemplos ejecutables y detalle de OOP MVP, tipado opcional, runtime y compile/bridge con LLVM.
             </p>
 
             <div class="main-search-box portal-search pt-3 d-block mx-auto" style="max-width: 840px;">
                 <form class="search-form w-100" id="index-search-form" action="docs-page.html" method="get">
                     <input
                         type="text"
-                        placeholder="Search docs (ej: printf, factorial, enum_name, runtime bridge external, while, cast)"
+                        placeholder="Search docs (ej: class, extends, interface, getter, override, printf, factorial)"
                         name="q"
                         class="form-control search-input"
                         id="index-search-input">
                     <button type="submit" class="btn search-btn" value="Search"><i class="fas fa-search"></i></button>
                 </form>
             </div>
-            <div class="mt-3 text-muted" style="font-size:0.88rem;">Last update: 2026-03-03</div>
+            <div class="mt-3 text-muted" style="font-size:0.88rem;">Last update: 2026-03-05</div>
         </div>
     </section>
 
@@ -278,10 +277,23 @@
                         <div class="card shadow-sm">
                             <div class="card-body">
                                 <h5 class="card-title mb-3">
+                                    <span class="theme-icon-holder card-icon-holder me-2"><i class="fas fa-cubes"></i></span>
+                                    <span class="card-title-text">OOP MVP Guide</span>
+                                </h5>
+                                <div class="card-text">Guia completa de clases, interfaces, herencia, constructor, get/set, modificadores y validaciones runtime.</div>
+                                <a class="card-link-mask" href="docs-page.html#item-lang-oop"></a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-12 col-lg-4 py-3">
+                        <div class="card shadow-sm">
+                            <div class="card-body">
+                                <h5 class="card-title mb-3">
                                     <span class="theme-icon-holder card-icon-holder me-2"><i class="fas fa-scroll"></i></span>
                                     <span class="card-title-text">Language Reference</span>
                                 </h5>
-                                <div class="card-text">Sintaxis formal, tipos, operadores, funciones con type hints y defaults opcionales, while, try/catch, enum, validaciones.</div>
+                                <div class="card-text">Sintaxis formal del lenguaje: tipos, operadores, funciones, OOP MVP, colecciones, enum y tabla de validaciones.</div>
                                 <a class="card-link-mask" href="docs-page.html#section-language-reference"></a>
                             </div>
                         </div>
@@ -458,27 +470,121 @@
                 </div>
             </section>
 
+            <section class="pb-4">
+                <div class="mb-4 text-center">
+                    <h2 class="portal-section-heading">Start Here (If You Know Nothing About Clot)</h2>
+                    <p class="portal-section-sub">Ruta recomendada de lectura para aprender en orden y sin perderte.</p>
+                </div>
+                <div class="row g-4">
+                    <div class="col-12 col-lg-6">
+                        <div class="portal-mini-list">
+                            <h5><i class="fas fa-map-signs me-2"></i>Learning Path</h5>
+                            <ol style="margin:0; padding-left: 1rem; color:#4d5f74; font-size:0.9rem;">
+                                <li><a href="docs-page.html#item-tutorial-quickstart">Quickstart</a>: compilar y correr tu primer programa.</li>
+                                <li><a href="docs-page.html#item-tutorial-controlflow">Control Flow</a> + <a href="docs-page.html#item-tutorial-funcs">Functions</a>: base del lenguaje.</li>
+                                <li><a href="docs-page.html#item-tutorial-oop">OOP from Zero</a>: primer contacto guiado con clases e interfaces.</li>
+                                <li><a href="docs-page.html#item-lang-oop">OOP MVP (Guia Completa)</a>: tabla completa de todo lo implementado.</li>
+                                <li><a href="docs-page.html#item-lang-validations">Validations and Limits</a>: reglas y errores comunes.</li>
+                            </ol>
+                        </div>
+                    </div>
+                    <div class="col-12 col-lg-6">
+                        <div class="portal-mini-list">
+                            <h5><i class="fas fa-cubes me-2"></i>OOP MVP At a Glance</h5>
+                            <ul>
+                                <li>Contrato con <code>interface ... endinterface</code></li>
+                                <li>Clase con <code>class ... endclass</code></li>
+                                <li>Herencia simple con <code>extends</code></li>
+                                <li>Multiples interfaces con <code>implements</code></li>
+                                <li>Inicializacion con <code>constructor ... endconstructor</code></li>
+                                <li>Propiedades con <code>get</code> y <code>set</code></li>
+                                <li>Encapsulacion con <code>public/private</code></li>
+                                <li>Miembros de clase con <code>static</code></li>
+                                <li>Campos de solo lectura con <code>readonly</code></li>
+                                <li>Sobrescritura segura con <code>override</code> + <code>super</code></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="pb-4">
+                <div class="mb-4 text-center">
+                    <h2 class="portal-section-heading">OOP MVP Quick Table</h2>
+                    <p class="portal-section-sub">Resumen de para que sirve cada construccion principal de OOP en Clot.</p>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Construccion</th>
+                                <th>Para que sirve</th>
+                                <th>Donde aprenderlo</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>interface ... endinterface</code></td>
+                                <td>Definir el contrato de metodos que una clase debe cumplir.</td>
+                                <td><a href="docs-page.html#item-tutorial-oop">OOP from Zero</a></td>
+                            </tr>
+                            <tr>
+                                <td><code>class ... endclass</code></td>
+                                <td>Crear un tipo de objeto con estado y metodos.</td>
+                                <td><a href="docs-page.html#item-lang-oop">OOP MVP Guide</a></td>
+                            </tr>
+                            <tr>
+                                <td><code>extends</code> + <code>super(...)</code></td>
+                                <td>Reutilizar comportamiento de una clase base e inicializar herencia.</td>
+                                <td><a href="docs-page.html#item-faq-oop">FAQ OOP super</a></td>
+                            </tr>
+                            <tr>
+                                <td><code>implements</code></td>
+                                <td>Hacer que una clase cumpla uno o varios contratos de interface.</td>
+                                <td><a href="docs-page.html#item-lang-oop">OOP MVP Guide</a></td>
+                            </tr>
+                            <tr>
+                                <td><code>get</code>/<code>set</code></td>
+                                <td>Controlar lectura y escritura de propiedades.</td>
+                                <td><a href="docs-page.html#item-lang-oop">OOP MVP Guide</a></td>
+                            </tr>
+                            <tr>
+                                <td><code>public/private/static/readonly/override</code></td>
+                                <td>Definir visibilidad, pertenencia de clase, inmutabilidad y sobrescritura segura.</td>
+                                <td><a href="docs-page.html#item-lang-oop">OOP MVP Guide</a></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="text-muted" style="font-size:0.88rem;">
+                    Ejemplo completo con todo lo disponible en esta fase:
+                    <a href="docs-page.html#item-lang-oop">Ejemplo OOP completo (todo lo disponible en esta fase)</a>.
+                </div>
+            </section>
+
             <section class="pb-5">
                 <div class="row g-4">
                     <div class="col-12 col-lg-4">
                         <div class="portal-mini-list">
                             <h5><i class="fas fa-terminal me-2"></i>CLI Quick Commands</h5>
                             <ul>
-                                <li><code>clot programa.clot</code></li>
-                                <li><code>clot programa.clot --mode analyze</code></li>
-                                <li><code>clot programa.clot --mode compile --emit exe -o programa</code></li>
-                                <li><code>clot programa.clot --lang en</code></li>
+                                <li><code>./build/wsl-release/clot programa.clot</code></li>
+                                <li><code>./build/wsl-release/clot programa.clot --mode analyze</code></li>
+                                <li><code>./build/wsl-release/clot programa.clot --mode compile --emit exe -o programa</code></li>
+                                <li><code>scripts/diff_interpret_compile.sh ./build/wsl-release/clot programa.clot</code></li>
+                                <li><code>benchmarks/baseline.sh ./build/wsl-release/clot</code></li>
                             </ul>
                         </div>
                     </div>
                     <div class="col-12 col-lg-4">
                         <div class="portal-mini-list">
-                            <h5><i class="fas fa-shield-alt me-2"></i>Quality Checklist</h5>
+                            <h5><i class="fas fa-graduation-cap me-2"></i>First-Day Checklist</h5>
                             <ul>
-                                <li>Document every public syntax and builtin signature</li>
-                                <li>Include parameter constraints and runtime validations</li>
-                                <li>Add positive and negative examples per feature</li>
-                                <li>Keep docs synchronized with runtime behavior</li>
+                                <li>Compila el binario con CMake.</li>
+                                <li>Ejecuta Quickstart y confirma salida esperada.</li>
+                                <li>Prueba un ejemplo de funciones con type hints.</li>
+                                <li>Prueba el tutorial OOP y luego la guia OOP completa.</li>
+                                <li>Revisa validaciones para entender errores comunes.</li>
                             </ul>
                         </div>
                     </div>

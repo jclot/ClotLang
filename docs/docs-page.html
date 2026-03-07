@@ -355,6 +355,7 @@
                     <li class="nav-item"><a class="nav-link scrollto" href="#item-tutorial-quickstart">Quickstart</a></li>
                     <li class="nav-item"><a class="nav-link scrollto" href="#item-tutorial-controlflow">Control Flow</a></li>
                     <li class="nav-item"><a class="nav-link scrollto" href="#item-tutorial-funcs">Functions and References</a></li>
+                    <li class="nav-item"><a class="nav-link scrollto" href="#item-tutorial-oop">OOP from Zero</a></li>
                     <li class="nav-item"><a class="nav-link scrollto" href="#item-tutorial-errors">Error Handling</a></li>
                     <li class="nav-item"><a class="nav-link scrollto" href="#item-tutorial-cli">Analyze and Compile</a></li>
 
@@ -368,6 +369,7 @@
                     <li class="nav-item"><a class="nav-link scrollto" href="#item-lang-operators">Operators</a></li>
                     <li class="nav-item"><a class="nav-link scrollto" href="#item-lang-statements">Statements</a></li>
                     <li class="nav-item"><a class="nav-link scrollto" href="#item-lang-functions">Functions</a></li>
+                    <li class="nav-item"><a class="nav-link scrollto" href="#item-lang-oop">OOP MVP</a></li>
                     <li class="nav-item"><a class="nav-link scrollto" href="#item-lang-collections">Collections</a></li>
                     <li class="nav-item"><a class="nav-link scrollto" href="#item-lang-enum">Enum</a></li>
                     <li class="nav-item"><a class="nav-link scrollto" href="#item-lang-validations">Validations and Limits</a></li>
@@ -423,6 +425,11 @@
                             <span class="theme-icon-holder me-2"><i class="fas fa-question-circle"></i></span>FAQs
                         </a>
                     </li>
+                    <li class="nav-item"><a class="nav-link scrollto" href="#item-faq-overflow">int vs long overflow</a></li>
+                    <li class="nav-item"><a class="nav-link scrollto" href="#item-faq-print">Print and newline</a></li>
+                    <li class="nav-item"><a class="nav-link scrollto" href="#item-faq-return">Missing return behavior</a></li>
+                    <li class="nav-item"><a class="nav-link scrollto" href="#item-faq-oop">Why super(...) first</a></li>
+                    <li class="nav-item"><a class="nav-link scrollto" href="#item-faq-enum">Enum name/value</a></li>
 
                     <li class="nav-item section-title mt-3">
                         <a class="nav-link scrollto" href="#section-global-module-index">
@@ -504,7 +511,7 @@
                                     <tr>
                                         <td>Es multiparadigma?</td>
                                         <td>Si</td>
-                                        <td>Combina estilo imperativo/procedural, funciones de primera clase y modelado dinamico de datos con <code>list</code>/<code>object</code>/<code>map</code>/<code>set</code>.</td>
+                                        <td>Combina estilo imperativo/procedural, OOP MVP (<code>class/interface</code>) y funciones de primera clase con modelado dinamico de datos (<code>list</code>/<code>object</code>/<code>map</code>/<code>set</code>).</td>
                                     </tr>
                                     <tr>
                                         <td>Paradigma dominante</td>
@@ -514,7 +521,7 @@
                                     <tr>
                                         <td>Paradigma menos dominante</td>
                                         <td>Funcional ligero</td>
-                                        <td>Hay funciones de primera clase y composicion por funciones, pero no hay enfoque funcional puro ni sistema avanzado de tipos funcionales.</td>
+                                        <td>Hay funciones de primera clase y composicion por funciones, pero no hay lambdas/closures/HOF nativos del lenguaje en esta fase.</td>
                                     </tr>
                                     <tr>
                                         <td>Es compilado o interpretado?</td>
@@ -531,14 +538,14 @@
                         </div>
                         <div class="docs-callout success">
                             En practica: Clot apunta mas a productividad imperativa con flexibilidad dinamica, y menos a
-                            OOP clasico (no hay clases/herencia) o a tipado estatico estricto global.
+                            tipado estatico estricto global. OOP MVP ya esta disponible en modo interprete.
                         </div>
                     </section>
 
                     <section class="docs-section" id="item-manual-scope">
                         <h2 class="section-heading">Scope</h2>
                         <p>
-                            Documenta el estado de Clot al <strong>2026-03-03</strong>. La cobertura corresponde a parser,
+                            Documenta el estado de Clot al <strong>2026-03-05</strong>. La cobertura corresponde a parser,
                             interpreter, static analyzer, backend LLVM AOT, runtime bridge, i18n y modulos disponibles.
                         </p>
                         <div class="table-responsive my-3">
@@ -553,8 +560,8 @@
                                 <tbody>
                                     <tr>
                                         <td>Lenguaje</td>
-                                        <td>Tipos, funciones, enum, while, try/catch, import</td>
-                                        <td>for, classes, pattern matching, async/await nativo de lenguaje</td>
+                                        <td>Tipos, funciones, OOP MVP (<code>class/interface</code>), enum, while, try/catch, import</td>
+                                        <td>for, pattern matching, async/await nativo de lenguaje, OOP avanzado (<code>protected/abstract/final</code>)</td>
                                     </tr>
                                     <tr>
                                         <td>Libreria base</td>
@@ -656,6 +663,11 @@
                                         <td>Control flow</td>
                                         <td><code>while ... endwhile</code> y <code>try/catch/endtry</code></td>
                                         <td>Resiliencia y flujo mas robusto</td>
+                                    </tr>
+                                    <tr>
+                                        <td>OOP MVP</td>
+                                        <td><code>class/interface</code>, <code>extends</code>, <code>implements</code>, <code>constructor</code>, <code>get/set</code>, <code>super</code></td>
+                                        <td>Encapsulacion y modelado por objetos con validaciones de contrato en runtime</td>
                                     </tr>
                                     <tr>
                                         <td>I/O output</td>
@@ -804,6 +816,44 @@ println(ping());       // imprime "pong" y luego "null"
                         </div>
                     </section>
 
+                    <section class="docs-section" id="item-tutorial-oop">
+                        <h2 class="section-heading">OOP from Zero</h2>
+                        <p>
+                            Si nunca has usado OOP en Clot, piensa en <code>class</code> como un molde (template) y en
+                            cada objeto como una instancia creada desde ese molde.
+                        </p>
+                        <ol>
+                            <li>Define el contrato con <code>interface</code> (que metodos debe exponer la clase).</li>
+                            <li>Define la clase con atributos y constructor.</li>
+                            <li>Crea objetos llamando el nombre de la clase como funcion.</li>
+                            <li>Usa <code>this</code> para referirte al objeto actual.</li>
+                            <li>Usa <code>super(...)</code> si heredas con <code>extends</code>.</li>
+                        </ol>
+                        <pre class="shadow-lg rounded"><code class="language-clike">interface Greeter:
+    func string greet();
+endinterface
+
+class Person implements Greeter:
+    private string _name;
+
+    constructor(name: string):
+        this._name = name;
+    endconstructor
+
+    public func string greet():
+        return "Hola, soy " + this._name;
+    endfunc
+endclass
+
+p = Person("Ada");
+println(p.greet());
+</code></pre>
+                        <div class="docs-callout">
+                            Tip para principiantes: empieza con <code>private</code> + <code>get/set</code> para
+                            encapsular datos, y agrega <code>extends</code> solo cuando necesites reutilizar logica.
+                        </div>
+                    </section>
+
                     <section class="docs-section" id="item-tutorial-errors">
                         <h2 class="section-heading">Error Handling</h2>
                         <pre class="shadow-lg rounded"><code class="language-clike">try:
@@ -826,10 +876,13 @@ endtry
                             <li>Ejecuta <code>--mode analyze</code> para detectar fallas tipicas antes de runtime.</li>
                             <li>Corre en interprete para validar comportamiento dinamico.</li>
                             <li>Compila con LLVM cuando tu subset de programa sea compatible con AOT.</li>
+                            <li>Para QA de fases, usa el test diferencial interpret vs compile y el baseline de benchmarks.</li>
                         </ol>
                         <pre class="shadow-lg rounded"><code class="language-bash">./build/wsl-release/clot app.clot --mode analyze --lang en
 ./build/wsl-release/clot app.clot --lang en
 ./build/wsl-release/clot app.clot --mode compile --emit exe -o app --runtime-bridge external
+scripts/diff_interpret_compile.sh ./build/wsl-release/clot app.clot
+benchmarks/baseline.sh ./build/wsl-release/clot
 </code></pre>
                     </section>
                 </article>
@@ -1151,6 +1204,16 @@ endtry
                                         <td>Firma invalida o tipo no reconocido produce parse error</td>
                                     </tr>
                                     <tr>
+                                        <td>Class / Interface</td>
+                                        <td><code>class C [extends B] [implements I]: ... endclass</code>, <code>interface I: ... endinterface</code></td>
+                                        <td>Soporta herencia simple, contratos por interface y miembros con visibilidad/modificadores MVP</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Constructor / Accessors</td>
+                                        <td><code>constructor(...): ... endconstructor</code>, <code>get p(): ... endget</code>, <code>set p(v): ... endset</code></td>
+                                        <td>En clases derivadas, <code>super(...)</code> debe ser la primera sentencia del constructor</td>
+                                    </tr>
+                                    <tr>
                                         <td>Return</td>
                                         <td><code>return;</code> o <code>return expr;</code></td>
                                         <td>Fuera de formato: parse error</td>
@@ -1246,6 +1309,266 @@ show_params(10, "texto", [1, 2, 3]);
 </code></pre>
                     </section>
 
+                    <section class="docs-section" id="item-lang-oop">
+                        <h2 class="section-heading">OOP MVP (Guia Completa)</h2>
+                        <p>
+                            Esta seccion resume exactamente lo implementado en la fase actual (Fase 1) para OOP.
+                            Si eres principiante total, empieza por la tabla de construcciones y luego ejecuta el ejemplo completo.
+                        </p>
+
+                        <div class="docs-callout success">
+                            Estado actual OOP: disponible en <code>--mode interpret</code>. En <code>--mode compile</code>,
+                            el lenguaje completo (incluyendo OOP) se soporta via runtime bridge cuando AOT nativo no cubre una feature.
+                        </div>
+
+                        <h3 class="section-heading">Construcciones OOP y para que sirven</h3>
+                        <div class="table-responsive my-3">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Construccion</th>
+                                        <th>Para que sirve</th>
+                                        <th>Sintaxis base</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><code>interface ... endinterface</code></td>
+                                        <td>Define contrato (metodos obligatorios) sin estado.</td>
+                                        <td><code>interface I: func f(); endinterface</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>class ... endclass</code></td>
+                                        <td>Define tipo de objeto con campos, metodos y constructor.</td>
+                                        <td><code>class C: ... endclass</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>extends</code></td>
+                                        <td>Herencia simple (una clase base).</td>
+                                        <td><code>class B extends A:</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>implements</code></td>
+                                        <td>Implementa uno o varios contratos de interface.</td>
+                                        <td><code>class C implements I1, I2:</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>constructor ... endconstructor</code></td>
+                                        <td>Inicializa estado del objeto al crear instancia.</td>
+                                        <td><code>constructor(x: int): ... endconstructor</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>this</code></td>
+                                        <td>Referencia al objeto actual dentro de la clase.</td>
+                                        <td><code>this.name = value;</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>super(...)</code></td>
+                                        <td>Llama constructor de la clase base.</td>
+                                        <td><code>super(id);</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>super.metodo(...)</code></td>
+                                        <td>Llama implementacion heredada del metodo base.</td>
+                                        <td><code>return super.info();</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>get ... endget</code></td>
+                                        <td>Lectura controlada de una propiedad.</td>
+                                        <td><code>get name(): return this._name; endget</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>set ... endset</code></td>
+                                        <td>Escritura controlada de una propiedad.</td>
+                                        <td><code>set name(v: string): this._name = v; endset</code></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <h3 class="section-heading">Modificadores OOP MVP</h3>
+                        <div class="table-responsive my-3">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Modificador</th>
+                                        <th>Significado</th>
+                                        <th>Aplica a</th>
+                                        <th>Nota</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><code>public</code></td>
+                                        <td>Visible desde fuera de la clase.</td>
+                                        <td>Campos, metodos, get/set, constructor</td>
+                                        <td>Es el default.</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>private</code></td>
+                                        <td>Solo visible dentro de su clase propietaria.</td>
+                                        <td>Campos, metodos, get/set, constructor</td>
+                                        <td>Acceso externo produce error runtime.</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>static</code></td>
+                                        <td>Miembro de clase (no de instancia).</td>
+                                        <td>Campos y metodos</td>
+                                        <td>Se invoca con <code>Clase.miembro</code>.</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>readonly</code></td>
+                                        <td>Campo de solo lectura luego de inicializacion permitida.</td>
+                                        <td>Campos</td>
+                                        <td>Instancia: solo constructor de la clase propietaria. Static: no mutable luego de declaracion.</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>override</code></td>
+                                        <td>Declara sobrescritura de metodo heredado.</td>
+                                        <td>Metodos</td>
+                                        <td>Es obligatorio cuando existe metodo base.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <h3 class="section-heading">Ejemplo OOP completo (todo lo disponible en esta fase)</h3>
+                        <pre class="shadow-lg rounded"><code class="language-clike">interface NamedEntity:
+    func string display_name();
+endinterface
+
+interface Serializable:
+    func string serialize();
+endinterface
+
+class Entity:
+    private string _id;
+    public static int created = 0;
+    public readonly string created_by;
+
+    constructor(id: string, created_by: string = "system"):
+        this._id = id;
+        this.created_by = created_by;
+        Entity.created += 1;
+    endconstructor
+
+    public get id():
+        return this._id;
+    endget
+
+    public set id(value: string):
+        this._id = value;
+    endset
+
+    public func string base_info():
+        return "Entity#" + this._id;
+    endfunc
+endclass
+
+class User extends Entity implements NamedEntity, Serializable:
+    private string _name;
+
+    constructor(id: string, name: string):
+        super(id, "admin");
+        this._name = name;
+    endconstructor
+
+    public override func string base_info():
+        return super.base_info() + " user";
+    endfunc
+
+    public func string display_name():
+        return this._name;
+    endfunc
+
+    public func string serialize():
+        return "{id:" + this.id + ",name:" + this._name + "}";
+    endfunc
+
+    public get name():
+        return this._name;
+    endget
+
+    public set name(value: string):
+        this._name = value;
+    endset
+endclass
+
+u = User("U-001", "Ada");
+println(u.base_info());
+println(u.display_name());
+println(u.name);
+u.name = "Ada Lovelace";
+println(u.serialize());
+println(Entity.created);
+</code></pre>
+
+                        <h3 class="section-heading">Validaciones OOP importantes (runtime)</h3>
+                        <div class="table-responsive my-3">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Regla</th>
+                                        <th>Que valida</th>
+                                        <th>Resultado si falla</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><code>implements</code></td>
+                                        <td>Que la clase implemente todos los metodos de la interface con firma compatible.</td>
+                                        <td>Error al registrar la clase.</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>override</code></td>
+                                        <td>Que sobrescritura sea explicita y compatible (aridad, static/instancia, retorno, hints).</td>
+                                        <td>Error al registrar la clase.</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>private</code></td>
+                                        <td>Que no se acceda un miembro privado desde fuera de su clase.</td>
+                                        <td>Error de ejecucion por visibilidad.</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>readonly</code></td>
+                                        <td>Que no se modifique fuera de contexto permitido.</td>
+                                        <td>Error de ejecucion.</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>super(...)</code> en derivadas</td>
+                                        <td>Que exista y sea primera sentencia del constructor derivado (una sola llamada).</td>
+                                        <td>Error de ejecucion.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <h3 class="section-heading">Errores frecuentes (con ejemplo)</h3>
+                        <pre class="shadow-lg rounded"><code class="language-clike">// 1) Falta override
+class A:
+    public func int f():
+        return 1;
+    endfunc
+endclass
+
+class B extends A:
+    public func int f():
+        return 2;
+    endfunc
+endclass
+// Error: metodo sobrescribe base y requiere override
+
+// 2) super(...) no es primera sentencia
+class C extends A:
+    constructor():
+        x = 1;
+        super();
+    endconstructor
+endclass
+// Error: super(...) debe ir primero
+</code></pre>
+                    </section>
+
                     <section class="docs-section" id="item-lang-collections">
                         <h2 class="section-heading">Collections</h2>
                         <pre class="shadow-lg rounded"><code class="language-clike">list_values = [10, 20, 30];
@@ -1324,6 +1647,36 @@ println(enum_value(Estado, "ACTIVO"));      // 0
                                         <td>Function type hints</td>
                                         <td>Argumento o retorno incompatible con hint declarado</td>
                                         <td>Error de ejecucion por mismatch de tipo</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Interface contracts</td>
+                                        <td>Clase no implementa metodo requerido, firma incompatible o metodo no publico</td>
+                                        <td>Error al declarar/registrar la clase</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Override rules</td>
+                                        <td>Sobrescritura sin <code>override</code> o con firma/retorno incompatible</td>
+                                        <td>Error al declarar/registrar la clase</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Visibility</td>
+                                        <td>Acceso externo a miembro <code>private</code></td>
+                                        <td>Error de ejecucion por visibilidad</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>readonly</code> field</td>
+                                        <td>Asignacion fuera del constructor de la clase propietaria</td>
+                                        <td>Error de ejecucion</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>readonly static</code> field</td>
+                                        <td>Intento de mutacion despues de declaracion</td>
+                                        <td>Error de ejecucion</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Derived constructor</td>
+                                        <td>Falta <code>super(...)</code> como primera sentencia o se llama mas de una vez</td>
+                                        <td>Error de ejecucion</td>
                                     </tr>
                                     <tr>
                                         <td>Function defaults (signature)</td>
@@ -1957,6 +2310,29 @@ import modules.utils; // Alias legacy a clot.science.utils
                         </p>
                     </section>
 
+                    <section class="docs-section" id="item-faq-oop">
+                        <h2 class="section-heading">Why must <code>super(...)</code> be first in derived constructors?</h2>
+                        <p>
+                            Porque la instancia base debe quedar inicializada antes de ejecutar logica propia de la clase
+                            derivada. Esto garantiza estado consistente en herencia y evita usar miembros de base antes de
+                            tiempo. En Clot OOP MVP, el constructor derivado debe llamar <code>super(...)</code> como primera
+                            sentencia y solo una vez.
+                        </p>
+                        <pre class="shadow-lg rounded"><code class="language-clike">class Base:
+    constructor(x: int):
+        this.x = x;
+    endconstructor
+endclass
+
+class Child extends Base:
+    constructor(x: int):
+        super(x);      // correcto: primera sentencia
+        this.y = x * 2;
+    endconstructor
+endclass
+</code></pre>
+                    </section>
+
                     <section class="docs-section" id="item-faq-enum">
                         <h2 class="section-heading">Can I get enum member name instead of numeric value?</h2>
                         <p>
@@ -2023,21 +2399,30 @@ import modules.utils; // Alias legacy a clot.science.utils
                                     <tr><td>byte</td><td>Type</td><td><a href="#item-lang-types">Type System</a></td></tr>
                                     <tr><td>cast</td><td>Core builtin</td><td><a href="#item-lib-core">Core Module</a></td></tr>
                                     <tr><td>char</td><td>Type</td><td><a href="#item-lang-types">Type System</a></td></tr>
+                                    <tr><td>class</td><td>OOP keyword</td><td><a href="#item-lang-oop">OOP MVP</a></td></tr>
                                     <tr><td>clot</td><td>Package root</td><td><a href="#item-packages-resolution-order">Module Resolution Order</a></td></tr>
+                                    <tr><td>constructor</td><td>OOP block</td><td><a href="#item-lang-oop">OOP MVP</a></td></tr>
                                     <tr><td>decimal</td><td>Type</td><td><a href="#item-lang-types">Type System</a></td></tr>
                                     <tr><td>endl</td><td>Base field</td><td><a href="#item-lib-base">Base Builtins</a></td></tr>
                                     <tr><td>enum_name</td><td>Enum helper</td><td><a href="#item-lib-collections">Collection Helpers</a></td></tr>
                                     <tr><td>enum_value</td><td>Enum helper</td><td><a href="#item-lib-collections">Collection Helpers</a></td></tr>
+                                    <tr><td>extends</td><td>OOP keyword</td><td><a href="#item-lang-oop">OOP MVP</a></td></tr>
                                     <tr><td>factorial</td><td>Math builtin</td><td><a href="#item-lib-math">Math Module</a></td></tr>
                                     <tr><td>float</td><td>Type</td><td><a href="#item-lang-types">Type System</a></td></tr>
                                     <tr><td>function</td><td>Type</td><td><a href="#item-lang-functions">Functions</a></td></tr>
+                                    <tr><td>get/set</td><td>OOP accessor</td><td><a href="#item-lang-oop">OOP MVP</a></td></tr>
+                                    <tr><td>implements</td><td>OOP keyword</td><td><a href="#item-lang-oop">OOP MVP</a></td></tr>
                                     <tr><td>import</td><td>Statement</td><td><a href="#item-lang-statements">Statements</a></td></tr>
                                     <tr><td>int</td><td>Type</td><td><a href="#item-lang-types">Type System</a></td></tr>
+                                    <tr><td>interface</td><td>OOP keyword</td><td><a href="#item-lang-oop">OOP MVP</a></td></tr>
                                     <tr><td>long</td><td>Type</td><td><a href="#item-lang-validations">Validations and Limits</a></td></tr>
                                     <tr><td>map</td><td>Collection</td><td><a href="#item-lang-collections">Collections</a></td></tr>
                                     <tr><td>null</td><td>Type</td><td><a href="#item-lang-types">Type System</a></td></tr>
+                                    <tr><td>override</td><td>OOP modifier</td><td><a href="#item-lang-oop">OOP MVP</a></td></tr>
                                     <tr><td>printf</td><td>Base builtin</td><td><a href="#item-lib-printf">printf Specifiers</a></td></tr>
                                     <tr><td>interpreter_builtins.cpp</td><td>Runtime architecture</td><td><a href="#item-contrib-docs">Documentation Rules</a></td></tr>
+                                    <tr><td>readonly</td><td>OOP modifier</td><td><a href="#item-lang-oop">OOP MVP</a></td></tr>
+                                    <tr><td>super</td><td>OOP keyword</td><td><a href="#item-lang-oop">OOP MVP</a></td></tr>
                                     <tr><td>try/catch</td><td>Error handling</td><td><a href="#item-lang-statements">Statements</a></td></tr>
                                     <tr><td>while</td><td>Control flow</td><td><a href="#item-lang-statements">Statements</a></td></tr>
                                 </tbody>
@@ -2070,6 +2455,11 @@ import modules.utils; // Alias legacy a clot.science.utils
                                     <tr><td>Analyzer mode</td><td>Modo estatico (<code>--mode analyze</code>) para detectar errores sin ejecutar el programa.</td></tr>
                                     <tr><td>Truthiness</td><td>Regla de conversion a bool para tipos no booleanos.</td></tr>
                                     <tr><td>Enum helper</td><td>Funciones <code>enum_name</code>/<code>enum_value</code> para conversion entre nombre y valor.</td></tr>
+                                    <tr><td>Class</td><td>Molde que define estado (campos) y comportamiento (metodos) para crear objetos.</td></tr>
+                                    <tr><td>Interface</td><td>Contrato de metodos que una clase debe implementar cuando usa <code>implements</code>.</td></tr>
+                                    <tr><td>Encapsulation</td><td>Practica de ocultar estado interno con <code>private</code> y exponer acceso controlado via metodos o <code>get/set</code>.</td></tr>
+                                    <tr><td>Override</td><td>Sobrescritura explicita de un metodo heredado usando el modificador <code>override</code>.</td></tr>
+                                    <tr><td>Readonly field</td><td>Campo que solo puede inicializarse en contexto permitido y luego no puede reasignarse.</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -2105,7 +2495,15 @@ import modules.utils; // Alias legacy a clot.science.utils
                             </li>
                             <li><a href="#section-third-party">Third-Party Modules</a></li>
                             <li><a href="#section-deprecations">Deprecations</a></li>
-                            <li><a href="#section-faqs">FAQs</a></li>
+                            <li><a href="#section-faqs">FAQs</a>
+                                <ul>
+                                    <li><a href="#item-faq-overflow">int vs long overflow</a></li>
+                                    <li><a href="#item-faq-print">Print and newline</a></li>
+                                    <li><a href="#item-faq-return">Missing return behavior</a></li>
+                                    <li><a href="#item-faq-oop">Why super(...) first</a></li>
+                                    <li><a href="#item-faq-enum">Enum name/value</a></li>
+                                </ul>
+                            </li>
                             <li><a href="#section-global-module-index">Global Module Index</a></li>
                             <li><a href="#section-general-index">General Index</a></li>
                             <li><a href="#section-glossary">Glossary</a></li>

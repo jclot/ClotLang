@@ -1,7 +1,7 @@
 # Clot Multiparadigm Blueprint (Plan Seleccionado)
 
-Fecha: 2026-03-04  
-Estado: propuesta estrategica y tecnica (sin cambios de codigo en este archivo)
+Fecha: 2026-03-05  
+Estado: ejecucion en progreso (Fase 0 y Fase 1 completadas; Fase 2+ pendientes)
 
 ## 1) Decision final: mejor opcion para Clot
 
@@ -345,31 +345,48 @@ endfunc
 
 ## 9) Roadmap detallado (implementacion real en este repo)
 
-## Fase 0 (2-4 semanas): especificacion y base
+## Fase 0 (2-4 semanas): especificacion y base [COMPLETADA]
 
-- RFC de sintaxis OOP/funcional.
-- Definir AST nuevos.
-- test diferencial interpret vs compile.
-- benchmark baseline.
+- [x] RFC de sintaxis OOP/funcional.
+- [x] Definir AST nuevos.
+- [x] test diferencial interpret vs compile.
+- [x] benchmark baseline.
 
 Archivos impactados:
 
 - `include/clot/frontend/ast.hpp`
 - `src/frontend/parser_*.cpp`
 - `src/frontend/static_analyzer.cpp`
+- `docs/rfc/RFC-OOP-MVP.md`
+- `docs/rfc/RFC-FUNC-MVP.md`
+- `docs/rfc/RFC-FASTPATH-001.md`
+- `scripts/diff_interpret_compile.sh`
+- `benchmarks/baseline.sh`
+- `benchmarks/cases/*.clot`
 
-## Fase 1 (4-8 semanas): OOP MVP en interprete
+## Fase 1 (4-8 semanas): OOP MVP en interprete [COMPLETADA]
 
-- parser de `class/interface/constructor/get/set`.
-- runtime object model (metadata de clase + slots de instancia).
-- dispatch de metodos.
-- visibilidad y readonly enforcement.
+- [x] parser de `class/interface/constructor/get/set`.
+- [x] runtime object model (metadata de clase + slots de instancia).
+- [x] dispatch de metodos.
+- [x] visibilidad y readonly enforcement.
+- [x] validaciones de `override` / `implements`.
+- [x] soporte de `super(...)` y `super.metodo(...)`.
+- [x] cobertura de pruebas OOP en `tests/smoke.sh` y fallback compile/bridge en `tests/llvm_smoke.sh`.
+- [x] documentacion e i18n actualizadas para mensajes OOP.
 
 Archivos impactados:
 
 - `src/interpreter/interpreter.cpp`
 - `src/interpreter/interpreter_state.cpp`
-- `src/runtime/value.hpp` (+ impl)
+- `include/clot/interpreter/interpreter.hpp`
+- `include/clot/frontend/{ast.hpp,parser.hpp,token.hpp}`
+- `src/frontend/{tokenizer.cpp,parser_core.cpp,parser_statements.cpp,parser_support.hpp}`
+- `src/runtime/i18n.cpp`
+- `README.md`
+- `docs/docs-page.html`
+- `tests/smoke.sh`
+- `tests/llvm_smoke.sh`
 
 ## Fase 2 (4-8 semanas): funcional MVP
 

@@ -8,10 +8,13 @@ Refactor de arquitectura para separar claramente frontend, runtime, interprete y
 - Nuevo interprete modular en `include/clot/interpreter` y `src/interpreter`.
 - Backend LLVM para compilacion AOT (`--mode compile`) en `include/clot/codegen` y `src/codegen`.
 - Internacionalizacion basica de interfaz y diagnosticos (`--lang es|en`, `CLOT_LANG`).
-- Migracion funcional completada en modo interprete: listas, objetos, indexacion, propiedades, funciones y `import math`.
+- Tipado opcional en funciones y parametros (incluye `any`/`dynamic` como alias).
+- OOP MVP en modo interprete: `class/interface`, `extends`, `implements`, `constructor`, `get/set`, `public/private/static/readonly/override`, `super(...)` y `super.metodo(...)`.
+- Migracion funcional base completada en modo interprete: listas, objetos, indexacion, propiedades, funciones y `import math`.
 
 ## Perfil del lenguaje
 - Multiparadigma (dominante: imperativo/procedural).
+- OOP MVP disponible (encapsulacion, herencia simple, contratos por interfaces).
 - Funcional ligero (funciones de primera clase), pero no funcional puro.
 - Ejecucion dual:
   - Interpretado: `--mode interpret`
@@ -19,7 +22,7 @@ Refactor de arquitectura para separar claramente frontend, runtime, interprete y
 - Tipado dinamico con hints opcionales:
   - Declaraciones y type hints se validan en runtime.
   - `--mode analyze` agrega chequeo estatico auxiliar (no reemplaza tipado estatico completo).
-- Sin modelo OOP clasico de clases/herencia en el estado actual.
+- El tipado explicito sigue siendo opt-in: puedes combinar estilo dinamico y tipado por hints.
 
 ## Estructura
 ```text
@@ -175,6 +178,16 @@ Chequeo local completo:
 scripts/check.sh
 ```
 
+Comparacion diferencial interpret vs compile (incluye fallback runtime bridge):
+```bash
+scripts/diff_interpret_compile.sh ./build/wsl-release/clot examples/basic.clot
+```
+
+Baseline de benchmarks (Fase 0):
+```bash
+benchmarks/baseline.sh ./build/wsl-release/clot
+```
+
 ## Alcance actual
 Soportado en modo interprete:
 - Asignaciones numericas (`=`, `+=`, `-=`)
@@ -202,6 +215,21 @@ Soportado en modo interprete:
 - Modulos por archivo con `import modulo.submodulo;`
   (resuelve a `modulo/submodulo.clot` relativo al archivo actual)
 - `import math` con builtin `sum(a, b)` como modulo nativo
+- OOP MVP:
+  - `interface/endinterface` con firmas `func ...;`
+  - `class/endclass` con `extends` (herencia simple) y `implements` (multiple)
+  - `constructor/endconstructor`
+  - `get/endget`, `set/endset`
+  - modificadores: `public` (default), `private`, `static`, `readonly`, `override`
+  - validaciones runtime:
+    - `override` obligatorio al sobrescribir
+    - compatibilidad de firma/retorno en override
+    - contrato de interfaces (`implements`)
+    - visibilidad `private`
+    - `readonly` de instancia (solo constructor de la clase propietaria)
+    - `readonly static`
+    - `super(...)` obligatorio como primera sentencia en constructor derivado
+    - `super(...)` maximo una vez por constructor
 
 Soportado en modo compile LLVM:
 - Nucleo numerico (`=`, `+=`, `-=`, `if`, operadores, `print` numerico/string literal)
@@ -210,12 +238,13 @@ Soportado en modo compile LLVM:
   - Llamadas como sentencia (`foo(...);`)
   - Parametros por valor y por referencia (`&`)
 - Soporte completo del lenguaje via runtime bridge automatico
-  (listas, objetos, funciones con `return`, referencias `&`, propiedades, indexacion, modulos)
+  (listas, objetos, funciones con `return`, referencias `&`, propiedades, indexacion, modulos, OOP MVP)
 
 No soportado aun en modo compile LLVM:
 - AOT nativo de listas/objetos/indexacion/propiedades
 - AOT nativo de `return` y funciones usadas como expresion
 - AOT nativo de modulos de archivo
+- AOT nativo de OOP (`class/interface/constructor/get/set/extends/implements/super`)
 - Strings no literales como expresion general en AOT (fuera de `print("...")`)
 
 ## Visual Studio 2026 + WSL
