@@ -1,0 +1,15 @@
+import Producto.product;
+
+class CashRegister:
+    private float _total = 0;
+
+    public func add_product(p):
+        this._total += p.price;
+        println("Producto agregado: " + p.name);
+        println("Precio: " + p.price);
+    endfunc
+
+    public func show_total():
+        println("Total a pagar: " + this._total);
+    endfunc
+endclass

@@ -1,0 +1,12 @@
+import Producto.product;
+import cash_register;
+
+p1 = Product("Pan", 1.5);
+p2 = Product("Leche", 2.0);
+
+r = CashRegister();
+
+r.add_product(p1);
+r.add_product(p2);
+
+r.show_total();
