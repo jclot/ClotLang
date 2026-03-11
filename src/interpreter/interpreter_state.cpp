@@ -109,6 +109,31 @@ const char* TypeHintName(frontend::TypeHint hint) {
     return "dynamic";
 }
 
+std::string TypeAnnotationName(const frontend::TypeAnnotation& annotation) {
+    std::string name = TypeHintName(annotation.base);
+    if (!annotation.type_args.empty()) {
+        name.push_back('<');
+        for (std::size_t i = 0; i < annotation.type_args.size(); ++i) {
+            if (i > 0) {
+                name += ", ";
+            }
+            name += TypeAnnotationName(annotation.type_args[i]);
+        }
+        name.push_back('>');
+    }
+    return name;
+}
+
+frontend::TypeAnnotation EffectiveTypeAnnotation(const frontend::TypeAnnotation& annotation,
+                                                 frontend::TypeHint fallback_hint) {
+    if (annotation.base != frontend::TypeHint::Inferred || !annotation.type_args.empty()) {
+        return annotation;
+    }
+    frontend::TypeAnnotation effective;
+    effective.base = fallback_hint;
+    return effective;
+}
+
 bool SplitQualifiedName(const std::string& text, std::vector<std::string>* out_segments) {
     if (out_segments == nullptr) {
         return false;
@@ -164,6 +189,9 @@ bool TryMapTypeHintToVariableKind(frontend::TypeHint hint, runtime::VariableKind
     case frontend::TypeHint::Char:
         *out_kind = runtime::VariableKind::Char;
         return true;
+    case frontend::TypeHint::List:
+        *out_kind = runtime::VariableKind::List;
+        return true;
     case frontend::TypeHint::Tuple:
         *out_kind = runtime::VariableKind::Tuple;
         return true;
@@ -173,14 +201,15 @@ bool TryMapTypeHintToVariableKind(frontend::TypeHint hint, runtime::VariableKind
     case frontend::TypeHint::Map:
         *out_kind = runtime::VariableKind::Map;
         return true;
+    case frontend::TypeHint::Object:
+        *out_kind = runtime::VariableKind::Object;
+        return true;
     case frontend::TypeHint::Function:
         *out_kind = runtime::VariableKind::Function;
         return true;
     case frontend::TypeHint::Inferred:
     case frontend::TypeHint::String:
     case frontend::TypeHint::Bool:
-    case frontend::TypeHint::List:
-    case frontend::TypeHint::Object:
     case frontend::TypeHint::Null:
         return false;
     }
@@ -627,6 +656,16 @@ bool Interpreter::NormalizeValueForKind(
         return false;
     }
 
+    if (kind == runtime::VariableKind::List) {
+        if (const auto* list = value.AsList()) {
+            *out_value = runtime::Value(*list);
+            return true;
+        }
+
+        *out_error = "La expresion requiere un list.";
+        return false;
+    }
+
     if (kind == runtime::VariableKind::Tuple) {
         if (const auto* tuple = value.AsTuple()) {
             *out_value = runtime::Value(runtime::Value::Tuple{*tuple});
@@ -700,6 +739,16 @@ bool Interpreter::NormalizeValueForKind(
         }
 
         *out_error = "Valor invalido para map.";
+        return false;
+    }
+
+    if (kind == runtime::VariableKind::Object) {
+        if (const auto* object = value.AsObject()) {
+            *out_value = runtime::Value(*object);
+            return true;
+        }
+
+        *out_error = "La expresion requiere un object.";
         return false;
     }
 
@@ -800,24 +849,6 @@ bool Interpreter::NormalizeValueForTypeHint(
         return true;
     }
 
-    if (hint == frontend::TypeHint::List) {
-        if (!value.IsList()) {
-            *out_error = "La expresion requiere un list.";
-            return false;
-        }
-        *out_value = value;
-        return true;
-    }
-
-    if (hint == frontend::TypeHint::Object) {
-        if (!value.IsObject()) {
-            *out_error = "La expresion requiere un object.";
-            return false;
-        }
-        *out_value = value;
-        return true;
-    }
-
     if (hint == frontend::TypeHint::Null) {
         if (!value.IsNull()) {
             *out_error = "La expresion requiere null.";
@@ -829,6 +860,246 @@ bool Interpreter::NormalizeValueForTypeHint(
 
     if (out_error != nullptr) {
         *out_error = std::string("Type hint no soportado: ") + TypeHintName(hint) + ".";
+    }
+    return false;
+}
+
+bool Interpreter::NormalizeValueForTypeAnnotation(
+    const frontend::TypeAnnotation& annotation,
+    const runtime::Value& value,
+    runtime::Value* out_value,
+    std::string* out_error) const {
+    if (out_value == nullptr) {
+        if (out_error != nullptr) {
+            *out_error = "Error interno: out_value nulo en NormalizeValueForTypeAnnotation.";
+        }
+        return false;
+    }
+
+    frontend::TypeAnnotation effective = annotation;
+    if (effective.base == frontend::TypeHint::Inferred && effective.type_args.empty()) {
+        *out_value = value;
+        return true;
+    }
+
+    runtime::Value normalized_base;
+    if (!NormalizeValueForTypeHint(effective.base, value, &normalized_base, out_error)) {
+        return false;
+    }
+
+    if (effective.type_args.empty()) {
+        *out_value = std::move(normalized_base);
+        return true;
+    }
+
+    if (effective.base == frontend::TypeHint::List) {
+        if (effective.type_args.size() != 1) {
+            if (out_error != nullptr) {
+                *out_error = "Cantidad de argumentos genericos invalida para type hint 'list'.";
+            }
+            return false;
+        }
+
+        const auto* list = normalized_base.AsList();
+        if (list == nullptr) {
+            if (out_error != nullptr) {
+                *out_error = "La expresion requiere un list.";
+            }
+            return false;
+        }
+
+        runtime::Value::List normalized_list;
+        normalized_list.reserve(list->size());
+        for (std::size_t i = 0; i < list->size(); ++i) {
+            runtime::Value normalized_element;
+            std::string nested_error;
+            if (!NormalizeValueForTypeAnnotation(effective.type_args[0], (*list)[i], &normalized_element, &nested_error)) {
+                if (out_error != nullptr) {
+                    *out_error = "Elemento list[" + std::to_string(i) + "] incompatible con '" +
+                                 TypeAnnotationName(effective.type_args[0]) + "': " + nested_error;
+                }
+                return false;
+            }
+            normalized_list.push_back(std::move(normalized_element));
+        }
+
+        *out_value = runtime::Value(std::move(normalized_list));
+        return true;
+    }
+
+    if (effective.base == frontend::TypeHint::Tuple) {
+        if (effective.type_args.size() != 1) {
+            if (out_error != nullptr) {
+                *out_error = "Cantidad de argumentos genericos invalida para type hint 'tuple'.";
+            }
+            return false;
+        }
+
+        const auto* tuple = normalized_base.AsTuple();
+        if (tuple == nullptr) {
+            if (out_error != nullptr) {
+                *out_error = "Valor invalido para tuple.";
+            }
+            return false;
+        }
+
+        runtime::Value::Tuple normalized_tuple;
+        normalized_tuple.elements.reserve(tuple->size());
+        for (std::size_t i = 0; i < tuple->size(); ++i) {
+            runtime::Value normalized_element;
+            std::string nested_error;
+            if (!NormalizeValueForTypeAnnotation(effective.type_args[0], (*tuple)[i], &normalized_element, &nested_error)) {
+                if (out_error != nullptr) {
+                    *out_error = "Elemento tuple[" + std::to_string(i) + "] incompatible con '" +
+                                 TypeAnnotationName(effective.type_args[0]) + "': " + nested_error;
+                }
+                return false;
+            }
+            normalized_tuple.elements.push_back(std::move(normalized_element));
+        }
+
+        *out_value = runtime::Value(std::move(normalized_tuple));
+        return true;
+    }
+
+    if (effective.base == frontend::TypeHint::Set) {
+        if (effective.type_args.size() != 1) {
+            if (out_error != nullptr) {
+                *out_error = "Cantidad de argumentos genericos invalida para type hint 'set'.";
+            }
+            return false;
+        }
+
+        const auto* set = normalized_base.AsSet();
+        if (set == nullptr) {
+            if (out_error != nullptr) {
+                *out_error = "Valor invalido para set.";
+            }
+            return false;
+        }
+
+        runtime::Value::Set normalized_set;
+        for (std::size_t i = 0; i < set->size(); ++i) {
+            runtime::Value normalized_element;
+            std::string nested_error;
+            if (!NormalizeValueForTypeAnnotation(effective.type_args[0], (*set)[i], &normalized_element, &nested_error)) {
+                if (out_error != nullptr) {
+                    *out_error = "Elemento set[" + std::to_string(i) + "] incompatible con '" +
+                                 TypeAnnotationName(effective.type_args[0]) + "': " + nested_error;
+                }
+                return false;
+            }
+
+            bool exists = false;
+            for (const auto& existing : normalized_set.elements) {
+                if (existing.Equals(normalized_element)) {
+                    exists = true;
+                    break;
+                }
+            }
+            if (!exists) {
+                normalized_set.elements.push_back(std::move(normalized_element));
+            }
+        }
+
+        *out_value = runtime::Value(std::move(normalized_set));
+        return true;
+    }
+
+    if (effective.base == frontend::TypeHint::Map) {
+        if (effective.type_args.size() != 2) {
+            if (out_error != nullptr) {
+                *out_error = "Cantidad de argumentos genericos invalida para type hint 'map'.";
+            }
+            return false;
+        }
+
+        const auto* map = normalized_base.AsMap();
+        if (map == nullptr) {
+            if (out_error != nullptr) {
+                *out_error = "Valor invalido para map.";
+            }
+            return false;
+        }
+
+        runtime::Value::Map normalized_map;
+        normalized_map.entries.reserve(map->size());
+        for (std::size_t i = 0; i < map->size(); ++i) {
+            runtime::Value normalized_key;
+            runtime::Value normalized_value;
+            std::string key_error;
+            std::string value_error;
+            if (!NormalizeValueForTypeAnnotation(
+                    effective.type_args[0],
+                    (*map)[i].first,
+                    &normalized_key,
+                    &key_error)) {
+                if (out_error != nullptr) {
+                    *out_error = "Clave map[" + std::to_string(i) + "] incompatible con '" +
+                                 TypeAnnotationName(effective.type_args[0]) + "': " + key_error;
+                }
+                return false;
+            }
+            if (!NormalizeValueForTypeAnnotation(
+                    effective.type_args[1],
+                    (*map)[i].second,
+                    &normalized_value,
+                    &value_error)) {
+                if (out_error != nullptr) {
+                    *out_error = "Valor map[" + std::to_string(i) + "] incompatible con '" +
+                                 TypeAnnotationName(effective.type_args[1]) + "': " + value_error;
+                }
+                return false;
+            }
+            normalized_map.entries.push_back({std::move(normalized_key), std::move(normalized_value)});
+        }
+
+        *out_value = runtime::Value(std::move(normalized_map));
+        return true;
+    }
+
+    if (effective.base == frontend::TypeHint::Object) {
+        if (effective.type_args.size() != 1) {
+            if (out_error != nullptr) {
+                *out_error = "Cantidad de argumentos genericos invalida para type hint 'object'.";
+            }
+            return false;
+        }
+
+        const auto* object = normalized_base.AsObject();
+        if (object == nullptr) {
+            if (out_error != nullptr) {
+                *out_error = "La expresion requiere un object.";
+            }
+            return false;
+        }
+
+        runtime::Value::Object normalized_object;
+        normalized_object.reserve(object->size());
+        for (std::size_t i = 0; i < object->size(); ++i) {
+            runtime::Value normalized_entry_value;
+            std::string nested_error;
+            if (!NormalizeValueForTypeAnnotation(
+                    effective.type_args[0],
+                    (*object)[i].second,
+                    &normalized_entry_value,
+                    &nested_error)) {
+                if (out_error != nullptr) {
+                    *out_error = "Propiedad object." + (*object)[i].first + " incompatible con '" +
+                                 TypeAnnotationName(effective.type_args[0]) + "': " + nested_error;
+                }
+                return false;
+            }
+            normalized_object.push_back({(*object)[i].first, std::move(normalized_entry_value)});
+        }
+
+        *out_value = runtime::Value(std::move(normalized_object));
+        return true;
+    }
+
+    if (out_error != nullptr) {
+        *out_error = "El type hint '" + std::string(TypeHintName(effective.base)) +
+                     "' no acepta argumentos genericos.";
     }
     return false;
 }
@@ -894,13 +1165,26 @@ bool Interpreter::AssignValue(
         target_kind = runtime::VariableKind::Set;
     } else if (statement.declaration_type == frontend::DeclarationType::Map) {
         target_kind = runtime::VariableKind::Map;
+    } else if (statement.declaration_type == frontend::DeclarationType::List) {
+        target_kind = runtime::VariableKind::List;
+    } else if (statement.declaration_type == frontend::DeclarationType::Object) {
+        target_kind = runtime::VariableKind::Object;
     } else if (statement.declaration_type == frontend::DeclarationType::Function) {
         target_kind = runtime::VariableKind::Function;
     }
 
     runtime::Value normalized;
-    if (!NormalizeValueForKind(target_kind, value, &normalized, out_error)) {
-        return false;
+    const bool has_annotation =
+        statement.type_annotation.base != frontend::TypeHint::Inferred ||
+        !statement.type_annotation.type_args.empty();
+    if (has_annotation) {
+        if (!NormalizeValueForTypeAnnotation(statement.type_annotation, value, &normalized, out_error)) {
+            return false;
+        }
+    } else {
+        if (!NormalizeValueForKind(target_kind, value, &normalized, out_error)) {
+            return false;
+        }
     }
 
     environment_[statement.name] = runtime::VariableSlot{normalized, target_kind, statement.is_const};
@@ -1025,13 +1309,16 @@ bool Interpreter::ApplyTargetMutation(
                     return false;
                 }
 
-                if (field->type_hint != frontend::TypeHint::Inferred) {
+                const frontend::TypeAnnotation field_annotation =
+                    EffectiveTypeAnnotation(field->type_annotation, field->type_hint);
+                if (field_annotation.base != frontend::TypeHint::Inferred ||
+                    !field_annotation.type_args.empty()) {
                     runtime::Value normalized;
                     std::string type_error;
-                    if (!NormalizeValueForTypeHint(field->type_hint, merged_value, &normalized, &type_error)) {
+                    if (!NormalizeValueForTypeAnnotation(field_annotation, merged_value, &normalized, &type_error)) {
                         *out_error = "Campo static '" + owner_class + "." + field_name +
-                                     "' no coincide con type hint '" +
-                                     TypeHintName(field->type_hint) + "': " + type_error;
+                                     "' no coincide con type hint '" + TypeAnnotationName(field_annotation) +
+                                     "': " + type_error;
                         return false;
                     }
                     merged_value = std::move(normalized);
@@ -1203,13 +1490,16 @@ bool Interpreter::ApplyTargetMutation(
                     return false;
                 }
 
-                if (field->type_hint != frontend::TypeHint::Inferred) {
+                const frontend::TypeAnnotation field_annotation =
+                    EffectiveTypeAnnotation(field->type_annotation, field->type_hint);
+                if (field_annotation.base != frontend::TypeHint::Inferred ||
+                    !field_annotation.type_args.empty()) {
                     runtime::Value normalized;
                     std::string type_error;
-                    if (!NormalizeValueForTypeHint(field->type_hint, value_to_store, &normalized, &type_error)) {
+                    if (!NormalizeValueForTypeAnnotation(field_annotation, value_to_store, &normalized, &type_error)) {
                         *out_error = "Campo '" + owner_class + "." + final_segment +
-                                     "' no coincide con type hint '" +
-                                     TypeHintName(field->type_hint) + "': " + type_error;
+                                     "' no coincide con type hint '" + TypeAnnotationName(field_annotation) +
+                                     "': " + type_error;
                         return false;
                     }
                     value_to_store = std::move(normalized);

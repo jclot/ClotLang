@@ -26,9 +26,11 @@ enum class VariableKind {
     Long,
     Byte,
     Char,
+    List,
     Tuple,
     Set,
     Map,
+    Object,
     Function,
 };
 

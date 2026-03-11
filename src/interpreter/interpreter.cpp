@@ -162,6 +162,77 @@ const char* TypeHintName(frontend::TypeHint hint) {
     return "dynamic";
 }
 
+std::string TypeAnnotationName(const frontend::TypeAnnotation& annotation) {
+    std::string name = TypeHintName(annotation.base);
+    if (!annotation.type_args.empty()) {
+        name.push_back('<');
+        for (std::size_t i = 0; i < annotation.type_args.size(); ++i) {
+            if (i > 0) {
+                name += ", ";
+            }
+            name += TypeAnnotationName(annotation.type_args[i]);
+        }
+        name.push_back('>');
+    }
+    return name;
+}
+
+frontend::TypeAnnotation EffectiveTypeAnnotation(const frontend::TypeAnnotation& annotation,
+                                                 frontend::TypeHint fallback_hint) {
+    if (annotation.base != frontend::TypeHint::Inferred || !annotation.type_args.empty()) {
+        return annotation;
+    }
+    frontend::TypeAnnotation effective;
+    effective.base = fallback_hint;
+    return effective;
+}
+
+bool TypeAnnotationEquals(const frontend::TypeAnnotation& lhs, const frontend::TypeAnnotation& rhs) {
+    if (lhs.base != rhs.base || lhs.type_args.size() != rhs.type_args.size()) {
+        return false;
+    }
+    for (std::size_t i = 0; i < lhs.type_args.size(); ++i) {
+        if (!TypeAnnotationEquals(lhs.type_args[i], rhs.type_args[i])) {
+            return false;
+        }
+    }
+    return true;
+}
+
+frontend::TypeHint DeclarationTypeToTypeHint(frontend::DeclarationType declaration_type) {
+    switch (declaration_type) {
+    case frontend::DeclarationType::Int:
+        return frontend::TypeHint::Int;
+    case frontend::DeclarationType::Double:
+        return frontend::TypeHint::Double;
+    case frontend::DeclarationType::Float:
+        return frontend::TypeHint::Float;
+    case frontend::DeclarationType::Decimal:
+        return frontend::TypeHint::Decimal;
+    case frontend::DeclarationType::Long:
+        return frontend::TypeHint::Long;
+    case frontend::DeclarationType::Byte:
+        return frontend::TypeHint::Byte;
+    case frontend::DeclarationType::Char:
+        return frontend::TypeHint::Char;
+    case frontend::DeclarationType::List:
+        return frontend::TypeHint::List;
+    case frontend::DeclarationType::Tuple:
+        return frontend::TypeHint::Tuple;
+    case frontend::DeclarationType::Set:
+        return frontend::TypeHint::Set;
+    case frontend::DeclarationType::Map:
+        return frontend::TypeHint::Map;
+    case frontend::DeclarationType::Object:
+        return frontend::TypeHint::Object;
+    case frontend::DeclarationType::Function:
+        return frontend::TypeHint::Function;
+    case frontend::DeclarationType::Inferred:
+    default:
+        return frontend::TypeHint::Inferred;
+    }
+}
+
 } // namespace
 
 void Interpreter::SetEntryFilePath(const std::string& file_path) {
@@ -717,13 +788,21 @@ bool Interpreter::ValidateOverrideRules(const frontend::ClassDeclStmt& declarati
                 *out_error = "Override invalido por static/instancia en metodo: " + declaration.name + "." + method.name;
                 return false;
             }
-            if (method.return_type != base_method->return_type) {
+            const frontend::TypeAnnotation method_return_annotation =
+                EffectiveTypeAnnotation(method.return_annotation, method.return_type);
+            const frontend::TypeAnnotation base_return_annotation =
+                EffectiveTypeAnnotation(base_method->return_annotation, base_method->return_type);
+            if (!TypeAnnotationEquals(method_return_annotation, base_return_annotation)) {
                 *out_error = "Override invalido por retorno en metodo: " + declaration.name + "." + method.name;
                 return false;
             }
             for (std::size_t i = 0; i < method.params.size(); ++i) {
+                const frontend::TypeAnnotation method_param_annotation =
+                    EffectiveTypeAnnotation(method.params[i].type_annotation, method.params[i].type_hint);
+                const frontend::TypeAnnotation base_param_annotation =
+                    EffectiveTypeAnnotation(base_method->params[i].type_annotation, base_method->params[i].type_hint);
                 if (method.params[i].by_reference != base_method->params[i].by_reference ||
-                    method.params[i].type_hint != base_method->params[i].type_hint) {
+                    !TypeAnnotationEquals(method_param_annotation, base_param_annotation)) {
                     *out_error = "Override invalido por firma en metodo: " + declaration.name + "." + method.name;
                     return false;
                 }
@@ -769,9 +848,29 @@ bool Interpreter::ValidateInterfaceImplementation(const frontend::ClassDeclStmt&
                 return false;
             }
 
-            if (method->return_type != signature.return_type) {
+            const frontend::TypeAnnotation method_return_annotation =
+                EffectiveTypeAnnotation(method->return_annotation, method->return_type);
+            const frontend::TypeAnnotation signature_return_annotation =
+                EffectiveTypeAnnotation(signature.return_annotation, signature.return_type);
+            if (!TypeAnnotationEquals(method_return_annotation, signature_return_annotation)) {
                 *out_error = "Retorno incompatible en metodo de interface: " + declaration.name + "." + signature.name;
                 return false;
+            }
+
+            for (std::size_t i = 0; i < method->params.size(); ++i) {
+                if (method->params[i].by_reference != signature.params[i].by_reference) {
+                    *out_error = "Firma incompatible en metodo de interface: " + declaration.name + "." + signature.name;
+                    return false;
+                }
+
+                const frontend::TypeAnnotation method_param_annotation =
+                    EffectiveTypeAnnotation(method->params[i].type_annotation, method->params[i].type_hint);
+                const frontend::TypeAnnotation signature_param_annotation =
+                    EffectiveTypeAnnotation(signature.params[i].type_annotation, signature.params[i].type_hint);
+                if (!TypeAnnotationEquals(method_param_annotation, signature_param_annotation)) {
+                    *out_error = "Firma incompatible en metodo de interface: " + declaration.name + "." + signature.name;
+                    return false;
+                }
             }
         }
     }
@@ -884,13 +983,15 @@ bool Interpreter::ExecuteClassDeclaration(const frontend::ClassDeclStmt& declara
             }
         }
 
-        if (field.type_hint != frontend::TypeHint::Inferred &&
+        const frontend::TypeAnnotation field_annotation =
+            EffectiveTypeAnnotation(field.type_annotation, field.type_hint);
+        if ((field_annotation.base != frontend::TypeHint::Inferred || !field_annotation.type_args.empty()) &&
             !(field.default_value == nullptr && value.IsNull())) {
             runtime::Value normalized;
             std::string type_error;
-            if (!NormalizeValueForTypeHint(field.type_hint, value, &normalized, &type_error)) {
+            if (!NormalizeValueForTypeAnnotation(field_annotation, value, &normalized, &type_error)) {
                 *out_error = "Campo static '" + declaration.name + "." + field.name +
-                             "' no coincide con type hint '" + TypeHintName(field.type_hint) + "': " + type_error;
+                             "' no coincide con type hint '" + TypeAnnotationName(field_annotation) + "': " + type_error;
                 classes_.erase(declaration.name);
                 return false;
             }
@@ -938,13 +1039,15 @@ bool Interpreter::InitializeInstanceFields(const frontend::ClassDeclStmt& declar
             }
         }
 
-        if (field.type_hint != frontend::TypeHint::Inferred &&
+        const frontend::TypeAnnotation field_annotation =
+            EffectiveTypeAnnotation(field.type_annotation, field.type_hint);
+        if ((field_annotation.base != frontend::TypeHint::Inferred || !field_annotation.type_args.empty()) &&
             !(field.default_value == nullptr && value.IsNull())) {
             runtime::Value normalized;
             std::string type_error;
-            if (!NormalizeValueForTypeHint(field.type_hint, value, &normalized, &type_error)) {
+            if (!NormalizeValueForTypeAnnotation(field_annotation, value, &normalized, &type_error)) {
                 *out_error = "Campo '" + declaration.name + "." + field.name + "' no coincide con type hint '" +
-                             TypeHintName(field.type_hint) + "': " + type_error;
+                             TypeAnnotationName(field_annotation) + "': " + type_error;
                 return false;
             }
             value = std::move(normalized);
@@ -1008,6 +1111,7 @@ bool Interpreter::ExecuteClassConstructor(const frontend::ClassDeclStmt& declara
         declaration.name,
         declaration.name + "::__constructor__",
         frontend::TypeHint::Inferred,
+        frontend::TypeAnnotation{},
         declaration.constructor_params,
         declaration.constructor_body,
         call,
@@ -1076,12 +1180,14 @@ bool Interpreter::ExecuteClassSetter(runtime::Value* instance,
     }
 
     runtime::Value normalized_value = value;
-    if (accessor->setter_param_type != frontend::TypeHint::Inferred) {
+    const frontend::TypeAnnotation setter_annotation =
+        EffectiveTypeAnnotation(accessor->setter_param_annotation, accessor->setter_param_type);
+    if (setter_annotation.base != frontend::TypeHint::Inferred || !setter_annotation.type_args.empty()) {
         std::string type_error;
-        if (!NormalizeValueForTypeHint(accessor->setter_param_type, value, &normalized_value, &type_error)) {
+        if (!NormalizeValueForTypeAnnotation(setter_annotation, value, &normalized_value, &type_error)) {
             *out_error = "Setter '" + class_name + "." + property_name +
                          "' recibio valor incompatible con type hint '" +
-                         TypeHintName(accessor->setter_param_type) + "': " + type_error;
+                         TypeAnnotationName(setter_annotation) + "': " + type_error;
             return false;
         }
     }
@@ -1339,6 +1445,9 @@ bool Interpreter::ExecuteForEach(const frontend::ForEachStmt& statement, std::st
     case frontend::DeclarationType::Char:
         kind = runtime::VariableKind::Char;
         break;
+    case frontend::DeclarationType::List:
+        kind = runtime::VariableKind::List;
+        break;
     case frontend::DeclarationType::Tuple:
         kind = runtime::VariableKind::Tuple;
         break;
@@ -1347,6 +1456,9 @@ bool Interpreter::ExecuteForEach(const frontend::ForEachStmt& statement, std::st
         break;
     case frontend::DeclarationType::Map:
         kind = runtime::VariableKind::Map;
+        break;
+    case frontend::DeclarationType::Object:
+        kind = runtime::VariableKind::Object;
         break;
     case frontend::DeclarationType::Function:
         kind = runtime::VariableKind::Function;
@@ -1357,10 +1469,25 @@ bool Interpreter::ExecuteForEach(const frontend::ForEachStmt& statement, std::st
         break;
     }
 
+    const frontend::TypeAnnotation variable_annotation =
+        EffectiveTypeAnnotation(statement.variable_annotation, DeclarationTypeToTypeHint(statement.variable_type));
+    const bool has_annotation =
+        variable_annotation.base != frontend::TypeHint::Inferred || !variable_annotation.type_args.empty();
+
     ++loop_depth_;
     for (const auto& element : elements) {
         runtime::Value normalized = element;
-        if (kind != runtime::VariableKind::Dynamic) {
+        if (has_annotation) {
+            if (!NormalizeValueForTypeAnnotation(variable_annotation, element, &normalized, out_error)) {
+                --loop_depth_;
+                if (previous_slot.has_value()) {
+                    environment_[statement.variable_name] = *previous_slot;
+                } else {
+                    environment_.erase(statement.variable_name);
+                }
+                return false;
+            }
+        } else if (kind != runtime::VariableKind::Dynamic) {
             if (!NormalizeValueForKind(kind, element, &normalized, out_error)) {
                 --loop_depth_;
                 if (previous_slot.has_value()) {
@@ -2422,6 +2549,7 @@ bool Interpreter::ExecuteCall(const frontend::CallExpr& call, bool require_retur
                 owner_class,
                 call.callee,
                 method->return_type,
+                method->return_annotation,
                 method->params,
                 method->body,
                 call,
@@ -2466,6 +2594,7 @@ bool Interpreter::ExecuteCall(const frontend::CallExpr& call, bool require_retur
                 owner_class,
                 call.callee,
                 method->return_type,
+                method->return_annotation,
                 method->params,
                 method->body,
                 call,
@@ -2552,6 +2681,7 @@ bool Interpreter::ExecuteCall(const frontend::CallExpr& call, bool require_retur
             owner_class,
             call.callee,
             method->return_type,
+            method->return_annotation,
             method->params,
             method->body,
             call,
@@ -2602,6 +2732,7 @@ bool Interpreter::ExecuteCall(const frontend::CallExpr& call, bool require_retur
 bool Interpreter::ExecuteClassCallable(const std::string& class_name,
                                        const std::string& callable_name,
                                        frontend::TypeHint return_type,
+                                       const frontend::TypeAnnotation& return_annotation,
                                        const std::vector<frontend::FunctionParam>& params,
                                        const std::vector<std::unique_ptr<frontend::Statement>>& body,
                                        const frontend::CallExpr& call,
@@ -2621,6 +2752,7 @@ bool Interpreter::ExecuteClassCallable(const std::string& class_name,
     const bool ok = ExecuteCallable(
         callable_name,
         return_type,
+        return_annotation,
         params,
         body,
         call,
@@ -2649,6 +2781,7 @@ bool Interpreter::ExecuteClassCallable(const std::string& class_name,
 
 bool Interpreter::ExecuteCallable(const std::string& callable_name,
                                   frontend::TypeHint return_type,
+                                  const frontend::TypeAnnotation& return_annotation,
                                   const std::vector<frontend::FunctionParam>& params,
                                   const std::vector<std::unique_ptr<frontend::Statement>>& body,
                                   const frontend::CallExpr& call,
@@ -2664,7 +2797,7 @@ bool Interpreter::ExecuteCallable(const std::string& callable_name,
     struct RefBinding {
         std::string param;
         std::string caller;
-        frontend::TypeHint type_hint = frontend::TypeHint::Inferred;
+        frontend::TypeAnnotation type_annotation;
     };
 
     std::vector<RefBinding> refs;
@@ -2677,6 +2810,10 @@ bool Interpreter::ExecuteCallable(const std::string& callable_name,
 
     for (std::size_t i = 0; i < params.size(); ++i) {
         const frontend::FunctionParam& param = params[i];
+        const frontend::TypeAnnotation param_annotation =
+            EffectiveTypeAnnotation(param.type_annotation, param.type_hint);
+        const bool param_has_annotation =
+            param_annotation.base != frontend::TypeHint::Inferred || !param_annotation.type_args.empty();
         const bool has_argument = i < call.arguments.size();
         if (!has_argument && param.default_value == nullptr) {
             *out_error = "Numero incorrecto de argumentos para funcion '" + callable_name + "'.";
@@ -2708,20 +2845,20 @@ bool Interpreter::ExecuteCallable(const std::string& callable_name,
             }
 
             runtime::VariableSlot reference_slot = caller_it->second;
-            if (param.type_hint != frontend::TypeHint::Inferred) {
+            if (param_has_annotation) {
                 runtime::Value normalized;
                 std::string type_error;
-                if (!NormalizeValueForTypeHint(param.type_hint, reference_slot.value, &normalized, &type_error)) {
+                if (!NormalizeValueForTypeAnnotation(param_annotation, reference_slot.value, &normalized, &type_error)) {
                     *out_error =
                         "Argumento por referencia '" + param.name +
-                        "' no coincide con type hint '" + TypeHintName(param.type_hint) + "': " + type_error;
+                        "' no coincide con type hint '" + TypeAnnotationName(param_annotation) + "': " + type_error;
                     return false;
                 }
                 reference_slot.value = std::move(normalized);
             }
 
             local_environment[param.name] = std::move(reference_slot);
-            refs.push_back(RefBinding{param.name, variable->name, param.type_hint});
+            refs.push_back(RefBinding{param.name, variable->name, param_annotation});
             continue;
         }
 
@@ -2747,13 +2884,13 @@ bool Interpreter::ExecuteCallable(const std::string& callable_name,
             }
         }
 
-        if (param.type_hint != frontend::TypeHint::Inferred) {
+        if (param_has_annotation) {
             runtime::Value normalized;
             std::string type_error;
-            if (!NormalizeValueForTypeHint(param.type_hint, evaluated, &normalized, &type_error)) {
+            if (!NormalizeValueForTypeAnnotation(param_annotation, evaluated, &normalized, &type_error)) {
                 *out_error =
                     "Argumento '" + param.name +
-                    "' no coincide con type hint '" + TypeHintName(param.type_hint) + "': " + type_error;
+                    "' no coincide con type hint '" + TypeAnnotationName(param_annotation) + "': " + type_error;
                 return false;
             }
             evaluated = std::move(normalized);
@@ -2781,21 +2918,30 @@ bool Interpreter::ExecuteCallable(const std::string& callable_name,
         }
     }
 
-    if (return_type != frontend::TypeHint::Inferred) {
+    const frontend::TypeAnnotation effective_return_annotation =
+        EffectiveTypeAnnotation(return_annotation, return_type);
+    const bool has_return_annotation =
+        effective_return_annotation.base != frontend::TypeHint::Inferred ||
+        !effective_return_annotation.type_args.empty();
+    if (has_return_annotation) {
         if (!returned.has_value()) {
             *out_error =
                 "La funcion '" + callable_name +
-                "' debe retornar un valor de tipo '" + TypeHintName(return_type) + "'.";
+                "' debe retornar un valor de tipo '" + TypeAnnotationName(effective_return_annotation) + "'.";
             environment_ = std::move(caller_environment);
             return false;
         }
 
         runtime::Value normalized_return;
         std::string type_error;
-        if (!NormalizeValueForTypeHint(return_type, *returned, &normalized_return, &type_error)) {
+        if (!NormalizeValueForTypeAnnotation(
+                effective_return_annotation,
+                *returned,
+                &normalized_return,
+                &type_error)) {
             *out_error =
                 "El retorno de la funcion '" + callable_name +
-                "' no coincide con type hint '" + TypeHintName(return_type) + "': " + type_error;
+                "' no coincide con type hint '" + TypeAnnotationName(effective_return_annotation) + "': " + type_error;
             environment_ = std::move(caller_environment);
             return false;
         }
@@ -2806,13 +2952,20 @@ bool Interpreter::ExecuteCallable(const std::string& callable_name,
         const auto updated = environment_.find(ref.param);
         if (updated != environment_.end()) {
             runtime::VariableSlot propagated_slot = updated->second;
-            if (ref.type_hint != frontend::TypeHint::Inferred) {
+            const bool ref_has_annotation =
+                ref.type_annotation.base != frontend::TypeHint::Inferred ||
+                !ref.type_annotation.type_args.empty();
+            if (ref_has_annotation) {
                 runtime::Value normalized;
                 std::string type_error;
-                if (!NormalizeValueForTypeHint(ref.type_hint, propagated_slot.value, &normalized, &type_error)) {
+                if (!NormalizeValueForTypeAnnotation(
+                        ref.type_annotation,
+                        propagated_slot.value,
+                        &normalized,
+                        &type_error)) {
                     *out_error =
                         "El valor final del parametro por referencia '" + ref.param +
-                        "' no coincide con type hint '" + TypeHintName(ref.type_hint) + "': " + type_error;
+                        "' no coincide con type hint '" + TypeAnnotationName(ref.type_annotation) + "': " + type_error;
                     environment_ = std::move(caller_environment);
                     return false;
                 }
@@ -2843,6 +2996,7 @@ bool Interpreter::ExecuteUserFunction(const frontend::FunctionDeclStmt& function
     return ExecuteCallable(
         function.name,
         function.return_type,
+        function.return_annotation,
         function.params,
         function.body,
         call,

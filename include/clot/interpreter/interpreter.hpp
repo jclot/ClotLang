@@ -69,6 +69,7 @@ private:
     bool ExecuteCallable(
         const std::string& callable_name,
         frontend::TypeHint return_type,
+        const frontend::TypeAnnotation& return_annotation,
         const std::vector<frontend::FunctionParam>& params,
         const std::vector<std::unique_ptr<frontend::Statement>>& body,
         const frontend::CallExpr& call,
@@ -81,6 +82,7 @@ private:
         const std::string& class_name,
         const std::string& callable_name,
         frontend::TypeHint return_type,
+        const frontend::TypeAnnotation& return_annotation,
         const std::vector<frontend::FunctionParam>& params,
         const std::vector<std::unique_ptr<frontend::Statement>>& body,
         const frontend::CallExpr& call,
@@ -196,6 +198,11 @@ private:
         std::string* out_error) const;
     bool NormalizeValueForTypeHint(
         frontend::TypeHint hint,
+        const runtime::Value& value,
+        runtime::Value* out_value,
+        std::string* out_error) const;
+    bool NormalizeValueForTypeAnnotation(
+        const frontend::TypeAnnotation& annotation,
         const runtime::Value& value,
         runtime::Value* out_value,
         std::string* out_error) const;
