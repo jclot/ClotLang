@@ -1117,6 +1117,104 @@ if ! grep -q "Argumento 'name' no coincide con type hint 'string'" "$TMP_DIR/fun
     exit 1
 fi
 
+cat > "$TMP_DIR/type_annotations_containers_ok.clot" <<'PROG'
+list values = [1, 2, 3];
+object flags = {ok: true, code: 200};
+list<int> ints = [10, 20, 30];
+tuple<int> coords = tuple(4, 5, 6);
+set<int> unique = set(1, 2, 2, 3);
+map<string, int> scores = map("a", 10, "b", 20);
+object<int> counters = {x: 7, y: 8};
+
+func list<int> keep(values: list<int>):
+    return values;
+endfunc
+
+println(type(values));
+println(type(flags));
+println(keep([9, 8, 7])[1]);
+println(scores["b"]);
+println(counters.x);
+for (int item in ints):
+    println(item);
+endfor
+PROG
+
+EXPECTED_TYPE_ANNOTATIONS_CONTAINERS_OK=$'list\nobject\n8\n20\n7\n10\n20\n30'
+ACTUAL_TYPE_ANNOTATIONS_CONTAINERS_OK="$($BIN_PATH "$TMP_DIR/type_annotations_containers_ok.clot")"
+if [[ "$ACTUAL_TYPE_ANNOTATIONS_CONTAINERS_OK" != "$EXPECTED_TYPE_ANNOTATIONS_CONTAINERS_OK" ]]; then
+    echo "Fallo test type_annotations_containers_ok" >&2
+    echo "Esperado:" >&2
+    printf '%s\n' "$EXPECTED_TYPE_ANNOTATIONS_CONTAINERS_OK" >&2
+    echo "Actual:" >&2
+    printf '%s\n' "$ACTUAL_TYPE_ANNOTATIONS_CONTAINERS_OK" >&2
+    exit 1
+fi
+
+cat > "$TMP_DIR/type_annotations_list_inner_error.clot" <<'PROG'
+list<int> bad = [1, "x"];
+PROG
+
+set +e
+"$BIN_PATH" "$TMP_DIR/type_annotations_list_inner_error.clot" >"$TMP_DIR/type_annotations_list_inner_error.out" 2>"$TMP_DIR/type_annotations_list_inner_error.err"
+STATUS_TYPE_ANNOTATIONS_LIST_INNER_ERROR=$?
+set -e
+
+if [[ "$STATUS_TYPE_ANNOTATIONS_LIST_INNER_ERROR" -eq 0 ]]; then
+    echo "Fallo test type_annotations_list_inner_error: se esperaba error." >&2
+    exit 1
+fi
+
+if ! grep -q "Elemento list\\[1\\] incompatible con 'int'" "$TMP_DIR/type_annotations_list_inner_error.err"; then
+    echo "Fallo test type_annotations_list_inner_error: mensaje esperado no encontrado." >&2
+    cat "$TMP_DIR/type_annotations_list_inner_error.err" >&2
+    exit 1
+fi
+
+cat > "$TMP_DIR/type_annotations_map_key_error.clot" <<'PROG'
+map<string, int> bad = map("a", 1, 2, 3);
+PROG
+
+set +e
+"$BIN_PATH" "$TMP_DIR/type_annotations_map_key_error.clot" >"$TMP_DIR/type_annotations_map_key_error.out" 2>"$TMP_DIR/type_annotations_map_key_error.err"
+STATUS_TYPE_ANNOTATIONS_MAP_KEY_ERROR=$?
+set -e
+
+if [[ "$STATUS_TYPE_ANNOTATIONS_MAP_KEY_ERROR" -eq 0 ]]; then
+    echo "Fallo test type_annotations_map_key_error: se esperaba error." >&2
+    exit 1
+fi
+
+if ! grep -q "Clave map\\[1\\] incompatible con 'string'" "$TMP_DIR/type_annotations_map_key_error.err"; then
+    echo "Fallo test type_annotations_map_key_error: mensaje esperado no encontrado." >&2
+    cat "$TMP_DIR/type_annotations_map_key_error.err" >&2
+    exit 1
+fi
+
+cat > "$TMP_DIR/type_annotations_function_return_error.clot" <<'PROG'
+func list<int> bad():
+    return [1, "x"];
+endfunc
+
+bad();
+PROG
+
+set +e
+"$BIN_PATH" "$TMP_DIR/type_annotations_function_return_error.clot" >"$TMP_DIR/type_annotations_function_return_error.out" 2>"$TMP_DIR/type_annotations_function_return_error.err"
+STATUS_TYPE_ANNOTATIONS_FUNCTION_RETURN_ERROR=$?
+set -e
+
+if [[ "$STATUS_TYPE_ANNOTATIONS_FUNCTION_RETURN_ERROR" -eq 0 ]]; then
+    echo "Fallo test type_annotations_function_return_error: se esperaba error." >&2
+    exit 1
+fi
+
+if ! grep -q "no coincide con type hint 'list<int>'" "$TMP_DIR/type_annotations_function_return_error.err"; then
+    echo "Fallo test type_annotations_function_return_error: mensaje esperado no encontrado." >&2
+    cat "$TMP_DIR/type_annotations_function_return_error.err" >&2
+    exit 1
+fi
+
 cat > "$TMP_DIR/function_defaults_ok.clot" <<'PROG'
 func float free_fall_height(h0: float, v0: float, t: float, g: float = 9.81):
     return h0 + v0 * t - (g * t * t) / 2;

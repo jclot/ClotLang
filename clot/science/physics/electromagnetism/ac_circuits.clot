@@ -1,6 +1,7 @@
 // module: clot.science.physics.electromagnetism.ac_circuits
 
 import math;
+import MyCustomError;
 
 func capacitive_reactance(frequency, capacitance):
     if (frequency <= 0 || capacitance <= 0):
@@ -49,7 +50,7 @@ endfunc
 
 func power_factor(resistance, impedance):
     if (impedance <= 0):
-        return null;
+        throw(MyCustomError("Impedance must be greater than 0 in power_factor", { resistance: resistance, impedance: impedance }));
     endif
     return resistance / impedance;
 endfunc
@@ -57,3 +58,4 @@ endfunc
 func real_power_ac(v_rms, i_rms, power_factor_value):
     return v_rms * i_rms * power_factor_value;
 endfunc
+

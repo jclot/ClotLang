@@ -1736,6 +1736,13 @@ endtry
                                 <code>char</code>, <code>tuple</code>, <code>set</code>, <code>map</code>,
                                 <code>function</code>, <code>string</code>, <code>bool</code>, <code>list</code>,
                                 <code>object</code>, <code>null</code>.</li>
+                            <li>Soporte de genericos en hints: <code>list&lt;T&gt;</code>, <code>tuple&lt;T&gt;</code>,
+                                <code>set&lt;T&gt;</code>, <code>object&lt;T&gt;</code>, <code>map&lt;K, V&gt;</code>.
+                            </li>
+                            <li>Tipado de colecciones en 2 fases:
+                                <code>list/object</code> para el contenedor y
+                                <code>list&lt;int&gt;</code>/<code>map&lt;string, int&gt;</code> para tipado interno
+                                fuerte (incluye anidacion).</li>
                             <li><code>any</code> y <code>dynamic</code> son alias: ambos significan tipo dinamico
                                 (internamente equivalente a omitir el tipo).</li>
                             <li>Sin tipo de retorno (<code>func nombre(...):</code>) o con
@@ -1787,6 +1794,78 @@ println(echo_any("hola"));
 println(echo_dynamic(42));
 show_params(10, "texto", [1, 2, 3]);
 </code></pre>
+
+                        <h3>Tipado de Colecciones (Detallado)</h3>
+                        <p>
+                            El modelo actual funciona en dos fases:
+                            <strong>tipado de contenedor</strong> y
+                            <strong>tipado interno fuerte</strong>.
+                        </p>
+
+                        <h4>Fase 1: Tipado del contenedor</h4>
+                        <p>
+                            Valida que el valor sea del tipo de coleccion correcto, pero no restringe los elementos
+                            internos.
+                        </p>
+                        <pre class="shadow-lg rounded"><code class="language-clike">// Contenedor tipado (interno flexible)
+list datos = [1, "dos", true];
+object meta = {id: 1, name: "Ana", ok: true};
+tuple t = tuple(1, "x");
+
+println(type(datos)); // list
+println(type(meta));  // object
+</code></pre>
+
+                        <h4>Fase 2: Tipado interno fuerte (Genericos)</h4>
+                        <p>
+                            Ademas del contenedor, valida recursivamente el tipo interno de cada elemento.
+                        </p>
+                        <pre class="shadow-lg rounded"><code class="language-clike">list&lt;int&gt; ids = [1, 2, 3];
+tuple&lt;float&gt; coords = tuple(1, 2.5, 3);
+set&lt;char&gt; letras = set('a', "b", 67);
+map&lt;string, int&gt; score = map("ana", 10, "luis", 20);
+object&lt;int&gt; counters = {ok: 5, fail: 1};
+
+// Anidacion valida
+list&lt;map&lt;string, int&gt;&gt; tabla = [map("a", 1), map("b", 2)];
+</code></pre>
+
+                        <h4>Casos de error esperados</h4>
+                        <pre class="shadow-lg rounded"><code class="language-clike">list&lt;int&gt; bad1 = [1, "2"];                   // Elemento list[1] incompatible con 'int'
+map&lt;string, int&gt; bad2 = map("ana", 10, 2, 20); // Clave map[1] incompatible con 'string'
+object&lt;int&gt; bad3 = {ok: 1, label: "x"};      // Propiedad object.label incompatible con 'int'
+</code></pre>
+
+                        <h4>Funciones con colecciones tipadas</h4>
+                        <pre class="shadow-lg rounded"><code class="language-clike">func list&lt;int&gt; keep(xs: list&lt;int&gt;):
+    return xs;
+endfunc
+
+println(keep([1, 2, 3]));
+// println(keep([1, "x"])); // error en argumento 'xs'
+
+func map&lt;string, int&gt; mk_scores():
+    return map("a", 10, "b", 20);
+endfunc
+</code></pre>
+
+                        <h4>for-each con binding tipado</h4>
+                        <pre class="shadow-lg rounded"><code class="language-clike">for (int n in [10, 20, 30]):
+    println(n);
+endfor
+
+for (list&lt;int&gt; row in [[1, 2], [3, 4]]):
+    println(row[0]);
+endfor
+</code></pre>
+
+                        <div class="docs-callout">
+                            Regla de aridad generica:
+                            <code>list&lt;T&gt;</code>, <code>tuple&lt;T&gt;</code>, <code>set&lt;T&gt;</code>,
+                            <code>object&lt;T&gt;</code> y <code>map&lt;K, V&gt;</code>.
+                            Tambien se permite el tipo sin genericos (ej. <code>tuple</code>, <code>map</code>)
+                            para compatibilidad.
+                        </div>
                     </section>
 
                     <section class="docs-section" id="item-lang-oop">
