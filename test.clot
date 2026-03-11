@@ -1,5 +1,9 @@
-nums = [10,12, 20, 30, 40];
+import clot.science.physics.electromagnetism.ac_circuits;
 
-for(int i = 0; i < len(nums); i++):
-    println(nums[i]);
-endfor
+
+try:
+    pf = power_factor(10, -2);
+catch(MyCustomError err):
+    println("Error:" + err.message);
+    println("Data:" + err.data);
+endtry

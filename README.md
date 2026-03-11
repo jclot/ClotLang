@@ -22,6 +22,8 @@ Refactor de arquitectura para separar claramente frontend, runtime, interprete y
   - Compilado AOT LLVM: `--mode compile`
 - Tipado dinamico con hints opcionales:
   - Declaraciones y type hints se validan en runtime.
+  - Fase 1: tipado de contenedor en colecciones (`list` / `object`).
+  - Fase 2: tipado fuerte interno con anotaciones genericas (`list<int>`, `tuple<float>`, `set<char>`, `map<string, int>`, `object<int>`; admite anidacion).
   - `--mode analyze` agrega chequeo estatico auxiliar (no reemplaza tipado estatico completo).
 - El tipado explicito sigue siendo opt-in: puedes combinar estilo dinamico y tipado por hints.
 
@@ -299,14 +301,57 @@ Soportado en modo interprete:
 - Type hints opcionales en funciones:
   - Retorno: `func float promedio(...):`
   - Parametros: `func greet(name: string):`
+  - Genericos en retorno/parametros: `func list<int> filtrar(xs: list<int>):`
   - Valores por defecto: `func f(x: float = 1.0):`
   - Retorno tipado: exactamente 1 tipo por funcion (sin unions)
   - Tipos permitidos en retorno/parametros: `int`, `double`, `float`, `decimal`, `long`, `byte`, `char`, `tuple`, `set`, `map`, `function`, `string`, `bool`, `list`, `object`, `null`
+  - Aridad generica valida: `list<T>`, `tuple<T>`, `set<T>`, `object<T>`, `map<K, V>`
   - `any` y `dynamic` son alias (equivalentes)
   - Retorno dinamico: omitir tipo (`func nombre(...):`) o usar `func any nombre(...):` / `func dynamic nombre(...):`
   - En parametros: `x`, `x: any` y `x: dynamic` son equivalentes (aceptan cualquier valor)
   - `any/dynamic` en la doc significa "any o dynamic"; no se escribe literal con barra
   - Validacion runtime cuando el hint esta presente
+- Tipado de colecciones en variables:
+  - Contenedor: `list nums = [1, 2, 3];`, `object cfg = {enabled: true};`
+  - Interno fuerte: `list<int> ids = [1, 2, 3];`, `map<string, int> scores = map("a", 10);`
+  - Si algun elemento interno no coincide, falla en runtime con error tipado.
+  - Aridad generica: `list<T>`, `tuple<T>`, `set<T>`, `object<T>`, `map<K, V>` (tambien se permite sin genericos por compatibilidad).
+
+Ejemplos detallados de tipado de colecciones:
+
+```clot
+// Fase 1: tipado de contenedor
+list datos = [1, "dos", true];
+object meta = {id: 1, name: "Ana", ok: true};
+```
+
+```clot
+// Fase 2: tipado interno fuerte
+list<int> ids = [1, 2, 3];
+tuple<float> coords = tuple(1, 2.5, 3);
+set<char> letras = set('a', "b", 67);
+map<string, int> score = map("ana", 10, "luis", 20);
+object<int> counters = {ok: 5, fail: 1};
+list<map<string, int>> tabla = [map("a", 1), map("b", 2)];
+```
+
+```clot
+// Errores tipicos
+list<int> bad1 = [1, "2"];                    // Elemento list[1] incompatible con 'int'
+map<string, int> bad2 = map("ana", 10, 2, 20); // Clave map[1] incompatible con 'string'
+object<int> bad3 = {ok: 1, label: "x"};       // Propiedad object.label incompatible con 'int'
+```
+
+```clot
+// Funciones y for-each tipados
+func list<int> keep(xs: list<int>):
+    return xs;
+endfunc
+
+for (list<int> row in [[1, 2], [3, 4]]):
+    println(row[0]);
+endfor
+```
 - Modulos por archivo:
   - `import modulo.submodulo;`
   - `import modulo.submodulo as alias;`
