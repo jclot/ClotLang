@@ -51,6 +51,8 @@ enum class DeclarationType {
     Tuple,
     Set,
     Map,
+    List,
+    Object,
     Function,
 };
 
@@ -72,6 +74,11 @@ enum class TypeHint {
     List,
     Object,
     Null,
+};
+
+struct TypeAnnotation {
+    TypeHint base = TypeHint::Inferred;
+    std::vector<TypeAnnotation> type_args;
 };
 
 enum class MemberVisibility {
@@ -190,18 +197,21 @@ struct AssignmentStmt final : Statement {
         AssignmentOp in_op,
         DeclarationType in_decl_type,
         std::unique_ptr<Expr> in_expr,
-        bool in_is_const = false)
+        bool in_is_const = false,
+        TypeAnnotation in_type_annotation = TypeAnnotation{})
         : name(std::move(in_name)),
           op(in_op),
           declaration_type(in_decl_type),
           expr(std::move(in_expr)),
-          is_const(in_is_const) {}
+          is_const(in_is_const),
+          type_annotation(std::move(in_type_annotation)) {}
 
     std::string name;
     AssignmentOp op = AssignmentOp::Set;
     DeclarationType declaration_type = DeclarationType::Inferred;
     std::unique_ptr<Expr> expr;
     bool is_const = false;
+    TypeAnnotation type_annotation;
 };
 
 struct PrintStmt final : Statement {
@@ -281,18 +291,21 @@ struct ForEachStmt final : Statement {
         DeclarationType in_variable_type,
         bool in_variable_is_const,
         std::unique_ptr<Expr> in_collection,
-        std::vector<std::unique_ptr<Statement>> in_body)
+        std::vector<std::unique_ptr<Statement>> in_body,
+        TypeAnnotation in_variable_annotation = TypeAnnotation{})
         : variable_name(std::move(in_variable_name)),
           variable_type(in_variable_type),
           variable_is_const(in_variable_is_const),
           collection(std::move(in_collection)),
-          body(std::move(in_body)) {}
+          body(std::move(in_body)),
+          variable_annotation(std::move(in_variable_annotation)) {}
 
     std::string variable_name;
     DeclarationType variable_type = DeclarationType::Inferred;
     bool variable_is_const = false;
     std::unique_ptr<Expr> collection;
     std::vector<std::unique_ptr<Statement>> body;
+    TypeAnnotation variable_annotation;
 };
 
 struct DoWhileStmt final : Statement {
@@ -343,6 +356,7 @@ struct FunctionParam {
     std::string name;
     bool by_reference = false;
     TypeHint type_hint = TypeHint::Inferred;
+    TypeAnnotation type_annotation;
     std::unique_ptr<Expr> default_value;
 };
 
@@ -351,14 +365,17 @@ struct FunctionDeclStmt final : Statement {
         std::string in_name,
         TypeHint in_return_type,
         std::vector<FunctionParam> in_params,
-        std::vector<std::unique_ptr<Statement>> in_body)
+        std::vector<std::unique_ptr<Statement>> in_body,
+        TypeAnnotation in_return_annotation = TypeAnnotation{})
         : name(std::move(in_name)),
           return_type(in_return_type),
+          return_annotation(std::move(in_return_annotation)),
           params(std::move(in_params)),
           body(std::move(in_body)) {}
 
     std::string name;
     TypeHint return_type = TypeHint::Inferred;
+    TypeAnnotation return_annotation;
     std::vector<FunctionParam> params;
     std::vector<std::unique_ptr<Statement>> body;
 };
@@ -366,6 +383,7 @@ struct FunctionDeclStmt final : Statement {
 struct InterfaceMethodSignature {
     std::string name;
     TypeHint return_type = TypeHint::Inferred;
+    TypeAnnotation return_annotation;
     std::vector<FunctionParam> params;
 };
 
@@ -383,6 +401,7 @@ struct InterfaceDeclStmt final : Statement {
 struct ClassFieldDecl {
     std::string name;
     TypeHint type_hint = TypeHint::Inferred;
+    TypeAnnotation type_annotation;
     MemberVisibility visibility = MemberVisibility::Public;
     bool is_static = false;
     bool is_readonly = false;
@@ -392,6 +411,7 @@ struct ClassFieldDecl {
 struct ClassMethodDecl {
     std::string name;
     TypeHint return_type = TypeHint::Inferred;
+    TypeAnnotation return_annotation;
     std::vector<FunctionParam> params;
     std::vector<std::unique_ptr<Statement>> body;
     MemberVisibility visibility = MemberVisibility::Public;
@@ -404,6 +424,7 @@ struct ClassAccessorDecl {
     bool is_setter = false;
     std::string setter_param_name = "value";
     TypeHint setter_param_type = TypeHint::Inferred;
+    TypeAnnotation setter_param_annotation;
     std::vector<std::unique_ptr<Statement>> body;
     MemberVisibility visibility = MemberVisibility::Public;
 };

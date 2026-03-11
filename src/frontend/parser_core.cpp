@@ -173,6 +173,18 @@ bool Parser::ParseStatement(
     }
 
     if (tokens[0].kind == TokenKind::Identifier &&
+        tokens.back().kind == TokenKind::Semicolon) {
+        std::size_t assignment_operator_index = 0;
+        AssignmentOp assignment_op = AssignmentOp::Set;
+        if (internal::FindTopLevelAssignmentOperator(tokens, &assignment_operator_index, &assignment_op) &&
+            assignment_op == AssignmentOp::Set &&
+            assignment_operator_index >= 2 &&
+            tokens[assignment_operator_index - 1].kind == TokenKind::Identifier) {
+            return ParseAssignment(line_index, tokens, out_statements, out_error);
+        }
+    }
+
+    if (tokens[0].kind == TokenKind::Identifier &&
         tokens.size() > 1 &&
         (tokens[1].kind == TokenKind::Assign ||
          tokens[1].kind == TokenKind::PlusEqual ||

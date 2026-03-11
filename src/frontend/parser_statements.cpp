@@ -144,11 +144,230 @@ bool TryParseTypeHintToken(const Token& token, TypeHint* out_type_hint) {
     return false;
 }
 
+bool TryMapTypeHintToDeclarationType(TypeHint hint, DeclarationType* out_declaration_type) {
+    if (out_declaration_type == nullptr) {
+        return false;
+    }
+
+    switch (hint) {
+    case TypeHint::Int:
+        *out_declaration_type = DeclarationType::Int;
+        return true;
+    case TypeHint::Double:
+        *out_declaration_type = DeclarationType::Double;
+        return true;
+    case TypeHint::Float:
+        *out_declaration_type = DeclarationType::Float;
+        return true;
+    case TypeHint::Decimal:
+        *out_declaration_type = DeclarationType::Decimal;
+        return true;
+    case TypeHint::Long:
+        *out_declaration_type = DeclarationType::Long;
+        return true;
+    case TypeHint::Byte:
+        *out_declaration_type = DeclarationType::Byte;
+        return true;
+    case TypeHint::Char:
+        *out_declaration_type = DeclarationType::Char;
+        return true;
+    case TypeHint::Tuple:
+        *out_declaration_type = DeclarationType::Tuple;
+        return true;
+    case TypeHint::Set:
+        *out_declaration_type = DeclarationType::Set;
+        return true;
+    case TypeHint::Map:
+        *out_declaration_type = DeclarationType::Map;
+        return true;
+    case TypeHint::List:
+        *out_declaration_type = DeclarationType::List;
+        return true;
+    case TypeHint::Object:
+        *out_declaration_type = DeclarationType::Object;
+        return true;
+    case TypeHint::Function:
+        *out_declaration_type = DeclarationType::Function;
+        return true;
+    case TypeHint::Inferred:
+    case TypeHint::String:
+    case TypeHint::Bool:
+    case TypeHint::Null:
+        return false;
+    }
+    return false;
+}
+
+bool TypeHintSupportsTypeArguments(TypeHint hint) {
+    return hint == TypeHint::List ||
+           hint == TypeHint::Tuple ||
+           hint == TypeHint::Set ||
+           hint == TypeHint::Map ||
+           hint == TypeHint::Object;
+}
+
+bool ValidateTypeArgumentArity(TypeHint hint, std::size_t arity) {
+    if (hint == TypeHint::List ||
+        hint == TypeHint::Tuple ||
+        hint == TypeHint::Set ||
+        hint == TypeHint::Object) {
+        return arity == 0 || arity == 1;
+    }
+    if (hint == TypeHint::Map) {
+        return arity == 0 || arity == 2;
+    }
+    return arity == 0;
+}
+
+const char* TypeHintKeyword(TypeHint hint) {
+    switch (hint) {
+    case TypeHint::Int:
+        return "int";
+    case TypeHint::Double:
+        return "double";
+    case TypeHint::Float:
+        return "float";
+    case TypeHint::Decimal:
+        return "decimal";
+    case TypeHint::Long:
+        return "long";
+    case TypeHint::Byte:
+        return "byte";
+    case TypeHint::Char:
+        return "char";
+    case TypeHint::Tuple:
+        return "tuple";
+    case TypeHint::Set:
+        return "set";
+    case TypeHint::Map:
+        return "map";
+    case TypeHint::List:
+        return "list";
+    case TypeHint::Object:
+        return "object";
+    case TypeHint::Function:
+        return "function";
+    case TypeHint::String:
+        return "string";
+    case TypeHint::Bool:
+        return "bool";
+    case TypeHint::Null:
+        return "null";
+    case TypeHint::Inferred:
+        return "dynamic";
+    }
+    return "dynamic";
+}
+
+std::string TypeAnnotationToString(const TypeAnnotation& annotation) {
+    std::string text = TypeHintKeyword(annotation.base);
+    if (!annotation.type_args.empty()) {
+        text.push_back('<');
+        for (std::size_t i = 0; i < annotation.type_args.size(); ++i) {
+            if (i > 0) {
+                text += ", ";
+            }
+            text += TypeAnnotationToString(annotation.type_args[i]);
+        }
+        text.push_back('>');
+    }
+    return text;
+}
+
+bool ParseTypeAnnotationTokens(const std::vector<Token>& tokens,
+                               std::size_t* cursor,
+                               TypeAnnotation* out_annotation,
+                               std::string* out_error) {
+    if (cursor == nullptr || out_annotation == nullptr) {
+        if (out_error != nullptr) {
+            *out_error = "Error interno: salida nula al parsear type hint.";
+        }
+        return false;
+    }
+
+    if (*cursor >= tokens.size()) {
+        if (out_error != nullptr) {
+            *out_error = "Falta tipo.";
+        }
+        return false;
+    }
+
+    TypeHint base = TypeHint::Inferred;
+    if (!TryParseTypeHintToken(tokens[*cursor], &base)) {
+        if (out_error != nullptr) {
+            *out_error = "Tipo no reconocido: '" + tokens[*cursor].lexeme + "'.";
+        }
+        return false;
+    }
+
+    TypeAnnotation annotation;
+    annotation.base = base;
+    ++(*cursor);
+
+    if (*cursor < tokens.size() && tokens[*cursor].kind == TokenKind::Less) {
+        ++(*cursor);
+        while (true) {
+            if (*cursor >= tokens.size()) {
+                if (out_error != nullptr) {
+                    *out_error = "Falta '>' al cerrar type hint generico.";
+                }
+                return false;
+            }
+
+            TypeAnnotation argument;
+            if (!ParseTypeAnnotationTokens(tokens, cursor, &argument, out_error)) {
+                return false;
+            }
+            annotation.type_args.push_back(std::move(argument));
+
+            if (*cursor >= tokens.size()) {
+                if (out_error != nullptr) {
+                    *out_error = "Falta '>' al cerrar type hint generico.";
+                }
+                return false;
+            }
+
+            if (tokens[*cursor].kind == TokenKind::Comma) {
+                ++(*cursor);
+                continue;
+            }
+            if (tokens[*cursor].kind == TokenKind::Greater) {
+                ++(*cursor);
+                break;
+            }
+
+            if (out_error != nullptr) {
+                *out_error = "Se esperaba ',' o '>' en type hint generico.";
+            }
+            return false;
+        }
+    }
+
+    if (!annotation.type_args.empty() && !TypeHintSupportsTypeArguments(annotation.base)) {
+        if (out_error != nullptr) {
+            *out_error = "El type hint '" + std::string(TypeHintKeyword(annotation.base)) +
+                         "' no acepta argumentos genericos.";
+        }
+        return false;
+    }
+    if (!ValidateTypeArgumentArity(annotation.base, annotation.type_args.size())) {
+        if (out_error != nullptr) {
+            *out_error = "Cantidad de argumentos genericos invalida para type hint '" +
+                         std::string(TypeHintKeyword(annotation.base)) + "'.";
+        }
+        return false;
+    }
+
+    *out_annotation = std::move(annotation);
+    return true;
+}
+
 }  // namespace
 
 bool Parser::ParseAssignment(std::size_t* line_index, const std::vector<Token>& tokens,
                              std::vector<std::unique_ptr<Statement>>* out_statements, Diagnostic* out_error) const {
     DeclarationType declaration_type = DeclarationType::Inferred;
+    TypeAnnotation declaration_annotation;
     std::size_t cursor = 0;
     bool is_const = false;
 
@@ -161,39 +380,23 @@ bool Parser::ParseAssignment(std::size_t* line_index, const std::vector<Token>& 
         }
     }
 
-    if (tokens[cursor].kind == TokenKind::KeywordInt) {
-        declaration_type = DeclarationType::Int;
-        ++cursor;
-    } else if (tokens[cursor].kind == TokenKind::KeywordDouble) {
-        declaration_type = DeclarationType::Double;
-        ++cursor;
-    } else if (tokens[cursor].kind == TokenKind::KeywordFloat) {
-        declaration_type = DeclarationType::Float;
-        ++cursor;
-    } else if (tokens[cursor].kind == TokenKind::KeywordDecimal) {
-        declaration_type = DeclarationType::Decimal;
-        ++cursor;
-    } else if (tokens[cursor].kind == TokenKind::KeywordLong) {
-        declaration_type = DeclarationType::Long;
-        ++cursor;
-    } else if (tokens[cursor].kind == TokenKind::KeywordByte) {
-        declaration_type = DeclarationType::Byte;
-        ++cursor;
-    } else if (tokens[cursor].kind == TokenKind::KeywordChar) {
-        declaration_type = DeclarationType::Char;
-        ++cursor;
-    } else if (tokens[cursor].kind == TokenKind::KeywordTuple) {
-        declaration_type = DeclarationType::Tuple;
-        ++cursor;
-    } else if (tokens[cursor].kind == TokenKind::KeywordSet) {
-        declaration_type = DeclarationType::Set;
-        ++cursor;
-    } else if (tokens[cursor].kind == TokenKind::KeywordMap) {
-        declaration_type = DeclarationType::Map;
-        ++cursor;
-    } else if (tokens[cursor].kind == TokenKind::KeywordFunctionType) {
-        declaration_type = DeclarationType::Function;
-        ++cursor;
+    if (cursor < tokens.size()) {
+        const std::size_t type_cursor_start = cursor;
+        TypeAnnotation parsed_annotation;
+        std::string type_error;
+        if (ParseTypeAnnotationTokens(tokens, &cursor, &parsed_annotation, &type_error)) {
+            DeclarationType parsed_declaration = DeclarationType::Inferred;
+            if (TryMapTypeHintToDeclarationType(parsed_annotation.base, &parsed_declaration) &&
+                cursor < tokens.size() &&
+                tokens[cursor].kind == TokenKind::Identifier) {
+                declaration_type = parsed_declaration;
+                declaration_annotation = std::move(parsed_annotation);
+            } else {
+                cursor = type_cursor_start;
+            }
+        } else {
+            cursor = type_cursor_start;
+        }
     }
 
     if (cursor >= tokens.size() || tokens[cursor].kind != TokenKind::Identifier) {
@@ -252,7 +455,13 @@ bool Parser::ParseAssignment(std::size_t* line_index, const std::vector<Token>& 
     }
 
     out_statements->push_back(
-        std::make_unique<AssignmentStmt>(variable_name, assignment_op, declaration_type, std::move(expression), is_const));
+        std::make_unique<AssignmentStmt>(
+            variable_name,
+            assignment_op,
+            declaration_type,
+            std::move(expression),
+            is_const,
+            declaration_annotation));
 
     ++(*line_index);
     return true;
@@ -394,14 +603,20 @@ bool Parser::ParseFunctionDeclaration(std::size_t* line_index, const std::vector
     }
 
     TypeHint return_type_hint = TypeHint::Inferred;
+    TypeAnnotation return_type_annotation;
     std::size_t name_index = 1;
     if (tokens.size() >= 6) {
-        TypeHint parsed_return_type = TypeHint::Inferred;
-        if (TryParseTypeHintToken(tokens[1], &parsed_return_type) &&
-            tokens[2].kind == TokenKind::Identifier &&
-            tokens[3].kind == TokenKind::LeftParen) {
-            return_type_hint = parsed_return_type;
-            name_index = 2;
+        std::size_t return_cursor = 1;
+        TypeAnnotation parsed_return_type;
+        std::string type_error;
+        if (ParseTypeAnnotationTokens(tokens, &return_cursor, &parsed_return_type, &type_error) &&
+            return_cursor < tokens.size() &&
+            tokens[return_cursor].kind == TokenKind::Identifier &&
+            return_cursor + 1 < tokens.size() &&
+            tokens[return_cursor + 1].kind == TokenKind::LeftParen) {
+            return_type_hint = parsed_return_type.base;
+            return_type_annotation = std::move(parsed_return_type);
+            name_index = return_cursor;
         }
     }
 
@@ -454,6 +669,7 @@ bool Parser::ParseFunctionDeclaration(std::size_t* line_index, const std::vector
         ++cursor;
 
         TypeHint param_type_hint = TypeHint::Inferred;
+        TypeAnnotation param_type_annotation;
         if (cursor < tokens.size() && tokens[cursor].kind == TokenKind::Colon) {
             ++cursor;
             if (cursor >= tokens.size()) {
@@ -464,14 +680,16 @@ bool Parser::ParseFunctionDeclaration(std::size_t* line_index, const std::vector
                 return false;
             }
 
-            if (!TryParseTypeHintToken(tokens[cursor], &param_type_hint)) {
+            std::string type_error;
+            if (!ParseTypeAnnotationTokens(tokens, &cursor, &param_type_annotation, &type_error)) {
+                const std::size_t error_cursor = cursor < tokens.size() ? cursor : tokens.size() - 1;
                 *out_error = MakeError(
                     *line_index + 1,
-                    tokens[cursor].column,
-                    "Tipo de parametro no reconocido: '" + tokens[cursor].lexeme + "'.");
+                    tokens[error_cursor].column,
+                    "Tipo de parametro no reconocido: " + type_error);
                 return false;
             }
-            ++cursor;
+            param_type_hint = param_type_annotation.base;
         }
 
         std::unique_ptr<Expr> default_expr;
@@ -547,6 +765,7 @@ bool Parser::ParseFunctionDeclaration(std::size_t* line_index, const std::vector
             param_name,
             by_reference,
             param_type_hint,
+            param_type_annotation,
             std::move(default_expr),
         });
 
@@ -600,10 +819,11 @@ bool Parser::ParseFunctionDeclaration(std::size_t* line_index, const std::vector
 
             out_statements->push_back(
                 std::make_unique<FunctionDeclStmt>(
-                    function_name,
-                    return_type_hint,
-                    std::move(params),
-                    std::move(body)));
+                function_name,
+                return_type_hint,
+                std::move(params),
+                std::move(body),
+                return_type_annotation));
             ++(*line_index);
             return true;
         }
@@ -676,14 +896,20 @@ bool Parser::ParseInterfaceDeclaration(std::size_t* line_index, const std::vecto
         }
 
         TypeHint return_type_hint = TypeHint::Inferred;
+        TypeAnnotation return_type_annotation;
         std::size_t name_index = 1;
         if (body_tokens.size() >= 6) {
-            TypeHint parsed_return_type = TypeHint::Inferred;
-            if (TryParseTypeHintToken(body_tokens[1], &parsed_return_type) &&
-                body_tokens[2].kind == TokenKind::Identifier &&
-                body_tokens[3].kind == TokenKind::LeftParen) {
-                return_type_hint = parsed_return_type;
-                name_index = 2;
+            std::size_t return_cursor = 1;
+            TypeAnnotation parsed_return_type;
+            std::string type_error;
+            if (ParseTypeAnnotationTokens(body_tokens, &return_cursor, &parsed_return_type, &type_error) &&
+                return_cursor < body_tokens.size() &&
+                body_tokens[return_cursor].kind == TokenKind::Identifier &&
+                return_cursor + 1 < body_tokens.size() &&
+                body_tokens[return_cursor + 1].kind == TokenKind::LeftParen) {
+                return_type_hint = parsed_return_type.base;
+                return_type_annotation = std::move(parsed_return_type);
+                name_index = return_cursor;
             }
         }
 
@@ -731,6 +957,7 @@ bool Parser::ParseInterfaceDeclaration(std::size_t* line_index, const std::vecto
             ++cursor;
 
             TypeHint param_type_hint = TypeHint::Inferred;
+            TypeAnnotation param_type_annotation;
             if (cursor < body_tokens.size() && body_tokens[cursor].kind == TokenKind::Colon) {
                 ++cursor;
                 if (cursor >= body_tokens.size()) {
@@ -740,14 +967,16 @@ bool Parser::ParseInterfaceDeclaration(std::size_t* line_index, const std::vecto
                         "Falta tipo de parametro despues de ':'.");
                     return false;
                 }
-                if (!TryParseTypeHintToken(body_tokens[cursor], &param_type_hint)) {
+                std::string type_error;
+                if (!ParseTypeAnnotationTokens(body_tokens, &cursor, &param_type_annotation, &type_error)) {
+                    const std::size_t error_cursor = cursor < body_tokens.size() ? cursor : body_tokens.size() - 1;
                     *out_error = MakeError(
                         *line_index + 1,
-                        body_tokens[cursor].column,
-                        "Tipo de parametro no reconocido en interface.");
+                        body_tokens[error_cursor].column,
+                        "Tipo de parametro no reconocido en interface: " + type_error);
                     return false;
                 }
-                ++cursor;
+                param_type_hint = param_type_annotation.base;
             }
 
             if (cursor < body_tokens.size() && body_tokens[cursor].kind == TokenKind::Assign) {
@@ -762,6 +991,7 @@ bool Parser::ParseInterfaceDeclaration(std::size_t* line_index, const std::vecto
                 param_name,
                 by_reference,
                 param_type_hint,
+                param_type_annotation,
                 nullptr,
             });
 
@@ -793,6 +1023,7 @@ bool Parser::ParseInterfaceDeclaration(std::size_t* line_index, const std::vecto
         methods.push_back(InterfaceMethodSignature{
             body_tokens[name_index].lexeme,
             return_type_hint,
+            return_type_annotation,
             std::move(params),
         });
 
@@ -903,6 +1134,7 @@ bool Parser::ParseClassDeclaration(std::size_t* line_index, const std::vector<To
             ++local_cursor;
 
             TypeHint param_type_hint = TypeHint::Inferred;
+            TypeAnnotation param_type_annotation;
             if (local_cursor < header_tokens.size() && header_tokens[local_cursor].kind == TokenKind::Colon) {
                 ++local_cursor;
                 if (local_cursor >= header_tokens.size()) {
@@ -913,14 +1145,16 @@ bool Parser::ParseClassDeclaration(std::size_t* line_index, const std::vector<To
                     return false;
                 }
 
-                if (!TryParseTypeHintToken(header_tokens[local_cursor], &param_type_hint)) {
+                std::string type_error;
+                if (!ParseTypeAnnotationTokens(header_tokens, &local_cursor, &param_type_annotation, &type_error)) {
+                    const std::size_t error_cursor = local_cursor < header_tokens.size() ? local_cursor : header_tokens.size() - 1;
                     *out_error = MakeError(
                         *line_index + 1,
-                        header_tokens[local_cursor].column,
-                        "Tipo de parametro no reconocido: '" + header_tokens[local_cursor].lexeme + "'.");
+                        header_tokens[error_cursor].column,
+                        "Tipo de parametro no reconocido: " + type_error);
                     return false;
                 }
-                ++local_cursor;
+                param_type_hint = param_type_annotation.base;
             }
 
             std::unique_ptr<Expr> default_expr;
@@ -995,6 +1229,7 @@ bool Parser::ParseClassDeclaration(std::size_t* line_index, const std::vector<To
                 param_name,
                 by_reference,
                 param_type_hint,
+                param_type_annotation,
                 std::move(default_expr),
             });
 
@@ -1247,6 +1482,7 @@ bool Parser::ParseClassDeclaration(std::size_t* line_index, const std::vector<To
             ++setter_cursor;
 
             TypeHint setter_param_type = TypeHint::Inferred;
+            TypeAnnotation setter_param_annotation;
             if (setter_cursor < member_tokens.size() && member_tokens[setter_cursor].kind == TokenKind::Colon) {
                 ++setter_cursor;
                 if (setter_cursor >= member_tokens.size()) {
@@ -1256,14 +1492,16 @@ bool Parser::ParseClassDeclaration(std::size_t* line_index, const std::vector<To
                         "Falta tipo en parametro de set.");
                     return false;
                 }
-                if (!TryParseTypeHintToken(member_tokens[setter_cursor], &setter_param_type)) {
+                std::string type_error;
+                if (!ParseTypeAnnotationTokens(member_tokens, &setter_cursor, &setter_param_annotation, &type_error)) {
+                    const std::size_t error_cursor = setter_cursor < member_tokens.size() ? setter_cursor : member_tokens.size() - 1;
                     *out_error = MakeError(
                         *line_index + 1,
-                        member_tokens[setter_cursor].column,
-                        "Tipo invalido en parametro de set.");
+                        member_tokens[error_cursor].column,
+                        "Tipo invalido en parametro de set: " + type_error);
                     return false;
                 }
-                ++setter_cursor;
+                setter_param_type = setter_param_annotation.base;
             }
 
             if (setter_cursor >= member_tokens.size() || member_tokens[setter_cursor].kind != TokenKind::RightParen) {
@@ -1301,6 +1539,7 @@ bool Parser::ParseClassDeclaration(std::size_t* line_index, const std::vector<To
             accessor.is_setter = true;
             accessor.setter_param_name = setter_param_name;
             accessor.setter_param_type = setter_param_type;
+            accessor.setter_param_annotation = setter_param_annotation;
             accessor.visibility = visibility;
             accessor.body = std::move(parsed_body);
             accessors.push_back(std::move(accessor));
@@ -1341,6 +1580,7 @@ bool Parser::ParseClassDeclaration(std::size_t* line_index, const std::vector<To
             ClassMethodDecl method;
             method.name = function_decl->name;
             method.return_type = function_decl->return_type;
+            method.return_annotation = function_decl->return_annotation;
             method.params = std::move(function_decl->params);
             method.body = std::move(function_decl->body);
             method.visibility = visibility;
@@ -1360,13 +1600,20 @@ bool Parser::ParseClassDeclaration(std::size_t* line_index, const std::vector<To
 
         // Campo.
         TypeHint field_type = TypeHint::Inferred;
+        TypeAnnotation field_annotation;
         std::size_t field_cursor = member_cursor;
-        TypeHint parsed_field_type = TypeHint::Inferred;
-        if (field_cursor + 1 < member_tokens.size() &&
-            TryParseTypeHintToken(member_tokens[field_cursor], &parsed_field_type) &&
-            member_tokens[field_cursor + 1].kind == TokenKind::Identifier) {
-            field_type = parsed_field_type;
-            ++field_cursor;
+        {
+            const std::size_t type_cursor_start = field_cursor;
+            TypeAnnotation parsed_field_annotation;
+            std::string type_error;
+            if (ParseTypeAnnotationTokens(member_tokens, &field_cursor, &parsed_field_annotation, &type_error) &&
+                field_cursor < member_tokens.size() &&
+                member_tokens[field_cursor].kind == TokenKind::Identifier) {
+                field_type = parsed_field_annotation.base;
+                field_annotation = std::move(parsed_field_annotation);
+            } else {
+                field_cursor = type_cursor_start;
+            }
         }
 
         if (field_cursor >= member_tokens.size() || member_tokens[field_cursor].kind != TokenKind::Identifier) {
@@ -1426,6 +1673,7 @@ bool Parser::ParseClassDeclaration(std::size_t* line_index, const std::vector<To
         fields.push_back(ClassFieldDecl{
             field_name,
             field_type,
+            field_annotation,
             visibility,
             is_static,
             is_readonly,
@@ -2078,54 +2326,23 @@ bool Parser::ParseFor(std::size_t* line_index, const std::vector<Token>& tokens,
         }
 
         DeclarationType variable_type = DeclarationType::Inferred;
+        TypeAnnotation variable_annotation;
         if (cursor < binding_tokens.size()) {
-            switch (binding_tokens[cursor].kind) {
-            case TokenKind::KeywordInt:
-                variable_type = DeclarationType::Int;
-                ++cursor;
-                break;
-            case TokenKind::KeywordDouble:
-                variable_type = DeclarationType::Double;
-                ++cursor;
-                break;
-            case TokenKind::KeywordFloat:
-                variable_type = DeclarationType::Float;
-                ++cursor;
-                break;
-            case TokenKind::KeywordDecimal:
-                variable_type = DeclarationType::Decimal;
-                ++cursor;
-                break;
-            case TokenKind::KeywordLong:
-                variable_type = DeclarationType::Long;
-                ++cursor;
-                break;
-            case TokenKind::KeywordByte:
-                variable_type = DeclarationType::Byte;
-                ++cursor;
-                break;
-            case TokenKind::KeywordChar:
-                variable_type = DeclarationType::Char;
-                ++cursor;
-                break;
-            case TokenKind::KeywordTuple:
-                variable_type = DeclarationType::Tuple;
-                ++cursor;
-                break;
-            case TokenKind::KeywordSet:
-                variable_type = DeclarationType::Set;
-                ++cursor;
-                break;
-            case TokenKind::KeywordMap:
-                variable_type = DeclarationType::Map;
-                ++cursor;
-                break;
-            case TokenKind::KeywordFunctionType:
-                variable_type = DeclarationType::Function;
-                ++cursor;
-                break;
-            default:
-                break;
+            const std::size_t type_cursor_start = cursor;
+            TypeAnnotation parsed_annotation;
+            std::string type_error;
+            if (ParseTypeAnnotationTokens(binding_tokens, &cursor, &parsed_annotation, &type_error)) {
+                DeclarationType parsed_declaration = DeclarationType::Inferred;
+                if (TryMapTypeHintToDeclarationType(parsed_annotation.base, &parsed_declaration) &&
+                    cursor < binding_tokens.size() &&
+                    binding_tokens[cursor].kind == TokenKind::Identifier) {
+                    variable_type = parsed_declaration;
+                    variable_annotation = std::move(parsed_annotation);
+                } else {
+                    cursor = type_cursor_start;
+                }
+            } else {
+                cursor = type_cursor_start;
             }
         }
 
@@ -2143,7 +2360,12 @@ bool Parser::ParseFor(std::size_t* line_index, const std::vector<Token>& tokens,
         }
 
         out_statements->push_back(std::make_unique<ForEachStmt>(
-            std::move(variable_name), variable_type, variable_is_const, std::move(collection_expr), std::move(body)));
+            std::move(variable_name),
+            variable_type,
+            variable_is_const,
+            std::move(collection_expr),
+            std::move(body),
+            variable_annotation));
         ++(*line_index);
         return true;
     }

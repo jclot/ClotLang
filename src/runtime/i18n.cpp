@@ -55,6 +55,14 @@ std::string TranslateSpanishToEnglish(const std::string& text) {
         {"Literal char invalido.", "Invalid char literal."},
         {"Token no soportado en expresion: ", "Unsupported token in expression: "},
         {"Declaracion const incompleta.", "Incomplete const declaration."},
+        {"Error interno: salida nula al parsear type hint.", "Internal error: null output while parsing type hint."},
+        {"Falta tipo.", "Missing type."},
+        {"Tipo no reconocido: '", "Unrecognized type: '"},
+        {"Falta '>' al cerrar type hint generico.", "Missing '>' to close generic type hint."},
+        {"Se esperaba ',' o '>' en type hint generico.", "Expected ',' or '>' in generic type hint."},
+        {"El type hint '", "Type hint '"},
+        {"Cantidad de argumentos genericos invalida para type hint '",
+         "Invalid number of generic arguments for type hint '"},
         {"Falta operador de asignacion.", "Missing assignment operator."},
         {"Operador de asignacion no valido.", "Invalid assignment operator."},
         {"Falta ';' al final de la asignacion.", "Missing ';' at end of assignment."},
@@ -85,6 +93,7 @@ std::string TranslateSpanishToEnglish(const std::string& text) {
         {"Declaracion de funcion invalida: falta ':' final.", "Invalid function declaration: missing final ':'."},
         {"Falta tipo de parametro despues de ':'.", "Missing parameter type after ':'."},
         {"Tipo de parametro no reconocido: '", "Unrecognized parameter type: '"},
+        {"Tipo de parametro no reconocido: ", "Unrecognized parameter type: "},
         {"Falta expresion de valor por defecto despues de '='.", "Missing default value expression after '='."},
         {"Los parametros sin valor por defecto no pueden ir despues de parametros con default.",
          "Parameters without default values cannot follow parameters with defaults."},
@@ -275,6 +284,12 @@ std::string TranslateSpanishToEnglish(const std::string& text) {
         {"Acceso de propiedad invalido: ", "Invalid property access: "},
         {"Propiedad no encontrada: ", "Property not found: "},
         {"No se puede acceder propiedad en un valor no objeto: ", "Cannot access property on non-object value: "},
+        {"Elemento list[", "List element["},
+        {"Elemento tuple[", "Tuple element["},
+        {"Elemento set[", "Set element["},
+        {"Clave map[", "Map key["},
+        {"Valor map[", "Map value["},
+        {"Propiedad object.", "Object property."},
         {"Error interno: salida nula en for-each.", "Internal error: null output in for-each."},
         {"for-each requiere list, tuple, set, map, object o string.",
          "for-each requires list, tuple, set, map, object, or string."},
@@ -323,6 +338,8 @@ std::string TranslateSpanishToEnglish(const std::string& text) {
         {"Error interno: pila de retorno inconsistente.", "Internal error: inconsistent return stack."},
         {"Error interno: out_value nulo en ResolveMutableVariable.", "Internal error: null out_value in ResolveMutableVariable."},
         {"Error interno: out_value nulo en NormalizeValueForKind.", "Internal error: null out_value in NormalizeValueForKind."},
+        {"Error interno: out_value nulo en NormalizeValueForTypeAnnotation.",
+         "Internal error: null out_value in NormalizeValueForTypeAnnotation."},
         {"Error interno: salida nula en printf.", "Internal error: null output buffer in printf."},
         {"Error interno: salida nula en potencia entera.", "Internal error: null output in integer power."},
         {"Error interno: salida nula en division decimal.", "Internal error: null output in decimal division."},
@@ -544,6 +561,8 @@ std::string TranslateSpanishToEnglish(const std::string& text) {
     ReplaceAll(&translated, " debe invocar super(...).", " must call super(...).");
     ReplaceAll(&translated, " recibio valor incompatible con type hint '", " received value incompatible with type hint '");
     ReplaceAll(&translated, " no coincide con type hint '", " does not match type hint '");
+    ReplaceAll(&translated, " incompatible con '", " incompatible with '");
+    ReplaceAll(&translated, "' no acepta argumentos genericos.", "' does not accept generic arguments.");
     ReplaceAll(&translated, " para cerrar la interface '", " to close interface '");
     ReplaceAll(&translated, " para cerrar la class '", " to close class '");
     ReplaceAll(&translated, " para cerrar bloque.", " to close block.");

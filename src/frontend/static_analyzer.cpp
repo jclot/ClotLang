@@ -328,6 +328,10 @@ private:
             updated.hint = TypeHint::Set;
         } else if (effective_type == DeclarationType::Map) {
             updated.hint = TypeHint::Map;
+        } else if (effective_type == DeclarationType::List) {
+            updated.hint = TypeHint::List;
+        } else if (effective_type == DeclarationType::Object) {
+            updated.hint = TypeHint::Object;
         } else if (effective_type == DeclarationType::Function) {
             updated.hint = TypeHint::Function;
         } else if (assignment.op == AssignmentOp::AddAssign || assignment.op == AssignmentOp::SubAssign) {
@@ -915,6 +919,22 @@ private:
                 rhs.hint != TypeHint::Map &&
                 rhs.hint != TypeHint::Object) {
                 AddError(statement_id, "Asignacion potencialmente invalida para map en '" + variable_name + "'.");
+            }
+            return;
+        }
+
+        if (declaration_type == DeclarationType::List) {
+            if (rhs.hint != TypeHint::Unknown &&
+                rhs.hint != TypeHint::List) {
+                AddError(statement_id, "Asignacion potencialmente invalida para list en '" + variable_name + "'.");
+            }
+            return;
+        }
+
+        if (declaration_type == DeclarationType::Object) {
+            if (rhs.hint != TypeHint::Unknown &&
+                rhs.hint != TypeHint::Object) {
+                AddError(statement_id, "Asignacion potencialmente invalida para object en '" + variable_name + "'.");
             }
             return;
         }
