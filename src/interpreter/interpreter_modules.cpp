@@ -41,7 +41,9 @@ void AddUniqueCandidate(
 }
 
 std::filesystem::path DotPathToFolderPath(std::string module_name) {
-    std::replace(module_name.begin(), module_name.end(), '.', std::filesystem::path::preferred_separator);
+    const auto separator =
+        static_cast<std::string::value_type>(std::filesystem::path::preferred_separator);
+    std::replace(module_name.begin(), module_name.end(), '.', separator);
     return std::filesystem::path(module_name);
 }
 
