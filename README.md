@@ -69,7 +69,11 @@ src/
     i18n.cpp
 scripts/
   check.sh
+  install.sh
+  install.ps1
   install_llvm_wsl.sh
+  uninstall.sh
+  uninstall.ps1
 CMakeLists.txt
 Makefile
 ```
@@ -79,6 +83,40 @@ Makefile
 - `cmake` 3.20+.
 - `ninja` recomendado.
 - LLVM/Clang para usar `--mode compile`.
+
+## Instalacion rapida (usuarios finales)
+Linux/macOS (instala en `~/.local/bin`):
+```bash
+curl -fsSL https://raw.githubusercontent.com/jclot/ClotLang/main/scripts/install.sh | bash
+```
+
+Windows PowerShell (instala en `%LOCALAPPDATA%\Clot\bin`):
+```powershell
+iwr -useb https://raw.githubusercontent.com/jclot/ClotLang/main/scripts/install.ps1 | iex
+```
+
+Despues de instalar:
+```bash
+clot programa.clot
+```
+
+Opcional:
+- Fijar version Linux/macOS: `CLOT_VERSION=v0.2.0`
+- Fijar version Windows PowerShell: `$env:CLOT_VERSION="v0.2.0"`
+- Cambiar prefijo Linux/macOS: `CLOT_PREFIX=/ruta/personal`
+- Cambiar ruta Windows: `$env:CLOT_INSTALL_DIR="C:\Ruta\Clot"`
+
+Notas:
+- Los instaladores descargan assets desde GitHub Releases con nombres como `clot-linux-x86_64.tar.gz`, `clot-macos-arm64.tar.gz`, `clot-windows-x86_64.zip`.
+- Los binarios de release se publican sin LLVM (solo modo interprete). Para `--mode compile`, compila desde fuente con LLVM.
+
+Verificar checksum (opcional):
+- Linux/macOS: `shasum -a 256 clot-linux-x86_64.tar.gz`
+- Windows: `Get-FileHash clot-windows-x86_64.zip -Algorithm SHA256`
+
+Desinstalar:
+- Linux/macOS: `bash scripts/uninstall.sh`
+- Windows PowerShell: `iwr -useb https://raw.githubusercontent.com/jclot/ClotLang/main/scripts/uninstall.ps1 | iex`
 
 ## Instalar LLVM en WSL
 ```bash

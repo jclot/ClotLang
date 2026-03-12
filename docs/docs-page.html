@@ -360,6 +360,8 @@
                             <span class="theme-icon-holder me-2"><i class="fas fa-route"></i></span>Tutorial
                         </a>
                     </li>
+                    <li class="nav-item"><a class="nav-link scrollto" href="#item-tutorial-install">Instalacion Rapida</a>
+                    </li>
                     <li class="nav-item"><a class="nav-link scrollto" href="#item-tutorial-quickstart">Quickstart</a>
                     </li>
                     <li class="nav-item"><a class="nav-link scrollto" href="#item-tutorial-controlflow">Control Flow</a>
@@ -827,10 +829,74 @@
                         </p>
                     </header>
 
+                    <section class="docs-section" id="item-tutorial-install">
+                        <h2 class="section-heading">Instalacion Rapida</h2>
+                        <p>
+                            Instala Clot con los binarios de release y ejecuta tu primer archivo en minutos.
+                        </p>
+                        <div class="row g-4">
+                            <div class="col-12 col-lg-6">
+                                <h3>Linux / macOS</h3>
+                                <ol>
+                                    <li>Ejecuta el instalador.</li>
+                                    <li>Reabre la terminal si es necesario.</li>
+                                    <li>Corre <code>clot programa.clot</code>.</li>
+                                </ol>
+                                <pre class="shadow-lg rounded"><code class="language-bash">curl -fsSL https://raw.githubusercontent.com/jclot/ClotLang/main/scripts/install.sh | bash
+clot programa.clot
+</code></pre>
+                            </div>
+                            <div class="col-12 col-lg-6">
+                                <h3>Windows (PowerShell)</h3>
+                                <ol>
+                                    <li>Ejecuta el instalador.</li>
+                                    <li>Reinicia la terminal para actualizar PATH.</li>
+                                    <li>Corre <code>clot programa.clot</code>.</li>
+                                </ol>
+                                <pre class="shadow-lg rounded"><code class="language-powershell">iwr -useb https://raw.githubusercontent.com/jclot/ClotLang/main/scripts/install.ps1 | iex
+clot programa.clot
+</code></pre>
+                            </div>
+                        </div>
+
+                        <div class="docs-callout warn">
+                            Los binarios de release se publican sin LLVM (solo modo interprete). Para usar
+                            <code>--mode compile</code>, compila desde fuente con LLVM instalado.
+                        </div>
+
+                        <h3>Personalizacion</h3>
+                        <pre class="shadow-lg rounded"><code class="language-bash"># Linux/macOS: fijar version o prefijo
+CLOT_VERSION=v0.2.0 CLOT_PREFIX=~/.local curl -fsSL https://raw.githubusercontent.com/jclot/ClotLang/main/scripts/install.sh | bash
+</code></pre>
+                        <pre class="shadow-lg rounded"><code class="language-powershell"># Windows: fijar version o ruta
+$env:CLOT_VERSION="v0.2.0"
+$env:CLOT_INSTALL_DIR="C:\Ruta\Clot"
+iwr -useb https://raw.githubusercontent.com/jclot/ClotLang/main/scripts/install.ps1 | iex
+</code></pre>
+
+                        <h3>Checksums</h3>
+                        <pre class="shadow-lg rounded"><code class="language-bash"># Linux/macOS
+shasum -a 256 clot-linux-x86_64.tar.gz
+</code></pre>
+                        <pre class="shadow-lg rounded"><code class="language-powershell"># Windows
+Get-FileHash clot-windows-x86_64.zip -Algorithm SHA256
+</code></pre>
+
+                        <h3>Desinstalar</h3>
+                        <pre class="shadow-lg rounded"><code class="language-bash">bash scripts/uninstall.sh
+</code></pre>
+                        <pre class="shadow-lg rounded"><code class="language-powershell">iwr -useb https://raw.githubusercontent.com/jclot/ClotLang/main/scripts/uninstall.ps1 | iex
+</code></pre>
+                    </section>
+
                     <section class="docs-section" id="item-tutorial-quickstart">
                         <h2 class="section-heading">Quickstart</h2>
                         <p>
                             Desde la raiz del repo, primero compila con CMake y luego ejecuta el binario generado.
+                        </p>
+                        <p>
+                            Si ya instalaste con los binarios de release, puedes saltar directo a los ejemplos y la guia
+                            de Control Flow.
                         </p>
                         <pre class="shadow-lg rounded"><code class="language-bash"># Opcion recomendada (presets WSL)
 cmake --preset wsl-release
