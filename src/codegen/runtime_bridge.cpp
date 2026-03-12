@@ -6,6 +6,7 @@
 
 #include "clot/frontend/parser.hpp"
 #include "clot/interpreter/interpreter.hpp"
+#include "clot/runtime/env.hpp"
 #include "clot/runtime/i18n.hpp"
 
 namespace {
@@ -23,9 +24,9 @@ extern "C" int clot_runtime_execute_source(const char* source_text, const char* 
         return 1;
     }
 
-    if (const char* env_lang = std::getenv("CLOT_LANG"); env_lang != nullptr) {
+    if (const auto env_lang = clot::runtime::GetEnvVar("CLOT_LANG"); env_lang) {
         clot::runtime::Language lang = clot::runtime::Language::Spanish;
-        if (clot::runtime::ParseLanguage(env_lang, &lang)) {
+        if (clot::runtime::ParseLanguage(*env_lang, &lang)) {
             clot::runtime::SetLanguage(lang);
         }
     }

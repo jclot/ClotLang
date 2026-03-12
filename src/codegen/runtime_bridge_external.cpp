@@ -5,6 +5,8 @@
 #include <iostream>
 #include <string>
 
+#include "clot/runtime/env.hpp"
+
 #ifdef CLOT_EXTERNAL_RUNTIME_BRIDGE_IMPL
 
 namespace {
@@ -23,12 +25,12 @@ std::string QuoteForShell(const std::string& value) {
 }
 
 std::filesystem::path ResolveClotFromPath(const std::filesystem::path& cwd) {
-    const char* raw_path = std::getenv("PATH");
-    if (raw_path == nullptr) {
+    const auto raw_path = clot::runtime::GetEnvVar("PATH");
+    if (!raw_path) {
         return {};
     }
 
-    const std::string path_value(raw_path);
+    const std::string path_value(*raw_path);
     std::size_t start = 0;
     while (start <= path_value.size()) {
         const std::size_t end = path_value.find(':', start);

@@ -9,6 +9,7 @@
 #include "clot/frontend/source_loader.hpp"
 #include "clot/frontend/static_analyzer.hpp"
 #include "clot/interpreter/interpreter.hpp"
+#include "clot/runtime/env.hpp"
 #include "clot/runtime/i18n.hpp"
 
 namespace {
@@ -268,9 +269,9 @@ bool ParseArgs(int argc, char* argv[], CliOptions* out_options, std::string* out
 int main(int argc, char* argv[]) {
     CliOptions options;
 
-    if (const char* env_lang = std::getenv("CLOT_LANG"); env_lang != nullptr) {
+    if (const auto env_lang = clot::runtime::GetEnvVar("CLOT_LANG"); env_lang) {
         clot::runtime::Language parsed_language = clot::runtime::Language::Spanish;
-        if (clot::runtime::ParseLanguage(env_lang, &parsed_language)) {
+        if (clot::runtime::ParseLanguage(*env_lang, &parsed_language)) {
             options.language = parsed_language;
             clot::runtime::SetLanguage(parsed_language);
         }
