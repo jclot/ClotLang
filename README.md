@@ -87,12 +87,12 @@ Makefile
 ## Instalacion rapida (usuarios finales)
 Linux/macOS (instala en `~/.local/bin`):
 ```bash
-curl -fsSL https://raw.githubusercontent.com/jclot/ClotLang/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/jclot/ClotLang/master/scripts/install.sh | bash
 ```
 
 Windows PowerShell (instala en `%LOCALAPPDATA%\Clot\bin`):
 ```powershell
-iwr -useb https://raw.githubusercontent.com/jclot/ClotLang/main/scripts/install.ps1 | iex
+iwr -useb https://raw.githubusercontent.com/jclot/ClotLang/master/scripts/install.ps1 | iex
 ```
 
 Despues de instalar:
@@ -116,7 +116,7 @@ Verificar checksum (opcional):
 
 Desinstalar:
 - Linux/macOS: `bash scripts/uninstall.sh`
-- Windows PowerShell: `iwr -useb https://raw.githubusercontent.com/jclot/ClotLang/main/scripts/uninstall.ps1 | iex`
+- Windows PowerShell: `iwr -useb https://raw.githubusercontent.com/jclot/ClotLang/master/scripts/uninstall.ps1 | iex`
 
 ## Instalar LLVM en WSL
 ```bash

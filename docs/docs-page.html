@@ -842,7 +842,7 @@
                                     <li>Reabre la terminal si es necesario.</li>
                                     <li>Corre <code>clot programa.clot</code>.</li>
                                 </ol>
-                                <pre class="shadow-lg rounded"><code class="language-bash">curl -fsSL https://raw.githubusercontent.com/jclot/ClotLang/main/scripts/install.sh | bash
+                                <pre class="shadow-lg rounded"><code class="language-bash">curl -fsSL https://raw.githubusercontent.com/jclot/ClotLang/master/scripts/install.sh | bash
 clot programa.clot
 </code></pre>
                             </div>
@@ -853,7 +853,7 @@ clot programa.clot
                                     <li>Reinicia la terminal para actualizar PATH.</li>
                                     <li>Corre <code>clot programa.clot</code>.</li>
                                 </ol>
-                                <pre class="shadow-lg rounded"><code class="language-powershell">iwr -useb https://raw.githubusercontent.com/jclot/ClotLang/main/scripts/install.ps1 | iex
+                                <pre class="shadow-lg rounded"><code class="language-powershell">iwr -useb https://raw.githubusercontent.com/jclot/ClotLang/master/scripts/install.ps1 | iex
 clot programa.clot
 </code></pre>
                             </div>
@@ -866,12 +866,12 @@ clot programa.clot
 
                         <h3>Personalizacion</h3>
                         <pre class="shadow-lg rounded"><code class="language-bash"># Linux/macOS: fijar version o prefijo
-CLOT_VERSION=v0.2.0 CLOT_PREFIX=~/.local curl -fsSL https://raw.githubusercontent.com/jclot/ClotLang/main/scripts/install.sh | bash
+CLOT_VERSION=v0.2.0 CLOT_PREFIX=~/.local curl -fsSL https://raw.githubusercontent.com/jclot/ClotLang/master/scripts/install.sh | bash
 </code></pre>
                         <pre class="shadow-lg rounded"><code class="language-powershell"># Windows: fijar version o ruta
 $env:CLOT_VERSION="v0.2.0"
 $env:CLOT_INSTALL_DIR="C:\Ruta\Clot"
-iwr -useb https://raw.githubusercontent.com/jclot/ClotLang/main/scripts/install.ps1 | iex
+iwr -useb https://raw.githubusercontent.com/jclot/ClotLang/master/scripts/install.ps1 | iex
 </code></pre>
 
                         <h3>Checksums</h3>
@@ -885,7 +885,7 @@ Get-FileHash clot-windows-x86_64.zip -Algorithm SHA256
                         <h3>Desinstalar</h3>
                         <pre class="shadow-lg rounded"><code class="language-bash">bash scripts/uninstall.sh
 </code></pre>
-                        <pre class="shadow-lg rounded"><code class="language-powershell">iwr -useb https://raw.githubusercontent.com/jclot/ClotLang/main/scripts/uninstall.ps1 | iex
+                        <pre class="shadow-lg rounded"><code class="language-powershell">iwr -useb https://raw.githubusercontent.com/jclot/ClotLang/master/scripts/uninstall.ps1 | iex
 </code></pre>
                     </section>
 
