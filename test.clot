@@ -1,9 +1,4 @@
 import clot.science.physics.electromagnetism.ac_circuits;
 
-
-try:
-    pf = power_factor(10, -2);
-catch(MyCustomError err):
-    println("Error:" + err.message);
-    println("Data:" + err.data);
-endtry
+pf = power_factor(10, 2);
+println(pf);
