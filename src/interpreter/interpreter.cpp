@@ -6,6 +6,7 @@
 #include <cmath>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <iomanip>
 #include <iostream>
 #include <limits>
@@ -667,11 +668,19 @@ bool Interpreter::CanAccessMember(frontend::MemberVisibility visibility, const s
     if (visibility == frontend::MemberVisibility::Public) {
         return true;
     }
+    if (visibility == frontend::MemberVisibility::Private) {
+        return !class_execution_stack_.empty() && class_execution_stack_.back() == owner_class;
+    }
     return HasClassContextAccess(owner_class);
 }
 
 bool Interpreter::HasClassContextAccess(const std::string& owner_class) const {
-    return !class_execution_stack_.empty() && class_execution_stack_.back() == owner_class;
+    if (class_execution_stack_.empty()) {
+        return false;
+    }
+
+    const std::string& current_class = class_execution_stack_.back();
+    return current_class == owner_class || IsClassTypeOrDerived(current_class, owner_class);
 }
 
 bool Interpreter::ResolveClassField(const frontend::ClassDeclStmt& declaration,
@@ -963,6 +972,51 @@ bool Interpreter::ExecuteClassDeclaration(const frontend::ClassDeclStmt& declara
         return false;
     }
 
+    std::map<std::string, const frontend::ClassMethodDecl*> abstract_methods;
+    std::function<bool(const frontend::ClassDeclStmt&)> collect_abstract_methods =
+        [&](const frontend::ClassDeclStmt& current) -> bool {
+        if (!current.base_class.empty()) {
+            const frontend::ClassDeclStmt* base = FindClass(current.base_class);
+            if (base == nullptr) {
+                *out_error = "Clase base no definida: " + current.base_class;
+                return false;
+            }
+            if (!collect_abstract_methods(*base)) {
+                return false;
+            }
+        }
+
+        for (const auto& method : current.methods) {
+            if (method.is_abstract) {
+                abstract_methods[method.name] = &method;
+            } else {
+                abstract_methods.erase(method.name);
+            }
+        }
+        return true;
+    };
+
+    if (!collect_abstract_methods(declaration)) {
+        classes_.erase(declaration.name);
+        return false;
+    }
+
+    if (!declaration.is_abstract && !abstract_methods.empty()) {
+        std::string pending;
+        bool first = true;
+        for (const auto& entry : abstract_methods) {
+            if (!first) {
+                pending += ", ";
+            }
+            pending += entry.first;
+            first = false;
+        }
+        *out_error = "Clase concreta '" + declaration.name +
+                     "' no implementa metodos abstract: " + pending;
+        classes_.erase(declaration.name);
+        return false;
+    }
+
     std::set<std::string> seen_fields;
     for (const auto& field : declaration.fields) {
         if (!seen_fields.insert(field.name).second) {
@@ -1136,6 +1190,11 @@ bool Interpreter::InstantiateClass(const frontend::ClassDeclStmt& declaration,
                                    const frontend::CallExpr& call,
                                    runtime::Value* out_value,
                                    std::string* out_error) {
+    if (declaration.is_abstract) {
+        *out_error = "No se puede instanciar clase abstracta: " + declaration.name;
+        return false;
+    }
+
     runtime::Value::Object entries;
     entries.push_back({"__class__", runtime::Value(declaration.name)});
     runtime::Value instance(std::move(entries));
@@ -2062,6 +2121,37 @@ bool Interpreter::EvaluateExpression(const frontend::Expr& expression, runtime::
 
         if (const auto* object = collection.AsObject()) {
             const std::string key = index_value.ToString();
+
+            std::string class_name;
+            if (key != "__class__" && IsClassInstance(collection, &class_name)) {
+                const frontend::ClassDeclStmt* class_decl = FindClass(class_name);
+                if (class_decl == nullptr) {
+                    *out_error = "Clase no definida para instancia: " + class_name;
+                    return false;
+                }
+
+                const frontend::ClassAccessorDecl* getter = nullptr;
+                std::string getter_owner;
+                if (ResolveClassAccessor(*class_decl, key, false, &getter, &getter_owner)) {
+                    if (!CanAccessMember(getter->visibility, getter_owner)) {
+                        *out_error = "Getter no accesible por visibilidad: " + class_name + "." + key;
+                        return false;
+                    }
+
+                    runtime::Value instance_copy = collection;
+                    return TryExecuteClassGetter(&instance_copy, class_name, key, out_value, out_error);
+                }
+
+                const frontend::ClassFieldDecl* field = nullptr;
+                std::string owner_class;
+                if (ResolveClassField(*class_decl, key, &field, &owner_class) && !field->is_static) {
+                    if (!CanAccessMember(field->visibility, owner_class)) {
+                        *out_error = "Campo no accesible por visibilidad: " + class_name + "." + key;
+                        return false;
+                    }
+                }
+            }
+
             for (const auto& entry : *object) {
                 if (entry.first == key) {
                     *out_value = entry.second;
@@ -2160,6 +2250,46 @@ bool Interpreter::EvaluateBinary(frontend::BinaryOp op, const runtime::Value& lh
     if (op == frontend::BinaryOp::Add && (lhs.IsString() || rhs.IsString())) {
         *out_value = runtime::Value(lhs.ToString() + rhs.ToString());
         return true;
+    }
+
+    if (op == frontend::BinaryOp::Multiply) {
+        const runtime::Value::List* lhs_list = lhs.AsList();
+        const runtime::Value::List* rhs_list = rhs.AsList();
+        if ((lhs_list != nullptr) != (rhs_list != nullptr)) {
+            const runtime::Value::List* source = lhs_list != nullptr ? lhs_list : rhs_list;
+            const runtime::Value& repeat_value = lhs_list != nullptr ? rhs : lhs;
+
+            BigInt repeat_count;
+            if (!repeat_value.AsBigInt(&repeat_count) || repeat_count < 0) {
+                *out_error = "La repeticion de listas requiere un entero >= 0.";
+                return false;
+            }
+
+            static const BigInt kMaxRepeat = 1000000;
+            if (repeat_count > kMaxRepeat) {
+                *out_error = "La repeticion de listas excede el maximo de 1000000 repeticiones.";
+                return false;
+            }
+
+            std::size_t repeat = 0;
+            if (!TryBigIntToSizeT(repeat_count, &repeat)) {
+                *out_error = "La repeticion de listas requiere un entero >= 0.";
+                return false;
+            }
+
+            runtime::Value::List repeated;
+            if (!source->empty() && repeat > (std::numeric_limits<std::size_t>::max() / source->size())) {
+                *out_error = "La repeticion de listas excede el tamano maximo permitido.";
+                return false;
+            }
+            repeated.reserve(source->size() * repeat);
+            for (std::size_t i = 0; i < repeat; ++i) {
+                repeated.insert(repeated.end(), source->begin(), source->end());
+            }
+
+            *out_value = runtime::Value(std::move(repeated));
+            return true;
+        }
     }
 
     if (op == frontend::BinaryOp::LogicalAnd) {
@@ -2486,6 +2616,37 @@ bool Interpreter::ExecuteCall(const frontend::CallExpr& call, bool require_retur
         return true;
     }
 
+    if (call.callee == "__list_append__") {
+        if (call.arguments.size() != 2) {
+            *out_error = "append(value) requiere exactamente 1 argumento.";
+            return false;
+        }
+        if (call.arguments[0].value == nullptr || call.arguments[1].value == nullptr) {
+            *out_error = "Error interno: argumento vacio en append().";
+            return false;
+        }
+
+        runtime::Value* receiver = nullptr;
+        if (!ResolveMutableTarget(*call.arguments[0].value, false, &receiver, out_error)) {
+            return false;
+        }
+
+        runtime::Value::List* list = receiver == nullptr ? nullptr : receiver->MutableList();
+        if (list == nullptr) {
+            *out_error = "append(value) requiere una lista como receptor.";
+            return false;
+        }
+
+        runtime::Value value;
+        if (!EvaluateExpression(*call.arguments[1].value, &value, out_error)) {
+            return false;
+        }
+
+        list->push_back(std::move(value));
+        *out_value = runtime::Value(nullptr);
+        return true;
+    }
+
     if (call.callee == "super") {
         return ExecuteSuperCall(call, require_return_value, out_value, out_error);
     }
@@ -2494,6 +2655,28 @@ bool Interpreter::ExecuteCall(const frontend::CallExpr& call, bool require_retur
     if (last_dot != std::string::npos && last_dot > 0 && last_dot + 1 < call.callee.size()) {
         const std::string target_name = call.callee.substr(0, last_dot);
         const std::string member_name = call.callee.substr(last_dot + 1);
+
+        if (member_name == "append") {
+            runtime::Value* target_list = nullptr;
+            std::string resolve_error;
+            if (ResolveMutableVariable(target_name, false, &target_list, &resolve_error)) {
+                runtime::Value::List* list = target_list == nullptr ? nullptr : target_list->MutableList();
+                if (list != nullptr) {
+                    if (call.arguments.size() != 1 || call.arguments[0].value == nullptr) {
+                        *out_error = "append(value) requiere exactamente 1 argumento.";
+                        return false;
+                    }
+
+                    runtime::Value value;
+                    if (!EvaluateExpression(*call.arguments[0].value, &value, out_error)) {
+                        return false;
+                    }
+                    list->push_back(std::move(value));
+                    *out_value = runtime::Value(nullptr);
+                    return true;
+                }
+            }
+        }
 
         if (target_name == "super") {
             if (class_execution_stack_.empty()) {
