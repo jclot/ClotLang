@@ -23,6 +23,7 @@ struct AnalysisReport {
 class StaticAnalyzer {
 public:
     void Analyze(const Program& program, AnalysisReport* out_report) const;
+    void Analyze(const std::vector<const Program*>& programs, AnalysisReport* out_report) const;
 };
 
 }  // namespace clot::frontend

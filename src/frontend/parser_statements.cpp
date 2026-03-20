@@ -1037,7 +1037,17 @@ bool Parser::ParseInterfaceDeclaration(std::size_t* line_index, const std::vecto
 bool Parser::ParseClassDeclaration(std::size_t* line_index, const std::vector<Token>& tokens,
                                    std::vector<std::unique_ptr<Statement>>* out_statements,
                                    Diagnostic* out_error) const {
-    if (tokens.size() < 3 || tokens[1].kind != TokenKind::Identifier || tokens.back().kind != TokenKind::Colon) {
+    std::size_t class_keyword_index = 0;
+    bool class_is_abstract = false;
+    if (!tokens.empty() && tokens[0].kind == TokenKind::KeywordAbstract) {
+        class_is_abstract = true;
+        class_keyword_index = 1;
+    }
+
+    if (tokens.size() < class_keyword_index + 3 ||
+        tokens[class_keyword_index].kind != TokenKind::KeywordClass ||
+        tokens[class_keyword_index + 1].kind != TokenKind::Identifier ||
+        tokens.back().kind != TokenKind::Colon) {
         *out_error = MakeError(
             *line_index + 1,
             tokens[0].column,
@@ -1045,11 +1055,11 @@ bool Parser::ParseClassDeclaration(std::size_t* line_index, const std::vector<To
         return false;
     }
 
-    std::string class_name = tokens[1].lexeme;
+    std::string class_name = tokens[class_keyword_index + 1].lexeme;
     std::string base_class;
     std::vector<std::string> interfaces;
 
-    std::size_t cursor = 2;
+    std::size_t cursor = class_keyword_index + 2;
     while (cursor + 1 < tokens.size()) {
         if (tokens[cursor].kind == TokenKind::KeywordExtends) {
             ++cursor;
@@ -1328,6 +1338,7 @@ bool Parser::ParseClassDeclaration(std::size_t* line_index, const std::vector<To
 
             out_statements->push_back(std::make_unique<ClassDeclStmt>(
                 class_name,
+                class_is_abstract,
                 std::move(base_class),
                 std::move(interfaces),
                 std::move(fields),
@@ -1345,6 +1356,7 @@ bool Parser::ParseClassDeclaration(std::size_t* line_index, const std::vector<To
         bool is_static = false;
         bool is_readonly = false;
         bool is_override = false;
+        bool is_abstract = false;
 
         while (member_cursor < member_tokens.size()) {
             const TokenKind kind = member_tokens[member_cursor].kind;
@@ -1355,6 +1367,11 @@ bool Parser::ParseClassDeclaration(std::size_t* line_index, const std::vector<To
             }
             if (kind == TokenKind::KeywordPrivate) {
                 visibility = MemberVisibility::Private;
+                ++member_cursor;
+                continue;
+            }
+            if (kind == TokenKind::KeywordProtected) {
+                visibility = MemberVisibility::Protected;
                 ++member_cursor;
                 continue;
             }
@@ -1373,6 +1390,11 @@ bool Parser::ParseClassDeclaration(std::size_t* line_index, const std::vector<To
                 ++member_cursor;
                 continue;
             }
+            if (kind == TokenKind::KeywordAbstract) {
+                is_abstract = true;
+                ++member_cursor;
+                continue;
+            }
             break;
         }
 
@@ -1384,11 +1406,11 @@ bool Parser::ParseClassDeclaration(std::size_t* line_index, const std::vector<To
         const TokenKind member_kind = member_tokens[member_cursor].kind;
 
         if (member_kind == TokenKind::KeywordConstructor) {
-            if (is_static || is_readonly || is_override) {
+            if (is_static || is_readonly || is_override || is_abstract) {
                 *out_error = MakeError(
                     *line_index + 1,
                     member_tokens[member_cursor].column,
-                    "constructor no acepta modificadores static/readonly/override.");
+                    "constructor no acepta modificadores static/readonly/override/abstract.");
                 return false;
             }
             if (has_constructor) {
@@ -1424,11 +1446,11 @@ bool Parser::ParseClassDeclaration(std::size_t* line_index, const std::vector<To
         }
 
         if (member_kind == TokenKind::KeywordGet) {
-            if (is_static || is_readonly || is_override) {
+            if (is_static || is_readonly || is_override || is_abstract) {
                 *out_error = MakeError(
                     *line_index + 1,
                     member_tokens[member_cursor].column,
-                    "get no acepta modificadores static/readonly/override.");
+                    "get no acepta modificadores static/readonly/override/abstract.");
                 return false;
             }
 
@@ -1462,11 +1484,11 @@ bool Parser::ParseClassDeclaration(std::size_t* line_index, const std::vector<To
             member_cursor + 2 < member_tokens.size() &&
             member_tokens[member_cursor + 1].kind == TokenKind::Identifier &&
             member_tokens[member_cursor + 2].kind == TokenKind::LeftParen) {
-            if (is_static || is_readonly || is_override) {
+            if (is_static || is_readonly || is_override || is_abstract) {
                 *out_error = MakeError(
                     *line_index + 1,
                     member_tokens[member_cursor].column,
-                    "set no acepta modificadores static/readonly/override.");
+                    "set no acepta modificadores static/readonly/override/abstract.");
                 return false;
             }
 
@@ -1554,6 +1576,27 @@ bool Parser::ParseClassDeclaration(std::size_t* line_index, const std::vector<To
                     "readonly no aplica a metodos.");
                 return false;
             }
+            if (is_abstract && !class_is_abstract) {
+                *out_error = MakeError(
+                    *line_index + 1,
+                    member_tokens[member_cursor].column,
+                    "Una clase concreta no puede declarar metodos abstract.");
+                return false;
+            }
+            if (is_abstract && visibility == MemberVisibility::Private) {
+                *out_error = MakeError(
+                    *line_index + 1,
+                    member_tokens[member_cursor].column,
+                    "Un metodo abstract no puede ser private.");
+                return false;
+            }
+            if (is_abstract && is_static) {
+                *out_error = MakeError(
+                    *line_index + 1,
+                    member_tokens[member_cursor].column,
+                    "Un metodo abstract no puede ser static.");
+                return false;
+            }
 
             std::vector<Token> func_tokens(
                 member_tokens.begin() + static_cast<std::ptrdiff_t>(member_cursor),
@@ -1577,6 +1620,14 @@ bool Parser::ParseClassDeclaration(std::size_t* line_index, const std::vector<To
             }
 
             std::unique_ptr<FunctionDeclStmt> function_decl(function_ptr);
+            if (is_abstract && !function_decl->body.empty()) {
+                *out_error = MakeError(
+                    *line_index + 1,
+                    member_tokens[member_cursor].column,
+                    "Los metodos abstract deben declararse con cuerpo vacio.");
+                return false;
+            }
+
             ClassMethodDecl method;
             method.name = function_decl->name;
             method.return_type = function_decl->return_type;
@@ -1586,6 +1637,7 @@ bool Parser::ParseClassDeclaration(std::size_t* line_index, const std::vector<To
             method.visibility = visibility;
             method.is_static = is_static;
             method.is_override = is_override;
+            method.is_abstract = is_abstract;
             methods.push_back(std::move(method));
             continue;
         }
@@ -1595,6 +1647,13 @@ bool Parser::ParseClassDeclaration(std::size_t* line_index, const std::vector<To
                 *line_index + 1,
                 member_tokens[member_cursor].column,
                 "override solo aplica a metodos.");
+            return false;
+        }
+        if (is_abstract) {
+            *out_error = MakeError(
+                *line_index + 1,
+                member_tokens[member_cursor].column,
+                "abstract solo aplica a metodos.");
             return false;
         }
 
@@ -2128,14 +2187,31 @@ bool Parser::ParseWhile(std::size_t* line_index, const std::vector<Token>& token
 bool Parser::ParseFor(std::size_t* line_index, const std::vector<Token>& tokens,
                       std::vector<std::unique_ptr<Statement>>* out_statements, Diagnostic* out_error) const {
     const std::size_t header_line = *line_index + 1;
-    if (tokens.size() < 5 || tokens[1].kind != TokenKind::LeftParen || tokens.back().kind != TokenKind::Colon ||
-        tokens[tokens.size() - 2].kind != TokenKind::RightParen) {
+    if (tokens.size() < 4 || tokens.back().kind != TokenKind::Colon) {
         *out_error = MakeError(header_line, tokens[0].column,
-                               "Formato invalido en for. Use: for (init; cond; update): o for (item in coleccion):");
+                               "Formato invalido en for. Use: for (init; cond; update):, for (item in coleccion): o for item in coleccion:");
         return false;
     }
 
-    std::vector<Token> header_tokens(tokens.begin() + 2, tokens.end() - 2);
+    const bool parenthesized_header =
+        tokens.size() >= 5 &&
+        tokens[1].kind == TokenKind::LeftParen &&
+        tokens[tokens.size() - 2].kind == TokenKind::RightParen;
+    if (tokens[1].kind == TokenKind::LeftParen && !parenthesized_header) {
+        *out_error = MakeError(header_line, tokens[0].column,
+                               "Formato invalido en for. Use: for (init; cond; update):, for (item in coleccion): o for item in coleccion:");
+        return false;
+    }
+
+    std::vector<Token> header_tokens = parenthesized_header
+                                           ? std::vector<Token>(tokens.begin() + 2, tokens.end() - 2)
+                                           : std::vector<Token>(tokens.begin() + 1, tokens.end() - 1);
+    if (header_tokens.empty()) {
+        *out_error = MakeError(header_line, tokens[0].column,
+                               "Formato invalido en for. Use: for (init; cond; update):, for (item in coleccion): o for item in coleccion:");
+        return false;
+    }
+
     int paren_depth = 0;
     int bracket_depth = 0;
     int brace_depth = 0;
@@ -2175,6 +2251,14 @@ bool Parser::ParseFor(std::size_t* line_index, const std::vector<Token>& tokens,
                 in_index = i;
             }
         }
+    }
+
+    if (!parenthesized_header && !top_level_semicolons.empty()) {
+        *out_error = MakeError(
+            header_line,
+            tokens[0].column,
+            "Formato invalido en for. El for clasico requiere parentesis: for (init; cond; update):");
+        return false;
     }
 
     std::vector<std::unique_ptr<Statement>> body;
@@ -2314,7 +2398,8 @@ bool Parser::ParseFor(std::size_t* line_index, const std::vector<Token>& tokens,
             header_tokens.begin() + static_cast<std::ptrdiff_t>(in_index + 1),
             header_tokens.end());
         if (binding_tokens.empty() || collection_tokens.empty()) {
-            *out_error = MakeError(header_line, tokens[0].column, "Formato invalido en for-each.");
+            *out_error = MakeError(header_line, tokens[0].column,
+                                   "Formato invalido en for-each. Use: for (item in coleccion): o for item in coleccion:");
             return false;
         }
 
@@ -2349,7 +2434,7 @@ bool Parser::ParseFor(std::size_t* line_index, const std::vector<Token>& tokens,
         if (cursor >= binding_tokens.size() || binding_tokens[cursor].kind != TokenKind::Identifier ||
             cursor + 1 != binding_tokens.size()) {
             *out_error = MakeError(header_line, tokens[0].column,
-                                   "Formato invalido en for-each. Use: for (item in coleccion):");
+                                   "Formato invalido en for-each. Use: for (item in coleccion): o for item in coleccion:");
             return false;
         }
 
@@ -2371,7 +2456,7 @@ bool Parser::ParseFor(std::size_t* line_index, const std::vector<Token>& tokens,
     }
 
     *out_error = MakeError(header_line, tokens[0].column,
-                           "Formato invalido en for. Use: for (init; cond; update): o for (item in coleccion):");
+                           "Formato invalido en for. Use: for (init; cond; update):, for (item in coleccion): o for item in coleccion:");
     return false;
 }
 

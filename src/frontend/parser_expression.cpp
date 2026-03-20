@@ -1,11 +1,14 @@
 #include "clot/frontend/parser.hpp"
 
 #include <charconv>
+#include <cctype>
 #include <memory>
 #include <optional>
 #include <system_error>
 #include <utility>
 #include <vector>
+
+#include "clot/frontend/tokenizer.hpp"
 
 namespace clot::frontend {
 
@@ -252,41 +255,51 @@ private:
 
         while (!IsAtEnd()) {
             if (Match(TokenKind::LeftParen)) {
-                auto* variable = dynamic_cast<VariableExpr*>(expression.get());
-                if (variable == nullptr) {
-                    const Token& token = Previous();
-                    Fail(token.column, "Solo se puede invocar funciones usando un identificador.");
-                    return nullptr;
-                }
-
                 std::vector<CallArgument> arguments;
-                if (!Check(TokenKind::RightParen)) {
-                    while (true) {
-                        CallArgument argument;
-                        if (Match(TokenKind::Ampersand)) {
-                            argument.by_reference = true;
-                        }
-
-                        argument.value = ParseLogicalOr();
-                        if (argument.value == nullptr) {
-                            return nullptr;
-                        }
-
-                        arguments.push_back(std::move(argument));
-                        if (!Match(TokenKind::Comma)) {
-                            break;
-                        }
-                    }
-                }
-
-                if (!Match(TokenKind::RightParen)) {
-                    const Token& token = IsAtEnd() ? Previous() : Peek();
-                    Fail(token.column, "Falta ')' al cerrar llamada de funcion.");
+                const Token& open_paren = Previous();
+                if (!ParseCallArguments(open_paren.column, &arguments)) {
                     return nullptr;
                 }
 
-                const std::string callee_name = variable->name;
-                expression = std::make_unique<CallExpr>(callee_name, std::move(arguments));
+                if (auto* variable = dynamic_cast<VariableExpr*>(expression.get())) {
+                    expression = std::make_unique<CallExpr>(variable->name, std::move(arguments));
+                    continue;
+                }
+
+                auto* member_access = dynamic_cast<IndexExpr*>(expression.get());
+                auto* member_name_expr =
+                    member_access == nullptr ? nullptr : dynamic_cast<StringExpr*>(member_access->index.get());
+                if (member_access == nullptr || member_name_expr == nullptr) {
+                    Fail(open_paren.column, "Solo se puede invocar funciones usando un identificador.");
+                    return nullptr;
+                }
+
+                const std::string member_name = member_name_expr->value;
+                std::unique_ptr<Expr> receiver = std::move(member_access->collection);
+
+                if (member_name == "append") {
+                    std::vector<CallArgument> append_arguments;
+                    append_arguments.reserve(arguments.size() + 1);
+                    CallArgument receiver_argument;
+                    receiver_argument.value = std::move(receiver);
+                    append_arguments.push_back(std::move(receiver_argument));
+                    for (auto& argument : arguments) {
+                        append_arguments.push_back(std::move(argument));
+                    }
+
+                    expression = std::make_unique<CallExpr>("__list_append__", std::move(append_arguments));
+                    continue;
+                }
+
+                auto* receiver_variable = dynamic_cast<VariableExpr*>(receiver.get());
+                if (receiver_variable == nullptr) {
+                    Fail(open_paren.column, "Solo append(...) se permite sobre accesos encadenados.");
+                    return nullptr;
+                }
+
+                expression = std::make_unique<CallExpr>(
+                    receiver_variable->name + "." + member_name,
+                    std::move(arguments));
                 continue;
             }
 
@@ -303,6 +316,25 @@ private:
                 }
 
                 expression = std::make_unique<IndexExpr>(std::move(expression), std::move(index));
+                continue;
+            }
+
+            if (Match(TokenKind::Dot)) {
+                if (IsAtEnd()) {
+                    const Token& token = Previous();
+                    Fail(token.column, "Falta identificador despues de '.'.");
+                    return nullptr;
+                }
+
+                const Token member = Advance();
+                if (member.kind != TokenKind::Identifier) {
+                    Fail(member.column, "Se esperaba identificador despues de '.'.");
+                    return nullptr;
+                }
+
+                expression = std::make_unique<IndexExpr>(
+                    std::move(expression),
+                    std::make_unique<StringExpr>(member.lexeme));
                 continue;
             }
 
@@ -346,7 +378,7 @@ private:
         }
 
         if (token.kind == TokenKind::String) {
-            return std::make_unique<StringExpr>(token.lexeme);
+            return ParseStringLiteral(token);
         }
 
         if (token.kind == TokenKind::Char) {
@@ -461,6 +493,202 @@ private:
 
         Fail(token.column, "Token no soportado en expresion: '" + token.lexeme + "'.");
         return nullptr;
+    }
+
+    bool ParseCallArguments(std::size_t open_paren_column, std::vector<CallArgument>* out_arguments) {
+        if (out_arguments == nullptr) {
+            return false;
+        }
+        out_arguments->clear();
+
+        if (!Check(TokenKind::RightParen)) {
+            while (true) {
+                CallArgument argument;
+                if (Match(TokenKind::Ampersand)) {
+                    argument.by_reference = true;
+                }
+
+                argument.value = ParseLogicalOr();
+                if (argument.value == nullptr) {
+                    return false;
+                }
+
+                out_arguments->push_back(std::move(argument));
+                if (!Match(TokenKind::Comma)) {
+                    break;
+                }
+            }
+        }
+
+        if (!Match(TokenKind::RightParen)) {
+            const Token& token = IsAtEnd() ? Previous() : Peek();
+            const std::size_t column = token.column == 0 ? open_paren_column : token.column;
+            Fail(column, "Falta ')' al cerrar llamada de funcion.");
+            return false;
+        }
+
+        return true;
+    }
+
+    static void AppendInterpolatedPiece(std::unique_ptr<Expr>* accumulator, std::unique_ptr<Expr> piece) {
+        if (accumulator == nullptr || piece == nullptr) {
+            return;
+        }
+
+        if (*accumulator == nullptr) {
+            *accumulator = std::move(piece);
+            return;
+        }
+
+        *accumulator = std::make_unique<BinaryExpr>(
+            BinaryOp::Add,
+            std::move(*accumulator),
+            std::move(piece));
+    }
+
+    std::unique_ptr<Expr> ParseStringLiteral(const Token& token) {
+        const std::string& raw_text = token.lexeme;
+        if (raw_text.find('{') == std::string::npos && raw_text.find('}') == std::string::npos) {
+            return std::make_unique<StringExpr>(raw_text);
+        }
+
+        std::unique_ptr<Expr> expression;
+        std::string pending_text;
+        std::size_t cursor = 0;
+
+        auto flush_pending_text = [&]() {
+            if (pending_text.empty()) {
+                return;
+            }
+            AppendInterpolatedPiece(&expression, std::make_unique<StringExpr>(pending_text));
+            pending_text.clear();
+        };
+
+        while (cursor < raw_text.size()) {
+            const char current = raw_text[cursor];
+
+            if (current == '{' && cursor + 1 < raw_text.size() && raw_text[cursor + 1] == '{') {
+                pending_text.push_back('{');
+                cursor += 2;
+                continue;
+            }
+
+            if (current == '}' && cursor + 1 < raw_text.size() && raw_text[cursor + 1] == '}') {
+                pending_text.push_back('}');
+                cursor += 2;
+                continue;
+            }
+
+            if (current == '{') {
+                flush_pending_text();
+
+                std::size_t expression_cursor = cursor + 1;
+                int brace_depth = 1;
+                bool in_string = false;
+                bool escaped = false;
+                char string_delimiter = '\0';
+
+                for (; expression_cursor < raw_text.size(); ++expression_cursor) {
+                    const char candidate = raw_text[expression_cursor];
+                    if (in_string) {
+                        if (escaped) {
+                            escaped = false;
+                            continue;
+                        }
+                        if (candidate == '\\') {
+                            escaped = true;
+                            continue;
+                        }
+                        if (candidate == string_delimiter) {
+                            in_string = false;
+                        }
+                        continue;
+                    }
+
+                    if (candidate == '"' || candidate == '\'') {
+                        in_string = true;
+                        string_delimiter = candidate;
+                        continue;
+                    }
+
+                    if (candidate == '{') {
+                        ++brace_depth;
+                        continue;
+                    }
+
+                    if (candidate == '}') {
+                        --brace_depth;
+                        if (brace_depth == 0) {
+                            break;
+                        }
+                    }
+                }
+
+                if (expression_cursor >= raw_text.size() || brace_depth != 0) {
+                    Fail(token.column, "Interpolacion de string incompleta: falta '}'.");
+                    return nullptr;
+                }
+
+                std::string interpolation_text =
+                    raw_text.substr(cursor + 1, expression_cursor - (cursor + 1));
+                std::size_t first = 0;
+                while (first < interpolation_text.size() &&
+                       std::isspace(static_cast<unsigned char>(interpolation_text[first]))) {
+                    ++first;
+                }
+
+                std::size_t last = interpolation_text.size();
+                while (last > first &&
+                       std::isspace(static_cast<unsigned char>(interpolation_text[last - 1]))) {
+                    --last;
+                }
+
+                if (first == last) {
+                    Fail(token.column, "Interpolacion de string vacia.");
+                    return nullptr;
+                }
+
+                interpolation_text = interpolation_text.substr(first, last - first);
+                std::vector<Token> interpolation_tokens = Tokenizer::TokenizeLine(interpolation_text);
+                if (interpolation_tokens.empty()) {
+                    Fail(token.column, "Interpolacion de string vacia.");
+                    return nullptr;
+                }
+
+                if (interpolation_tokens[0].kind == TokenKind::Unknown) {
+                    Fail(token.column, "Interpolacion de string invalida: '" + interpolation_tokens[0].lexeme + "'.");
+                    return nullptr;
+                }
+
+                ExpressionParser interpolation_parser(line_number_, std::move(interpolation_tokens));
+                std::unique_ptr<Expr> interpolation_expression;
+                if (!interpolation_parser.Parse(&interpolation_expression, out_error_)) {
+                    return nullptr;
+                }
+
+                if (expression == nullptr) {
+                    expression = std::make_unique<StringExpr>("");
+                }
+                AppendInterpolatedPiece(&expression, std::move(interpolation_expression));
+                cursor = expression_cursor + 1;
+                continue;
+            }
+
+            if (current == '}') {
+                Fail(token.column, "Interpolacion de string invalida: '}' sin apertura.");
+                return nullptr;
+            }
+
+            pending_text.push_back(current);
+            ++cursor;
+        }
+
+        flush_pending_text();
+        if (expression == nullptr) {
+            return std::make_unique<StringExpr>(raw_text);
+        }
+
+        return expression;
     }
 
     bool IsAtEnd() const {

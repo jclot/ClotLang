@@ -11,8 +11,8 @@
 ## Frontend Internal Split
 
 - `src/frontend/parser_core.cpp`: bloque principal (`Parse`, `ParseBlock`, despacho de sentencias).
-- `src/frontend/parser_statements.cpp`: parseo de sentencias (`assignment`, `if`, `while`, `for`, `for-each`, `do-while`, `switch`, `break/continue/pass`, `func`, `import`, `mutation`, `return`, `defer`, `try/catch/finally`) y validaciones de cabecera/formato.
-- `src/frontend/parser_expression.cpp`: parser de expresiones por precedencia.
+- `src/frontend/parser_statements.cpp`: parseo de sentencias (`assignment`, `if`, `while`, `for`, `for-each`, `do-while`, `switch`, `break/continue/pass`, `func`, `import`, `mutation`, `return`, `defer`, `try/catch/finally`, `class/interface`) y validaciones de cabecera/formato, incluyendo `for item in ...:` y modificadores OOP (`protected`, `abstract`).
+- `src/frontend/parser_expression.cpp`: parser de expresiones por precedencia, acceso encadenado tipo `lista[i].prop`, interpolacion de strings y azucar de `append(...)` sobre receptores encadenados.
 - `src/frontend/parser_support.hpp`: utilidades internas compartidas del parser.
 
 ## LLVM Backend Internal Split
@@ -48,6 +48,7 @@
 - Resolution scans the current module directory and all ancestor directories (root-based lookup).
 - Circular imports are detected and rejected.
 - Runtime pipeline: resolve module -> load file -> parse -> execute -> cache exports.
+- Analyze pipeline (`--mode analyze`): resuelve imports de forma recursiva para incorporar contexto cross-file antes del analisis estatico.
 
 ## Internationalization
 

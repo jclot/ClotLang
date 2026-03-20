@@ -83,6 +83,7 @@ struct TypeAnnotation {
 
 enum class MemberVisibility {
     Public,
+    Protected,
     Private,
 };
 
@@ -417,6 +418,7 @@ struct ClassMethodDecl {
     MemberVisibility visibility = MemberVisibility::Public;
     bool is_static = false;
     bool is_override = false;
+    bool is_abstract = false;
 };
 
 struct ClassAccessorDecl {
@@ -432,6 +434,7 @@ struct ClassAccessorDecl {
 struct ClassDeclStmt final : Statement {
     ClassDeclStmt(
         std::string in_name,
+        bool in_is_abstract,
         std::string in_base_class,
         std::vector<std::string> in_interfaces,
         std::vector<ClassFieldDecl> in_fields,
@@ -441,6 +444,7 @@ struct ClassDeclStmt final : Statement {
         std::vector<ClassMethodDecl> in_methods,
         std::vector<ClassAccessorDecl> in_accessors)
         : name(std::move(in_name)),
+          is_abstract(in_is_abstract),
           base_class(std::move(in_base_class)),
           interfaces(std::move(in_interfaces)),
           fields(std::move(in_fields)),
@@ -451,6 +455,7 @@ struct ClassDeclStmt final : Statement {
           accessors(std::move(in_accessors)) {}
 
     std::string name;
+    bool is_abstract = false;
     std::string base_class;
     std::vector<std::string> interfaces;
     std::vector<ClassFieldDecl> fields;

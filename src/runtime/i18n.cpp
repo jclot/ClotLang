@@ -52,7 +52,11 @@ std::string TranslateSpanishToEnglish(const std::string& text) {
         {"Falta ':' despues de clave de objeto.", "Missing ':' after object key."},
         {"Falta '}' al cerrar literal de objeto.", "Missing '}' to close object literal."},
         {"Token no reconocido: '", "Unrecognized token: '"},
+        {"Token inesperado en expresion: '", "Unexpected token in expression: '"},
         {"Literal char invalido.", "Invalid char literal."},
+        {"Solo se puede invocar funciones usando un identificador.",
+         "Functions can only be invoked using an identifier."},
+        {"Expresion incompleta.", "Incomplete expression."},
         {"Token no soportado en expresion: ", "Unsupported token in expression: "},
         {"Declaracion const incompleta.", "Incomplete const declaration."},
         {"Error interno: salida nula al parsear type hint.", "Internal error: null output while parsing type hint."},
@@ -84,6 +88,7 @@ std::string TranslateSpanishToEnglish(const std::string& text) {
         {"Falta 'endif' para cerrar el bloque if.", "Missing 'endif' to close if block."},
         {"Falta ':' al final de else.", "Missing ':' at end of else."},
         {"Falta 'endif' para cerrar el bloque else.", "Missing 'endif' to close else block."},
+        {"Declaracion de funcion incompleta.", "Incomplete function declaration."},
         {"Falta nombre de funcion valido.", "Missing valid function name."},
         {"Se esperaba '(' en la declaracion de funcion.", "Expected '(' in function declaration."},
         {"Se esperaba ',' o ')' en parametros de funcion.", "Expected ',' or ')' in function parameters."},
@@ -99,6 +104,7 @@ std::string TranslateSpanishToEnglish(const std::string& text) {
          "Parameters without default values cannot follow parameters with defaults."},
         {"Los parametros por referencia no aceptan valor por defecto.",
          "By-reference parameters do not accept default values."},
+        {"'endfunc' no acepta tokens adicionales.", "'endfunc' does not accept extra tokens."},
         {"Falta 'endfunc' para cerrar la funcion '", "Missing 'endfunc' to close function '"},
         {"Formato invalido en import. Use: import modulo;, import modulo as alias;, from modulo import simbolo; o from modulo import simbolo as alias;",
          "Invalid import format. Use: import module;, import module as alias;, from module import symbol;, or from module import symbol as alias;"},
@@ -148,6 +154,10 @@ std::string TranslateSpanishToEnglish(const std::string& text) {
         {"Tokens extra despues de 'endwhile'.", "Extra tokens after 'endwhile'."},
         {"Formato invalido en for. Use: for (init; cond; update): o for (item in coleccion):",
          "Invalid for format. Use: for (init; cond; update): or for (item in collection):"},
+        {"Formato invalido en for. Use: for (init; cond; update):, for (item in coleccion): o for item in coleccion:",
+         "Invalid for format. Use: for (init; cond; update):, for (item in collection):, or for item in collection:"},
+        {"Formato invalido en for. El for clasico requiere parentesis: for (init; cond; update):",
+         "Invalid for format. Classic for requires parentheses: for (init; cond; update):"},
         {"Falta 'endfor' para cerrar el bloque for.", "Missing 'endfor' to close for block."},
         {"Se esperaba 'endfor' para cerrar el for.", "Expected 'endfor' to close for loop."},
         {"Tokens extra despues de 'endfor'.", "Extra tokens after 'endfor'."},
@@ -158,6 +168,8 @@ std::string TranslateSpanishToEnglish(const std::string& text) {
         {"Formato invalido en for-each.", "Invalid for-each format."},
         {"Formato invalido en for-each. Use: for (item in coleccion):",
          "Invalid for-each format. Use: for (item in collection):"},
+        {"Formato invalido en for-each. Use: for (item in coleccion): o for item in coleccion:",
+         "Invalid for-each format. Use: for (item in collection): or for item in collection:"},
         {"Formato invalido en do-while. Use: do:", "Invalid do-while format. Use: do:"},
         {"Falta while(condicion); para cerrar do-while.", "Missing while(condition); to close do-while."},
         {"Formato invalido en do-while. Use: while(condicion);",
@@ -310,8 +322,14 @@ std::string TranslateSpanishToEnglish(const std::string& text) {
         {"Valor fuera de rango para byte (0-255).", "Value out of range for byte (0-255)."},
         {"Valor no finito para double.", "Non-finite value for double."},
         {"La expresion requiere un decimal.", "Expression requires a decimal."},
+        {"La expresion requiere un list.", "Expression requires a list."},
+        {"La expresion requiere un object.", "Expression requires an object."},
+        {"La expresion requiere un string.", "Expression requires a string."},
+        {"La expresion requiere un bool.", "Expression requires a bool."},
+        {"La expresion requiere null.", "Expression requires null."},
         {"Valor invalido para char (requiere longitud 1).", "Invalid value for char (requires length 1)."},
         {"Valor invalido para char.", "Invalid value for char."},
+        {"Valor invalido para set.", "Invalid value for set."},
         {"Valor invalido para tuple.", "Invalid value for tuple."},
         {"Valor invalido para map.", "Invalid value for map."},
         {"Valor invalido para function.", "Invalid value for function."},
@@ -338,14 +356,26 @@ std::string TranslateSpanishToEnglish(const std::string& text) {
         {"Error interno: pila de retorno inconsistente.", "Internal error: inconsistent return stack."},
         {"Error interno: out_value nulo en ResolveMutableVariable.", "Internal error: null out_value in ResolveMutableVariable."},
         {"Error interno: out_value nulo en NormalizeValueForKind.", "Internal error: null out_value in NormalizeValueForKind."},
+        {"Error interno: out_value nulo en NormalizeValueForTypeHint.",
+         "Internal error: null out_value in NormalizeValueForTypeHint."},
         {"Error interno: out_value nulo en NormalizeValueForTypeAnnotation.",
          "Internal error: null out_value in NormalizeValueForTypeAnnotation."},
+        {"Error interno: salida nula en mutacion.", "Internal error: null output in mutation."},
+        {"Error interno: indice de argumento invalido.", "Internal error: invalid argument index."},
+        {"Error interno: argumento de llamada vacio.", "Internal error: empty call argument."},
         {"Error interno: salida nula en printf.", "Internal error: null output buffer in printf."},
         {"Error interno: salida nula en potencia entera.", "Internal error: null output in integer power."},
         {"Error interno: salida nula en division decimal.", "Internal error: null output in decimal division."},
+        {"Type hint no soportado: ", "Unsupported type hint: "},
         {"pow() no acepta exponente entero negativo para resultado entero.", "pow() does not accept a negative integer exponent for integer result."},
         {"pow() exponente entero demasiado grande para computar.", "pow() integer exponent is too large to compute."},
+        {"factorial() requiere un entero no negativo.", "factorial() requires a non-negative integer."},
         {"Error de runtime bridge: source_text nulo.", "Runtime bridge error: source_text is null."},
+        {"Error de runtime bridge externo: source_text nulo.", "External runtime bridge error: source_text is null."},
+        {"Error de runtime bridge externo: no se pudo crear archivo temporal.",
+         "External runtime bridge error: could not create temporary file."},
+        {"Error de runtime bridge externo: fallo al escribir archivo temporal.",
+         "External runtime bridge error: failed to write temporary file."},
         {"No se pudo abrir el archivo: ", "Could not open file: "},
         {"Error leyendo el archivo: ", "Error reading file: "},
         {"Error escribiendo el archivo: ", "Error writing file: "},
@@ -373,11 +403,14 @@ std::string TranslateSpanishToEnglish(const std::string& text) {
         {"Sentencia de expresion vacia en emision LLVM.", "Empty expression statement during LLVM emission."},
         {"Variable no definida para asignacion compuesta: ", "Undefined variable for compound assignment: "},
         {"Estado interno invalido: no hay funcion activa para asignacion.", "Invalid internal state: no active function for assignment."},
+        {"Error interno: condicion nula para chequeo de rango LLVM.",
+         "Internal error: null condition for LLVM range check."},
         {"sum(a, b) requiere 'import math;' en modo compile LLVM AOT.", "sum(a, b) requires 'import math;' in LLVM AOT compile mode."},
         {"Las variables int arbitrarias no se soportan en AOT LLVM; usa runtime bridge.", "Arbitrary-precision int variables are not supported in LLVM AOT; use runtime bridge."},
         {"Declaracion tipada no soportada en AOT LLVM; usa runtime bridge.", "Typed declaration is not supported in LLVM AOT; use runtime bridge."},
         {"Error interno LLVM: indice de argumento invalido en builtin math.", "LLVM internal error: invalid argument index in math builtin."},
         {"factorial(x) requiere 1 argumento.", "factorial(x) requires 1 argument."},
+        {"pow(a, b) requiere 2 argumentos.", "pow(a, b) requires 2 arguments."},
         {"log(x) o log(x, base) requiere 1 o 2 argumentos.", "log(x) or log(x, base) requires 1 or 2 arguments."},
         {"Builtin math no soportado en LLVM AOT: ", "Unsupported math builtin in LLVM AOT: "},
         {"Numero entero no convertible a double en AOT LLVM: ", "Integer literal cannot be converted to double in LLVM AOT: "},
@@ -413,6 +446,7 @@ std::string TranslateSpanishToEnglish(const std::string& text) {
         {"Firma invalida en interface: falta nombre de metodo.", "Invalid interface signature: missing method name."},
         {"Firma invalida en interface: se esperaba '('.", "Invalid interface signature: expected '('."},
         {"Parametro invalido en firma de interface.", "Invalid parameter in interface signature."},
+        {"Tipo de parametro no reconocido en interface: ", "Unrecognized parameter type in interface: "},
         {"Tipo de parametro no reconocido en interface.", "Unrecognized parameter type in interface."},
         {"Las firmas de interface no aceptan valores por defecto.", "Interface signatures do not accept default values."},
         {"Se esperaba ',' o ')' en firma de interface.", "Expected ',' or ')' in interface signature."},
@@ -428,11 +462,16 @@ std::string TranslateSpanishToEnglish(const std::string& text) {
         {"constructor no acepta modificadores static/readonly/override.", "constructor does not accept static/readonly/override modifiers."},
         {"Solo se permite un constructor por class.", "Only one constructor is allowed per class."},
         {"Se esperaba '(' en constructor.", "Expected '(' in constructor."},
+        {"Parametro invalido en declaracion.", "Invalid parameter in declaration."},
+        {"Se esperaba ',' o ')' en parametros.", "Expected ',' or ')' in parameters."},
+        {"Falta ':' al final de declaracion.", "Missing ':' at end of declaration."},
+        {"Tokens extra despues de declaracion.", "Extra tokens after declaration."},
         {"get no acepta modificadores static/readonly/override.", "get does not accept static/readonly/override modifiers."},
         {"Formato invalido en get. Use: get nombre():", "Invalid get format. Use: get name():"},
         {"set no acepta modificadores static/readonly/override.", "set does not accept static/readonly/override modifiers."},
         {"set requiere un parametro.", "set requires a parameter."},
         {"Falta tipo en parametro de set.", "Missing type in set parameter."},
+        {"Tipo invalido en parametro de set: ", "Invalid type in set parameter: "},
         {"Tipo invalido en parametro de set.", "Invalid type in set parameter."},
         {"set requiere cerrar ')' en su parametro.", "set requires closing ')' in its parameter."},
         {"Falta ':' al final de set.", "Missing ':' at end of set."},
@@ -513,18 +552,64 @@ std::string TranslateSpanishToEnglish(const std::string& text) {
         {"Variable potencialmente no definida: '", "Potentially undefined variable: '"},
         {"sum(a, b) requiere import math para evitar fallo en runtime.", "sum(a, b) requires import math to avoid runtime failure."},
         {"factorial(a) requiere import math para evitar fallo en runtime.", "factorial(a) requires import math to avoid runtime failure."},
+        {"factorial(a) requiere 1 argumento.", "factorial(a) requires 1 argument."},
         {"log() requiere 1 o 2 argumentos.", "log() requires 1 or 2 arguments."},
         {"Llamada a funcion no definida: '", "Call to undefined function: '"},
         {"Cantidad de argumentos incorrecta en '", "Incorrect number of arguments in '"},
         {"Argumento vacio en llamada a '", "Empty argument in call to '"},
+        {"Argumento vacio en llamada a funcion '", "Empty argument in call to function '"},
+        {"Argumento por referencia '", "By-reference argument '"},
+        {"Argumento '", "Argument '"},
         {"Parametro por referencia requiere variable en '", "By-reference parameter requires variable in '"},
         {"Referencia a variable no definida: '", "Reference to undefined variable: '"},
         {"Asignacion potencialmente invalida para variable tipada: '", "Potentially invalid assignment for typed variable: '"},
+        {"Asignacion potencialmente invalida para list en '", "Potentially invalid assignment for list in '"},
+        {"Asignacion potencialmente invalida para object en '", "Potentially invalid assignment for object in '"},
         {"Constante fuera de rango para long en '", "Constant out of range for long in '"},
         {"Constante fuera de rango para byte en '", "Constant out of range for byte in '"},
+        {"Error interno: parametro sin argumento ni default en '",
+         "Internal error: parameter without argument or default in '"},
+        {"El retorno de la funcion '", "The return value of function '"},
+        {"El valor final del parametro por referencia '", "The final value of by-reference parameter '"},
         {"Analisis estatico (sentencia ", "Static analysis (statement "},
         {"Analisis estatico sin errores criticos.", "Static analysis completed with no critical errors."},
-        {"Falta ':' al final del while.", "Missing ':' at the end of while."}
+        {"Falta ':' al final del while.", "Missing ':' at the end of while."},
+        {"Sentencia de expresion vacia.", "Empty expression statement."},
+        {"Una clase concreta no puede declarar metodos abstract.",
+         "A concrete class cannot declare abstract methods."},
+        {"Un metodo abstract no puede ser private.", "An abstract method cannot be private."},
+        {"Un metodo abstract no puede ser static.", "An abstract method cannot be static."},
+        {"Los metodos abstract deben declararse con cuerpo vacio.",
+         "Abstract methods must be declared with an empty body."},
+        {"abstract solo aplica a metodos.", "abstract only applies to methods."},
+        {"constructor no acepta modificadores static/readonly/override/abstract.",
+         "constructor does not accept static/readonly/override/abstract modifiers."},
+        {"get no acepta modificadores static/readonly/override/abstract.",
+         "get does not accept static/readonly/override/abstract modifiers."},
+        {"set no acepta modificadores static/readonly/override/abstract.",
+         "set does not accept static/readonly/override/abstract modifiers."},
+        {"Falta identificador despues de '.'.", "Missing identifier after '.'."},
+        {"Se esperaba identificador despues de '.'.", "Expected identifier after '.'."},
+        {"Solo append(...) se permite sobre accesos encadenados.",
+         "Only append(...) is allowed over chained accesses."},
+        {"Interpolacion de string incompleta: falta '}'.", "Incomplete string interpolation: missing '}'."},
+        {"Interpolacion de string vacia.", "Empty string interpolation."},
+        {"Interpolacion de string invalida: '", "Invalid string interpolation: '"},
+        {"Interpolacion de string invalida: '}' sin apertura.",
+         "Invalid string interpolation: unmatched '}'."},
+        {"append(value) requiere exactamente 1 argumento.", "append(value) requires exactly 1 argument."},
+        {"Error interno: argumento vacio en append().", "Internal error: empty argument in append()."},
+        {"append(value) requiere una lista como receptor.", "append(value) requires a list as receiver."},
+        {"La repeticion de listas requiere un entero >= 0.",
+         "List repetition requires an integer >= 0."},
+        {"La repeticion de listas excede el maximo de 1000000 repeticiones.",
+         "List repetition exceeds the maximum of 1000000 repetitions."},
+        {"La repeticion de listas excede el tamano maximo permitido.",
+         "List repetition exceeds the maximum allowed size."},
+        {"No se puede instanciar clase abstracta: ", "Cannot instantiate abstract class: "},
+        {"Clase concreta '", "Concrete class '"},
+        {"' no implementa metodos abstract: ", "' does not implement abstract methods: "},
+        {"No se encontro modulo importado '", "Imported module not found '"}
     };
 
     std::string translated = text;
@@ -548,11 +633,19 @@ std::string TranslateSpanishToEnglish(const std::string& text) {
     ReplaceAll(&translated, "() requiere 1 argumento.", "() requires 1 argument.");
     ReplaceAll(&translated, "() requiere 2 argumentos.", "() requires 2 arguments.");
     ReplaceAll(&translated, "() requiere 1 o 2 argumentos.", "() requires 1 or 2 arguments.");
+    ReplaceAll(&translated, "(x) requiere 1 argumento.", "(x) requires 1 argument.");
+    ReplaceAll(&translated, "(x) requiere -1 <= x <= 1.", "(x) requires -1 <= x <= 1.");
+    ReplaceAll(&translated, "() requiere import math para evitar fallo en runtime.",
+               "() requires import math to avoid runtime failure.");
     ReplaceAll(&translated, "() requiere 'import math;' en modo compile LLVM AOT.",
                "() requires 'import math;' in LLVM AOT compile mode.");
     ReplaceAll(&translated, "() no acepta argumentos por referencia.", "() does not accept by-reference arguments.");
     ReplaceAll(&translated, " requiere una variable.", " requires a variable.");
+    ReplaceAll(&translated, " requiere argumento explicito.", " requires an explicit argument.");
     ReplaceAll(&translated, " no retorno ningun valor.", " did not return any value.");
+    ReplaceAll(&translated, " no retorna valor utilizable en expresion.",
+               " does not return a usable value in expression.");
+    ReplaceAll(&translated, " debe retornar un valor de tipo '", " must return a value of type '");
     ReplaceAll(&translated, " en modo compile LLVM AOT.", " in LLVM AOT compile mode.");
     ReplaceAll(&translated, " no implementa metodo '", " does not implement method '");
     ReplaceAll(&translated, "' de interface '", "' from interface '");
@@ -563,9 +656,33 @@ std::string TranslateSpanishToEnglish(const std::string& text) {
     ReplaceAll(&translated, " no coincide con type hint '", " does not match type hint '");
     ReplaceAll(&translated, " incompatible con '", " incompatible with '");
     ReplaceAll(&translated, "' no acepta argumentos genericos.", "' does not accept generic arguments.");
+    ReplaceAll(&translated, " (resuelto como '", " (resolved as '");
     ReplaceAll(&translated, " para cerrar la interface '", " to close interface '");
     ReplaceAll(&translated, " para cerrar la class '", " to close class '");
     ReplaceAll(&translated, " para cerrar bloque.", " to close block.");
+
+    const bool is_static_analysis_message =
+        StartsWith(translated, "Analisis estatico (sentencia ") ||
+        StartsWith(translated, "Static analysis (statement ");
+    if (is_static_analysis_message) {
+        const std::size_t separator = translated.find(": ");
+        if (separator != std::string::npos && separator + 2 < translated.size()) {
+            const std::string detail = translated.substr(separator + 2);
+            translated = translated.substr(0, separator + 2) + TranslateSpanishToEnglish(detail);
+        }
+    }
+
+    std::size_t nested_separator = translated.find(": ");
+    while (nested_separator != std::string::npos && nested_separator + 2 < translated.size()) {
+        const std::string detail = translated.substr(nested_separator + 2);
+        const std::string translated_detail = TranslateSpanishToEnglish(detail);
+        if (translated_detail != detail) {
+            translated = translated.substr(0, nested_separator + 2) + translated_detail;
+            break;
+        }
+        nested_separator = translated.find(": ", nested_separator + 2);
+    }
+
     return translated;
 }
 

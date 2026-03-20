@@ -108,10 +108,10 @@ endclass
 - `readonly`: asignable solo en declaracion o constructor.
 - `override`: obligatorio para sobrescritura de metodo heredado.
 
-## Fase siguiente (cuando MVP este estable)
+## Entregado despues del MVP inicial
 
-- `protected` (visible en subclases)
-- `abstract` (clases/metodos incompletos)
+- `protected` (visible en subclases) [COMPLETADO]
+- `abstract` (clases/metodos incompletos) [COMPLETADO]
 - `final` (evita override o herencia)
 - `sealed` (jerarquia cerrada para seguridad/mantenibilidad)
 
@@ -290,7 +290,8 @@ Objetivo:
    - override signatures,
    - implementaciones de interfaces,
    - asignaciones a `readonly`,
-   - errores obvios de visibilidad.
+   - errores obvios de visibilidad,
+   - resolucion cross-file de imports para reducir falsos positivos en proyectos multi-archivo.
 
 Ejemplo (convivencia dinamico + tipado):
 
@@ -375,6 +376,13 @@ Archivos impactados:
 - [x] cobertura de pruebas OOP en `tests/smoke.sh` y fallback compile/bridge en `tests/llvm_smoke.sh`.
 - [x] documentacion e i18n actualizadas para mensajes OOP.
 - [x] base de excepciones multiparadigma: `throw(value)`, `catch` tipado (`catch(Tipo)` / `catch(Tipo err)`) y modulo `clot.core.exceptions`.
+- [x] extensiones de ergonomia post-MVP:
+  - `protected` y `abstract` en OOP,
+  - secuencias de escape e interpolacion de strings,
+  - `append(value)` para listas y acceso encadenado `lista[i].prop`,
+  - inicializacion por repeticion de listas (`[null] * n`),
+  - `for item in range(...):` sin parentesis (ademas del `for (...)` clasico),
+  - `--mode analyze` con resolucion cross-file de imports.
 
 Archivos impactados:
 

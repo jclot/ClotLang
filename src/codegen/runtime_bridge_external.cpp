@@ -1,4 +1,5 @@
 #include <chrono>
+#include <cctype>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -62,6 +63,25 @@ std::filesystem::path ResolveClotFromPath(const std::filesystem::path& cwd) {
     return {};
 }
 
+bool UseEnglishDiagnostics() {
+    const auto raw_lang = clot::runtime::GetEnvVar("CLOT_LANG");
+    if (!raw_lang.has_value()) {
+        return false;
+    }
+
+    std::string normalized;
+    normalized.reserve(raw_lang->size());
+    for (const char ch : *raw_lang) {
+        normalized.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(ch))));
+    }
+
+    return normalized == "en" || normalized == "eng" || normalized == "english";
+}
+
+const char* LocalizedMessage(const char* spanish, const char* english) {
+    return UseEnglishDiagnostics() ? english : spanish;
+}
+
 } // namespace
 
 extern "C" int clot_runtime_execute_source(const char* source_text, const char* source_path) {
@@ -75,7 +95,9 @@ extern "C" int clot_runtime_execute_source(const char* source_text, const char* 
     }
 
     if (source_text == nullptr) {
-        std::cerr << "Error de runtime bridge externo: source_text nulo.\n";
+        std::cerr << LocalizedMessage(
+                         "Error de runtime bridge externo: source_text nulo.\n",
+                         "External runtime bridge error: source_text is null.\n");
         return 1;
     }
 
@@ -98,13 +120,17 @@ extern "C" int clot_runtime_execute_source(const char* source_text, const char* 
     {
         std::ofstream output(temp_file, std::ios::binary | std::ios::trunc);
         if (!output.is_open()) {
-            std::cerr << "Error de runtime bridge externo: no se pudo crear archivo temporal.\n";
+            std::cerr << LocalizedMessage(
+                             "Error de runtime bridge externo: no se pudo crear archivo temporal.\n",
+                             "External runtime bridge error: could not create temporary file.\n");
             return 1;
         }
 
         output << source_text;
         if (!output.good()) {
-            std::cerr << "Error de runtime bridge externo: fallo al escribir archivo temporal.\n";
+            std::cerr << LocalizedMessage(
+                             "Error de runtime bridge externo: fallo al escribir archivo temporal.\n",
+                             "External runtime bridge error: failed to write temporary file.\n");
             return 1;
         }
     }

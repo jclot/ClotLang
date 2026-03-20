@@ -9,9 +9,11 @@ Refactor de arquitectura para separar claramente frontend, runtime, interprete y
 - Backend LLVM para compilacion AOT (`--mode compile`) en `include/clot/codegen` y `src/codegen`.
 - Internacionalizacion basica de interfaz y diagnosticos (`--lang es|en`, `CLOT_LANG`).
 - Tipado opcional en funciones y parametros (incluye `any`/`dynamic` como alias).
-- OOP MVP en modo interprete: `class/interface`, `extends`, `implements`, `constructor`, `get/set`, `public/private/static/readonly/override`, `super(...)` y `super.metodo(...)`.
+- OOP MVP en modo interprete: `class/interface`, `extends`, `implements`, `constructor`, `get/set`, `public/private/protected/static/readonly/override/abstract`, `super(...)` y `super.metodo(...)`.
 - Migracion funcional base completada en modo interprete: listas, objetos, indexacion, propiedades, funciones y `import math`.
 - Builtins utilitarios nuevos en runtime: `len`, `range`, `enumerate`, `zip`, `all`, `any`, `isinstance`, `chr`, `ord`, `hex`, `bin`, `hash`, `id`.
+- Strings con escapes (`\\n`, `\\t`, `\\r`, `\\\"`, `\\\\`) e interpolacion (`"Hola {nombre}"`).
+- Colecciones mas ergonomicas: acceso encadenado (`lista[i].prop`), `append(value)` en listas y repeticion de listas (`[null] * n`).
 
 ## Perfil del lenguaje
 - Multiparadigma (dominante: imperativo/procedural).
@@ -24,7 +26,7 @@ Refactor de arquitectura para separar claramente frontend, runtime, interprete y
   - Declaraciones y type hints se validan en runtime.
   - Fase 1: tipado de contenedor en colecciones (`list` / `object`).
   - Fase 2: tipado fuerte interno con anotaciones genericas (`list<int>`, `tuple<float>`, `set<char>`, `map<string, int>`, `object<int>`; admite anidacion).
-  - `--mode analyze` agrega chequeo estatico auxiliar (no reemplaza tipado estatico completo).
+  - `--mode analyze` agrega chequeo estatico auxiliar con resolucion cross-file de imports (no reemplaza tipado estatico completo).
 - El tipado explicito sigue siendo opt-in: puedes combinar estilo dinamico y tipado por hints.
 
 ## Estructura
@@ -245,6 +247,14 @@ for (item in [10, 20, 30]):
     println(item);
 endfor
 
+for i in range(3):
+    println("i={i}");
+endfor
+
+items = [];
+items.append("linea 1\nlinea 2");
+println(items[0]);
+
 switch(sum):
     case 8:
         println("ok");
@@ -281,6 +291,10 @@ for (const item in coleccion):
     println(item);
 endfor
 
+for item in range(10):
+    println(item);
+endfor
+
 switch(valor):
     case 1:
         println("uno");
@@ -306,7 +320,7 @@ defer println("al salir del bloque");
 
 - `for (init; cond; update):` conserva cabecera tipo Java, pero el bloque sigue usando `:` y `endfor`.
 - `init` y `update` aceptan declaraciones, mutaciones o expresiones simples; no aceptan bloques ni control de flujo.
-- `for (item in coleccion):` usa `in` para iterar listas, tuple, set, map, object o string; el binding puede ser `const` y/o tipado.
+- `for (item in coleccion):` y `for item in coleccion:` usan `in` para iterar listas, tuple, set, map, object o string; el binding puede ser `const` y/o tipado.
 - `switch` soporta `case`, `default`, fallthrough estilo Java y `break;` para cortar el flujo.
 - `break;` sale del bucle o `switch` mas cercano. `continue;` solo aplica a bucles, incluso si aparece dentro de un `switch` anidado.
 - `pass;` no hace nada y sirve como placeholder valido.
@@ -324,13 +338,16 @@ Soportado en modo interprete:
 - Bucles y control de flujo:
   - `while/endwhile`
   - `for/endfor` clasico: `for (int i = 0; i < n; i++):`
-  - `for-each`: `for (item in coleccion):`
+  - `for-each`: `for (item in coleccion):` y `for item in coleccion:`
   - `do ... while(condicion);`
   - `break;`, `continue;`, `pass;`
 - Operadores aritmeticos, comparacion y logicos
 - Operador de pertenencia `in` (listas, tuple, set, map, object, string)
 - `const` para declarar valores inmutables
-- Listas y objetos (incluye `nums[2]` y `user.name`)
+- Listas y objetos (incluye `nums[2]`, `user.name` y `lista[i].prop`)
+- Strings con escapes (`\n`, `\t`, `\r`, `\"`, `\\`) e interpolacion (`"Hola {nombre}"`)
+- Concatenacion string con conversion implicita (`"precio=" + 300.0`)
+- Listas dinamicas con `append(value)` y repeticion (`[null] * n`)
 - Mutaciones sobre propiedades e indices:
   - `obj.prop = ...`, `obj.prop += ...`
   - `lista[i] = ...`, `lista[i] += ...`
@@ -419,12 +436,14 @@ endfor
   - `class/endclass` con `extends` (herencia simple) y `implements` (multiple)
   - `constructor/endconstructor`
   - `get/endget`, `set/endset`
-  - modificadores: `public` (default), `private`, `static`, `readonly`, `override`
+  - modificadores: `public` (default), `private`, `protected`, `static`, `readonly`, `override`, `abstract`
   - validaciones runtime:
     - `override` obligatorio al sobrescribir
     - compatibilidad de firma/retorno en override
     - contrato de interfaces (`implements`)
-    - visibilidad `private`
+    - visibilidad `private`/`protected`
+    - clase concreta no puede dejar metodos abstract sin implementar
+    - clase abstract no se puede instanciar
     - `readonly` de instancia (solo constructor de la clase propietaria)
     - `readonly static`
     - `super(...)` obligatorio como primera sentencia en constructor derivado

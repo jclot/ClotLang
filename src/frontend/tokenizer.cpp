@@ -14,6 +14,38 @@ bool IsIdentifierBody(char character) {
     return std::isalnum(static_cast<unsigned char>(character)) || character == '_' || character == '.';
 }
 
+bool DecodeEscapeSequence(char escaped, char* out_decoded) {
+    if (out_decoded == nullptr) {
+        return false;
+    }
+
+    switch (escaped) {
+    case 'n':
+        *out_decoded = '\n';
+        return true;
+    case 't':
+        *out_decoded = '\t';
+        return true;
+    case 'r':
+        *out_decoded = '\r';
+        return true;
+    case '"':
+        *out_decoded = '"';
+        return true;
+    case '\'':
+        *out_decoded = '\'';
+        return true;
+    case '\\':
+        *out_decoded = '\\';
+        return true;
+    case '0':
+        *out_decoded = '\0';
+        return true;
+    default:
+        return false;
+    }
+}
+
 TokenKind KeywordToTokenKind(const std::string& text) {
     if (text == "print") {
         return TokenKind::KeywordPrint;
@@ -177,6 +209,9 @@ TokenKind KeywordToTokenKind(const std::string& text) {
     if (text == "private") {
         return TokenKind::KeywordPrivate;
     }
+    if (text == "protected") {
+        return TokenKind::KeywordProtected;
+    }
     if (text == "static") {
         return TokenKind::KeywordStatic;
     }
@@ -185,6 +220,9 @@ TokenKind KeywordToTokenKind(const std::string& text) {
     }
     if (text == "override") {
         return TokenKind::KeywordOverride;
+    }
+    if (text == "abstract") {
+        return TokenKind::KeywordAbstract;
     }
     if (text == "true" || text == "false") {
         return TokenKind::Boolean;
@@ -314,12 +352,16 @@ const char* ToString(TokenKind kind) {
         return "public";
     case TokenKind::KeywordPrivate:
         return "private";
+    case TokenKind::KeywordProtected:
+        return "protected";
     case TokenKind::KeywordStatic:
         return "static";
     case TokenKind::KeywordReadonly:
         return "readonly";
     case TokenKind::KeywordOverride:
         return "override";
+    case TokenKind::KeywordAbstract:
+        return "abstract";
     case TokenKind::Assign:
         return "=";
     case TokenKind::PlusEqual:
@@ -370,6 +412,8 @@ const char* ToString(TokenKind kind) {
         return "}";
     case TokenKind::Comma:
         return ",";
+    case TokenKind::Dot:
+        return ".";
     case TokenKind::Colon:
         return ":";
     case TokenKind::Semicolon:
@@ -404,22 +448,40 @@ std::vector<Token> Tokenizer::TokenizeLine(const std::string& line) {
 
         if (current == '"') {
             std::size_t cursor = index + 1;
-            bool escaped = false;
             std::string literal;
+            bool invalid_literal = false;
 
             while (cursor < line.size()) {
                 const char candidate = line[cursor];
-                if (!escaped && candidate == '"') {
+                if (candidate == '"') {
                     break;
                 }
 
-                if (!escaped && candidate == '\\') {
-                    escaped = true;
-                } else {
-                    literal.push_back(candidate);
-                    escaped = false;
+                if (candidate == '\\') {
+                    ++cursor;
+                    if (cursor >= line.size()) {
+                        tokens.push_back({TokenKind::Unknown, line.substr(index), index + 1});
+                        invalid_literal = true;
+                        break;
+                    }
+
+                    char decoded = '\0';
+                    if (!DecodeEscapeSequence(line[cursor], &decoded)) {
+                        tokens.push_back({TokenKind::Unknown, line.substr(index, cursor - index + 1), index + 1});
+                        invalid_literal = true;
+                        break;
+                    }
+                    literal.push_back(decoded);
+                    ++cursor;
+                    continue;
                 }
+
+                literal.push_back(candidate);
                 ++cursor;
+            }
+
+            if (invalid_literal) {
+                break;
             }
 
             if (cursor >= line.size()) {
@@ -447,20 +509,7 @@ std::vector<Token> Tokenizer::TokenizeLine(const std::string& line) {
                     break;
                 }
 
-                const char escaped = line[cursor];
-                if (escaped == 'n') {
-                    parsed = '\n';
-                } else if (escaped == 't') {
-                    parsed = '\t';
-                } else if (escaped == 'r') {
-                    parsed = '\r';
-                } else if (escaped == '\'') {
-                    parsed = '\'';
-                } else if (escaped == '\\') {
-                    parsed = '\\';
-                } else if (escaped == '0') {
-                    parsed = '\0';
-                } else {
+                if (!DecodeEscapeSequence(line[cursor], &parsed)) {
                     tokens.push_back({TokenKind::Unknown, line.substr(index, cursor - index + 1), index + 1});
                     break;
                 }
@@ -617,6 +666,9 @@ std::vector<Token> Tokenizer::TokenizeLine(const std::string& line) {
             break;
         case ',':
             token.kind = TokenKind::Comma;
+            break;
+        case '.':
+            token.kind = TokenKind::Dot;
             break;
         case ':':
             token.kind = TokenKind::Colon;

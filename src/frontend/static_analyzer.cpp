@@ -5,6 +5,7 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -92,10 +93,25 @@ public:
     explicit AnalyzerEngine(AnalysisReport* report) : report_(report) {}
 
     void Analyze(const Program& program) {
-        CollectFunctionsAndImports(program);
+        std::vector<const Program*> programs{&program};
+        Analyze(programs);
+    }
+
+    void Analyze(const std::vector<const Program*>& programs) {
+        for (const Program* program : programs) {
+            if (program == nullptr) {
+                continue;
+            }
+            CollectFunctionsAndImports(*program);
+        }
 
         SymbolTable symbols;
-        AnalyzeStatements(program.statements, &symbols);
+        for (const Program* program : programs) {
+            if (program == nullptr) {
+                continue;
+            }
+            AnalyzeStatements(program->statements, &symbols);
+        }
     }
 
 private:
@@ -226,6 +242,30 @@ private:
         if (const auto* import_stmt = dynamic_cast<const ImportStmt*>(&statement)) {
             if (import_stmt->module_name == "math") {
                 math_imported_ = true;
+            }
+
+            if (import_stmt->style == ImportStmt::Style::ModuleAlias && !import_stmt->alias_name.empty()) {
+                (*symbols)[import_stmt->alias_name] = SymbolInfo{DeclarationType::Inferred, TypeHint::Object};
+                imported_symbols_.insert(import_stmt->alias_name);
+            }
+
+            if (import_stmt->style == ImportStmt::Style::FromImport) {
+                const std::string bind_name = import_stmt->imported_alias.empty()
+                                                  ? import_stmt->imported_symbol
+                                                  : import_stmt->imported_alias;
+                if (!bind_name.empty()) {
+                    SymbolInfo imported_info;
+                    imported_info.declaration_type = DeclarationType::Inferred;
+                    imported_info.hint = TypeHint::Unknown;
+                    if (functions_.find(import_stmt->imported_symbol) != functions_.end()) {
+                        imported_info.hint = TypeHint::Function;
+                        imported_callable_symbols_.insert(bind_name);
+                    } else {
+                        imported_callable_symbols_.insert(bind_name);
+                    }
+                    (*symbols)[bind_name] = imported_info;
+                    imported_symbols_.insert(bind_name);
+                }
             }
             return;
         }
@@ -570,6 +610,21 @@ private:
             }
         }
 
+        const std::size_t first_dot = call.callee.find('.');
+        if (first_dot != std::string::npos) {
+            const std::string root = call.callee.substr(0, first_dot);
+            if (symbols.find(root) != symbols.end() || imported_symbols_.count(root) > 0) {
+                return ExpressionFacts{TypeHint::Unknown, false, 0.0};
+            }
+        }
+
+        if (call.callee == "__list_append__") {
+            if (call.arguments.size() != 2) {
+                AddError(statement_id, "append(value) requiere exactamente 1 argumento.");
+            }
+            return ExpressionFacts{TypeHint::Unknown, false, 0.0};
+        }
+
         if (call.callee == "sum") {
             if (!math_imported_) {
                 AddWarning(statement_id, "sum(a, b) requiere import math para evitar fallo en runtime.");
@@ -839,6 +894,10 @@ private:
             if (symbol_it != symbols.end() && symbol_it->second.hint == TypeHint::Function) {
                 return ExpressionFacts{TypeHint::Unknown, false, 0.0};
             }
+            if (imported_callable_symbols_.count(call.callee) > 0 ||
+                imported_symbols_.count(call.callee) > 0) {
+                return ExpressionFacts{TypeHint::Unknown, false, 0.0};
+            }
             AddError(statement_id, "Llamada a funcion no definida: '" + call.callee + "'.");
             return ExpressionFacts{TypeHint::Unknown, false, 0.0};
         }
@@ -1041,6 +1100,8 @@ private:
 
     AnalysisReport* report_ = nullptr;
     FunctionTable functions_;
+    std::unordered_set<std::string> imported_symbols_;
+    std::unordered_set<std::string> imported_callable_symbols_;
     bool math_imported_ = false;
     std::size_t next_statement_id_ = 1;
 };
@@ -1057,6 +1118,18 @@ void StaticAnalyzer::Analyze(const Program& program, AnalysisReport* out_report)
 
     AnalyzerEngine engine(out_report);
     engine.Analyze(program);
+}
+
+void StaticAnalyzer::Analyze(const std::vector<const Program*>& programs, AnalysisReport* out_report) const {
+    if (out_report == nullptr) {
+        return;
+    }
+
+    out_report->errors.clear();
+    out_report->warnings.clear();
+
+    AnalyzerEngine engine(out_report);
+    engine.Analyze(programs);
 }
 
 }  // namespace clot::frontend

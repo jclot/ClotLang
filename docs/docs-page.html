@@ -366,6 +366,8 @@
                     </li>
                     <li class="nav-item"><a class="nav-link scrollto" href="#item-tutorial-controlflow">Control Flow</a>
                     </li>
+                    <li class="nav-item"><a class="nav-link scrollto" href="#item-tutorial-strings-collections-ergonomics">Strings y Listas</a>
+                    </li>
                     <li class="nav-item"><a class="nav-link scrollto" href="#item-tutorial-funcs">Functions and
                             References</a></li>
                     <li class="nav-item"><a class="nav-link scrollto" href="#item-tutorial-oop">OOP from Zero</a></li>
@@ -747,9 +749,22 @@
                                     <tr>
                                         <td>OOP MVP</td>
                                         <td><code>class/interface</code>, <code>extends</code>, <code>implements</code>,
-                                            <code>constructor</code>, <code>get/set</code>, <code>super</code></td>
+                                            <code>constructor</code>, <code>get/set</code>, <code>super</code>,
+                                            <code>protected</code>, <code>abstract</code></td>
                                         <td>Encapsulacion y modelado por objetos con validaciones de contrato en runtime
                                         </td>
+                                    </tr>
+                                    <tr>
+                                        <td>String ergonomics</td>
+                                        <td>Escapes en strings (<code>\n</code>, <code>\t</code>, etc.) +
+                                            interpolacion <code>"Hola {nombre}"</code></td>
+                                        <td>Menos concatenacion manual y mejor legibilidad</td>
+                                    </tr>
+                                    <tr>
+                                        <td>List ergonomics</td>
+                                        <td><code>append(value)</code>, acceso encadenado <code>lista[i].prop</code> y
+                                            repeticion <code>[null] * n</code></td>
+                                        <td>API de colecciones mas natural para uso diario</td>
                                     </tr>
                                     <tr>
                                         <td>I/O output</td>
@@ -766,8 +781,9 @@
                                     </tr>
                                     <tr>
                                         <td>Analyzer</td>
-                                        <td><code>--mode analyze</code> para errores/warnings previos a runtime</td>
-                                        <td>Deteccion temprana de fallas comunes</td>
+                                        <td><code>--mode analyze</code> para errores/warnings previos a runtime con
+                                            resolucion cross-file de imports</td>
+                                        <td>Deteccion temprana de fallas comunes en proyectos multi-archivo</td>
                                     </tr>
                                     <tr>
                                         <td>Compiler/runtime</td>
@@ -803,9 +819,9 @@
                             <li><code>long</code> mantiene rango estricto de 64 bits signed.</li>
                             <li><code>double</code> ya no es el default para enteros literales; <code>int</code>
                                 (BigInt) es el default.</li>
-                            <li><code>for</code> usa cabecera estilo Java
-                                (<code>for (init; cond; update):</code>), pero mantiene bloques estilo Clot con
-                                <code>:</code> y <code>endfor</code>.</li>
+                            <li><code>for</code> mantiene cabecera estilo Java
+                                (<code>for (init; cond; update):</code>) y tambien acepta
+                                <code>for item in coleccion:</code> sin parentesis para rangos/iterables simples.</li>
                             <li><code>continue;</code> solo es valido dentro de bucles. Si aparece dentro de un
                                 <code>switch</code> anidado en un bucle, continua la iteracion del bucle externo.</li>
                             <li><code>defer</code> solo acepta sentencias simples y se ejecuta en orden LIFO al salir del
@@ -929,8 +945,8 @@ cmake --build build -j4
                             <code>./build/clot</code> en los comandos.
                         </p>
                         <pre class="shadow-lg rounded"><code class="language-clike">// hello.clot
-print("Hola");
-print(endl);
+name = "Clot";
+print("Hola, {name}\\n");
 printf("%s %d\\n", "Version", 1);
 </code></pre>
                     </section>
@@ -961,6 +977,10 @@ for (const item in [10, 20, 30]):
     println(item);
 endfor
 
+for i in range(3):
+    println(i);
+endfor
+
 switch(sum):
     case 5:
         println("five");
@@ -979,8 +999,9 @@ println("name" in {name: "Ada"});
                         <ul>
                             <li><code>for (init; cond; update):</code> acepta declaraciones, mutaciones o expresiones
                                 simples en <code>init</code> y <code>update</code>.</li>
-                            <li><code>for (item in coleccion):</code> itera directamente listas, tuple, set, map,
-                                object o string; <code>const</code> en el binding es opcional.</li>
+                            <li><code>for (item in coleccion):</code> y <code>for item in coleccion:</code> iteran
+                                listas, tuple, set, map, object o string; <code>const</code> en el binding es
+                                opcional.</li>
                             <li><code>switch</code> usa fallthrough estilo Java hasta encontrar <code>break;</code> o
                                 terminar el bloque.</li>
                             <li><code>pass;</code> es un placeholder valido y no ejecuta ninguna accion.</li>
@@ -990,6 +1011,64 @@ println("name" in {name: "Ada"});
                             prueba de pertenencia. En <code>map</code> busca claves; en <code>object</code> busca
                             nombres de propiedad.
                         </div>
+                        <h3 class="section-heading">Ejemplo rapido de <code>for</code></h3>
+                        <pre class="shadow-lg rounded"><code class="language-clike">// for clasico
+for (int i = 0; i &lt; 3; i++):
+    println("classic {i}");
+endfor
+
+// for sobre rango numerico
+for i in range(3):
+    println("range {i}");
+endfor
+</code></pre>
+                    </section>
+
+                    <section class="docs-section" id="item-tutorial-strings-collections-ergonomics">
+                        <h2 class="section-heading">Strings y Listas (Ergonomia Nueva)</h2>
+                        <pre class="shadow-lg rounded"><code class="language-clike">// Escapes + interpolacion
+user = "Ada";
+total = 3;
+print("Hola {user}\\n");
+println("Tienes {total} notificaciones");
+println("precio=" + 300.0);   // conversion implicita a string
+println("Plantilla {{user}}"); // imprime: Plantilla {user}
+
+// append en listas
+tasks = [];
+tasks.append("build");
+tasks.append("test");
+println(tasks[1]);            // "test"
+
+// acceso encadenado
+records = [{meta: {name: "Ana"}}];
+println(records[0].meta.name);
+
+// inicializacion por repeticion
+slots = [null] * 4;
+println(len(slots));          // 4
+</code></pre>
+                        <div class="docs-callout">
+                            <code>append(value)</code> aplica a <code>list</code>. Si el receptor no es lista, el
+                            runtime reporta error.
+                        </div>
+                        <div class="docs-callout warn">
+                            En strings con interpolacion, usa <code>{{</code> y <code>}}</code> para imprimir llaves
+                            literales. Ejemplo: <code>"{{}}"</code> imprime <code>{}</code>.
+                            <code>"{}"</code> es interpolacion vacia (error) y <code>\{</code>/<code>\}</code> no son
+                            escapes validos.
+                        </div>
+                        <h3 class="section-heading">Error comun: <code>append</code> (incorrecto vs correcto)</h3>
+                        <pre class="shadow-lg rounded"><code class="language-clike">// Incorrecto: tuple no soporta append
+tuple pair = tuple("a", "b");
+pair.append("c");                 // runtime error
+
+// Correcto: append en list
+items = [];
+items.append("a");
+items.append("b");
+println(items);                   // ["a", "b"]
+</code></pre>
                     </section>
 
                     <section class="docs-section" id="item-tutorial-funcs">
@@ -1348,8 +1427,10 @@ benchmarks/baseline.sh ./build/wsl-release/clot
                                     </tr>
                                     <tr>
                                         <td>String</td>
-                                        <td>Delimitado con <code>"</code></td>
-                                        <td><code>"hola"</code></td>
+                                        <td>Delimitado con <code>"</code>, soporta escapes e interpolacion
+                                            <code>{expr}</code>; llaves literales con <code>{{</code> y
+                                            <code>}}</code></td>
+                                        <td><code>"hola\\n{name} {{ok}}"</code></td>
                                     </tr>
                                     <tr>
                                         <td>Char</td>
@@ -1677,7 +1758,8 @@ benchmarks/baseline.sh ./build/wsl-release/clot
                                     </tr>
                                     <tr>
                                         <td>For-each</td>
-                                        <td><code>for (item in collection): ... endfor</code></td>
+                                        <td><code>for (item in collection): ... endfor</code> o
+                                            <code>for item in collection: ... endfor</code></td>
                                         <td>Binding opcionalmente tipado y/o <code>const</code>; itera
                                             <code>list</code>, <code>tuple</code>, <code>set</code>, <code>map</code>,
                                             <code>object</code> o <code>string</code></td>
@@ -1709,9 +1791,11 @@ benchmarks/baseline.sh ./build/wsl-release/clot
                                     <tr>
                                         <td>Class / Interface</td>
                                         <td><code>class C [extends B] [implements I]: ... endclass</code>,
+                                            <code>abstract class C ... endclass</code>,
                                             <code>interface I: ... endinterface</code></td>
                                         <td>Soporta herencia simple, contratos por interface y miembros con
-                                            visibilidad/modificadores MVP</td>
+                                            visibilidad/modificadores OOP (incluye <code>protected</code> y
+                                            <code>abstract</code>)</td>
                                     </tr>
                                     <tr>
                                         <td>Constructor / Accessors</td>
@@ -1759,7 +1843,8 @@ benchmarks/baseline.sh ./build/wsl-release/clot
                         </div>
                         <div class="docs-callout">
                             El <code>for-each</code> no exige <code>const</code>. Estas formas son validas:
-                            <code>for (item in xs):</code>, <code>for (const item in xs):</code>,
+                            <code>for (item in xs):</code>, <code>for item in xs:</code>,
+                            <code>for (const item in xs):</code>,
                             <code>for (int item in xs):</code> y <code>for (const int item in xs):</code>.
                             <code>const</code> solo vuelve inmutable el binding de iteracion dentro del cuerpo.
                         </div>
@@ -1935,9 +2020,10 @@ endfor
                     </section>
 
                     <section class="docs-section" id="item-lang-oop">
-                        <h2 class="section-heading">OOP MVP (Guia Completa)</h2>
+                        <h2 class="section-heading">OOP MVP+ (Guia Completa)</h2>
                         <p>
-                            Esta seccion resume exactamente lo implementado en la fase actual (Fase 1) para OOP.
+                            Esta seccion resume exactamente lo implementado en la fase actual para OOP
+                            (MVP + extensiones de encapsulacion/abstraccion).
                             Si eres principiante total, empieza por la tabla de construcciones y luego ejecuta el
                             ejemplo completo.
                         </p>
@@ -2014,7 +2100,7 @@ endfor
                             </table>
                         </div>
 
-                        <h3 class="section-heading">Modificadores OOP MVP</h3>
+                        <h3 class="section-heading">Modificadores OOP</h3>
                         <div class="table-responsive my-3">
                             <table class="table table-striped">
                                 <thead>
@@ -2039,6 +2125,12 @@ endfor
                                         <td>Acceso externo produce error runtime.</td>
                                     </tr>
                                     <tr>
+                                        <td><code>protected</code></td>
+                                        <td>Visible en la clase propietaria y subclases.</td>
+                                        <td>Campos, metodos, get/set</td>
+                                        <td>Acceso externo produce error runtime.</td>
+                                    </tr>
+                                    <tr>
                                         <td><code>static</code></td>
                                         <td>Miembro de clase (no de instancia).</td>
                                         <td>Campos y metodos</td>
@@ -2057,9 +2149,63 @@ endfor
                                         <td>Metodos</td>
                                         <td>Es obligatorio cuando existe metodo base.</td>
                                     </tr>
+                                    <tr>
+                                        <td><code>abstract</code></td>
+                                        <td>Declara clase/metodo incompleto para forzar implementacion en subclases.</td>
+                                        <td>Clases y metodos</td>
+                                        <td>Una clase concreta no puede dejar metodos abstractos sin implementar.</td>
+                                    </tr>
                                 </tbody>
                             </table>
                         </div>
+
+                        <h3 class="section-heading">Ejemplo corto: <code>abstract</code> + <code>protected</code></h3>
+                        <pre class="shadow-lg rounded"><code class="language-clike">abstract class Report:
+    protected string source;
+
+    constructor(source: string):
+        this.source = source;
+    endconstructor
+
+    protected func string prefix():
+        return "source=" + this.source;
+    endfunc
+
+    public abstract func string render():
+    endfunc
+endclass
+
+class SalesReport extends Report:
+    constructor(source: string):
+        super(source);
+    endconstructor
+
+    public override func string render():
+        return this.prefix() + " total=42";
+    endfunc
+endclass
+
+report = SalesReport("Q1");
+println(report.render());     // "source=Q1 total=42"
+</code></pre>
+
+                        <h3 class="section-heading">Error comun: <code>protected</code> (incorrecto vs correcto)</h3>
+                        <pre class="shadow-lg rounded"><code class="language-clike">class Counter:
+    protected int value;
+
+    constructor(initial: int):
+        this.value = initial;
+    endconstructor
+
+    public func int read():
+        return this.value;
+    endfunc
+endclass
+
+c = Counter(7);
+println(c.read());            // Correcto
+println(c.value);             // Incorrecto: acceso externo a protected
+</code></pre>
 
                         <h3 class="section-heading">Ejemplo OOP completo (todo lo disponible en esta fase)</h3>
                         <pre class="shadow-lg rounded"><code class="language-clike">interface NamedEntity:
@@ -2161,9 +2307,20 @@ println(Entity.created);
                                         <td>Error de ejecucion por visibilidad.</td>
                                     </tr>
                                     <tr>
+                                        <td><code>protected</code></td>
+                                        <td>Que solo la clase propietaria o sus derivadas accedan al miembro.</td>
+                                        <td>Error de ejecucion por visibilidad.</td>
+                                    </tr>
+                                    <tr>
                                         <td><code>readonly</code></td>
                                         <td>Que no se modifique fuera de contexto permitido.</td>
                                         <td>Error de ejecucion.</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>abstract</code></td>
+                                        <td>Que una clase concreta implemente metodos abstract heredados y que una
+                                            clase abstract no se instancie.</td>
+                                        <td>Error al registrar la clase o al instanciar.</td>
                                     </tr>
                                     <tr>
                                         <td><code>super(...)</code> en derivadas</td>
@@ -2209,6 +2366,15 @@ println(list_values[1]);
 obj = {name: "Ada", score: 10};
 println(obj.name);
 obj.level = "pro";
+println([{user: obj}][0].user.name);
+
+queue = [];
+queue.append("first");
+queue.append("second");
+println(queue[1]);
+
+holes = [null] * 3;
+println(len(holes));
 
 tuple pair = tuple("x", 99);
 set uniq = set(1, 1, 2, 3);
@@ -2224,6 +2390,7 @@ println("da" in "Ada");          // true (substring)
                             Mutar <code>tuple</code> con <code>[]</code> genera error runtime.
                             El operador <code>in</code> no busca valores dentro de <code>map</code> u
                             <code>object</code>; busca claves o nombres de propiedad.
+                            <code>append(value)</code> solo aplica a listas.
                         </div>
                     </section>
 
@@ -3281,6 +3448,10 @@ endtry
     println(item);
 endfor
 
+for item in values:
+    println(item);
+endfor
+
 for (const item in values):
     println(item);
 endfor
@@ -3537,6 +3708,16 @@ endclass
                                         <td><a href="#item-lib-system">System and Async</a></td>
                                     </tr>
                                     <tr>
+                                        <td>append</td>
+                                        <td>List method</td>
+                                        <td><a href="#item-lang-collections">Collections</a></td>
+                                    </tr>
+                                    <tr>
+                                        <td>abstract</td>
+                                        <td>OOP modifier</td>
+                                        <td><a href="#item-lang-oop">OOP MVP+</a></td>
+                                    </tr>
+                                    <tr>
                                         <td>assert</td>
                                         <td>Core builtin</td>
                                         <td><a href="#item-lib-core">Core Module</a></td>
@@ -3710,6 +3891,11 @@ endclass
                                         <td>override</td>
                                         <td>OOP modifier</td>
                                         <td><a href="#item-lang-oop">OOP MVP</a></td>
+                                    </tr>
+                                    <tr>
+                                        <td>protected</td>
+                                        <td>OOP modifier</td>
+                                        <td><a href="#item-lang-oop">OOP MVP+</a></td>
                                     </tr>
                                     <tr>
                                         <td>pass</td>

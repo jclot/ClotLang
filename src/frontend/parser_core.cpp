@@ -80,6 +80,12 @@ bool Parser::ParseStatement(
         return ParseClassDeclaration(line_index, tokens, out_statements, out_error);
     }
 
+    if (tokens[0].kind == TokenKind::KeywordAbstract &&
+        tokens.size() > 1 &&
+        tokens[1].kind == TokenKind::KeywordClass) {
+        return ParseClassDeclaration(line_index, tokens, out_statements, out_error);
+    }
+
     const bool is_from_import_statement =
         tokens[0].kind == TokenKind::Identifier &&
         tokens[0].lexeme == "from" &&

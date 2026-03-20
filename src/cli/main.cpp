@@ -1,6 +1,9 @@
 #include <cstdlib>
+#include <algorithm>
 #include <filesystem>
 #include <iostream>
+#include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -118,6 +121,329 @@ std::string BuildDefaultOutput(
 bool IsUnhandledExceptionDiagnostic(const std::string& diagnostic) {
     return diagnostic.rfind("Excepcion no capturada: ", 0) == 0 ||
            diagnostic.rfind("Unhandled Exception: ", 0) == 0;
+}
+
+bool StartsWithPrefix(const std::string& text, const std::string& prefix) {
+    return text.size() >= prefix.size() && text.compare(0, prefix.size(), prefix) == 0;
+}
+
+std::filesystem::path WithClotExtension(std::filesystem::path path) {
+    if (path.extension().empty()) {
+        path += ".clot";
+    }
+    return path;
+}
+
+void AddUniqueCandidate(std::vector<std::filesystem::path>* candidates, const std::filesystem::path& candidate) {
+    if (candidates == nullptr) {
+        return;
+    }
+    for (const auto& existing : *candidates) {
+        if (existing == candidate) {
+            return;
+        }
+    }
+    candidates->push_back(candidate);
+}
+
+std::filesystem::path DotPathToFolderPath(std::string module_name) {
+    const auto separator =
+        static_cast<std::string::value_type>(std::filesystem::path::preferred_separator);
+    std::replace(module_name.begin(), module_name.end(), '.', separator);
+    return std::filesystem::path(module_name);
+}
+
+std::vector<std::filesystem::path> DotPathToRelativeCandidates(std::string module_name) {
+    const std::filesystem::path folder_path = DotPathToFolderPath(std::move(module_name));
+    std::vector<std::filesystem::path> candidates;
+
+    AddUniqueCandidate(&candidates, WithClotExtension(folder_path));
+    if (folder_path.has_filename()) {
+        AddUniqueCandidate(&candidates, folder_path / WithClotExtension(folder_path.filename()));
+    }
+    return candidates;
+}
+
+void AddCandidatesWithRoot(std::vector<std::filesystem::path>* candidates,
+                           const std::filesystem::path& root,
+                           const std::string& module_name) {
+    for (const auto& relative_candidate : DotPathToRelativeCandidates(module_name)) {
+        AddUniqueCandidate(candidates, root / relative_candidate);
+    }
+}
+
+void AddCandidatesWithPrefixedRoot(std::vector<std::filesystem::path>* candidates,
+                                   const std::filesystem::path& root,
+                                   const std::string& module_name,
+                                   const std::string& prefix) {
+    if (!StartsWithPrefix(module_name, prefix)) {
+        return;
+    }
+    AddCandidatesWithRoot(candidates, root, module_name.substr(prefix.size()));
+}
+
+std::vector<std::filesystem::path> CollectAncestorRoots(const std::filesystem::path& start) {
+    std::vector<std::filesystem::path> roots;
+    if (start.empty()) {
+        return roots;
+    }
+
+    std::filesystem::path current = start;
+    if (current.is_relative()) {
+        current = std::filesystem::current_path() / current;
+    }
+    current = current.lexically_normal();
+    while (true) {
+        AddUniqueCandidate(&roots, current);
+        const std::filesystem::path parent = current.parent_path();
+        if (parent.empty() || parent == current) {
+            break;
+        }
+        current = parent;
+    }
+    return roots;
+}
+
+std::filesystem::path ResolveModulePathForAnalyze(const std::string& module_name,
+                                                  const std::filesystem::path& current_module_dir) {
+    const std::vector<std::filesystem::path> search_roots = CollectAncestorRoots(current_module_dir);
+    std::vector<std::filesystem::path> candidates;
+    const auto relative_candidates = DotPathToRelativeCandidates(module_name);
+
+    for (const auto& relative_candidate : relative_candidates) {
+        AddUniqueCandidate(&candidates, current_module_dir / relative_candidate);
+    }
+
+    for (const auto& root : search_roots) {
+        AddCandidatesWithRoot(&candidates, root, module_name);
+    }
+
+    for (const auto& root : search_roots) {
+        AddCandidatesWithPrefixedRoot(&candidates, root / "clot" / "science", module_name, "modules.");
+        AddCandidatesWithPrefixedRoot(&candidates, root / "clot" / "core", module_name, "mods.");
+
+        AddCandidatesWithRoot(&candidates, root / "clot", module_name);
+        AddCandidatesWithPrefixedRoot(&candidates, root / "clot", module_name, "clot.");
+        AddCandidatesWithRoot(&candidates, root / "clot" / "science", module_name);
+        AddCandidatesWithPrefixedRoot(&candidates, root / "clot" / "science", module_name, "science.");
+        AddCandidatesWithRoot(&candidates, root / "clot" / "core", module_name);
+        AddCandidatesWithPrefixedRoot(&candidates, root / "clot" / "core", module_name, "core.");
+        AddCandidatesWithRoot(&candidates, root / "clot" / "io", module_name);
+        AddCandidatesWithPrefixedRoot(&candidates, root / "clot" / "io", module_name, "io.");
+        AddCandidatesWithRoot(&candidates, root / "clot" / "ml", module_name);
+        AddCandidatesWithPrefixedRoot(&candidates, root / "clot" / "ml", module_name, "ml.");
+
+        AddCandidatesWithRoot(&candidates, root / "modules", module_name);
+        AddCandidatesWithRoot(&candidates, root / "mods", module_name);
+        AddCandidatesWithPrefixedRoot(&candidates, root / "modules", module_name, "modules.");
+        AddCandidatesWithPrefixedRoot(&candidates, root / "mods", module_name, "mods.");
+    }
+
+    for (const auto& candidate : candidates) {
+        if (std::filesystem::exists(candidate)) {
+            return candidate;
+        }
+    }
+
+    return candidates.empty()
+               ? current_module_dir / WithClotExtension(DotPathToFolderPath(module_name))
+               : candidates.front();
+}
+
+bool ParseProgramFromFile(const std::filesystem::path& file_path,
+                          std::unique_ptr<clot::frontend::Program>* out_program,
+                          std::string* out_error) {
+    if (out_program == nullptr || out_error == nullptr) {
+        return false;
+    }
+
+    std::vector<std::string> lines;
+    std::string load_error;
+    if (!clot::frontend::LoadSourceLines(file_path.string(), &lines, &load_error)) {
+        *out_error = "Error importando modulo '" + file_path.string() + "': " + load_error;
+        return false;
+    }
+
+    auto program = std::make_unique<clot::frontend::Program>();
+    clot::frontend::Parser parser(std::move(lines));
+    clot::frontend::Diagnostic diagnostic;
+    if (!parser.Parse(program.get(), &diagnostic)) {
+        *out_error = "Error de parseo importando modulo '" + file_path.string() + "' en linea " +
+                     std::to_string(diagnostic.line) + ", columna " + std::to_string(diagnostic.column) +
+                     ": " + diagnostic.message;
+        return false;
+    }
+
+    *out_program = std::move(program);
+    return true;
+}
+
+void CollectImportsRecursive(const std::vector<std::unique_ptr<clot::frontend::Statement>>& statements,
+                            std::vector<const clot::frontend::ImportStmt*>* out_imports) {
+    if (out_imports == nullptr) {
+        return;
+    }
+
+    for (const auto& statement : statements) {
+        if (statement == nullptr) {
+            continue;
+        }
+
+        if (const auto* import_stmt = dynamic_cast<const clot::frontend::ImportStmt*>(statement.get())) {
+            out_imports->push_back(import_stmt);
+            continue;
+        }
+
+        if (const auto* function_decl = dynamic_cast<const clot::frontend::FunctionDeclStmt*>(statement.get())) {
+            CollectImportsRecursive(function_decl->body, out_imports);
+            continue;
+        }
+
+        if (const auto* conditional = dynamic_cast<const clot::frontend::IfStmt*>(statement.get())) {
+            CollectImportsRecursive(conditional->then_branch, out_imports);
+            CollectImportsRecursive(conditional->else_branch, out_imports);
+            continue;
+        }
+
+        if (const auto* while_stmt = dynamic_cast<const clot::frontend::WhileStmt*>(statement.get())) {
+            CollectImportsRecursive(while_stmt->body, out_imports);
+            continue;
+        }
+
+        if (const auto* for_stmt = dynamic_cast<const clot::frontend::ForStmt*>(statement.get())) {
+            CollectImportsRecursive(for_stmt->body, out_imports);
+            continue;
+        }
+
+        if (const auto* foreach_stmt = dynamic_cast<const clot::frontend::ForEachStmt*>(statement.get())) {
+            CollectImportsRecursive(foreach_stmt->body, out_imports);
+            continue;
+        }
+
+        if (const auto* do_while_stmt = dynamic_cast<const clot::frontend::DoWhileStmt*>(statement.get())) {
+            CollectImportsRecursive(do_while_stmt->body, out_imports);
+            continue;
+        }
+
+        if (const auto* switch_stmt = dynamic_cast<const clot::frontend::SwitchStmt*>(statement.get())) {
+            for (const auto& switch_case : switch_stmt->cases) {
+                CollectImportsRecursive(switch_case.body, out_imports);
+            }
+            continue;
+        }
+
+        if (const auto* try_catch_stmt = dynamic_cast<const clot::frontend::TryCatchStmt*>(statement.get())) {
+            CollectImportsRecursive(try_catch_stmt->try_branch, out_imports);
+            CollectImportsRecursive(try_catch_stmt->catch_branch, out_imports);
+            CollectImportsRecursive(try_catch_stmt->finally_branch, out_imports);
+            continue;
+        }
+
+        if (const auto* class_decl = dynamic_cast<const clot::frontend::ClassDeclStmt*>(statement.get())) {
+            CollectImportsRecursive(class_decl->constructor_body, out_imports);
+            for (const auto& method : class_decl->methods) {
+                CollectImportsRecursive(method.body, out_imports);
+            }
+            for (const auto& accessor : class_decl->accessors) {
+                CollectImportsRecursive(accessor.body, out_imports);
+            }
+            continue;
+        }
+    }
+}
+
+bool LoadModuleForAnalyze(const std::filesystem::path& module_path,
+                         std::set<std::string>* loaded,
+                         std::set<std::string>* loading,
+                         std::vector<std::unique_ptr<clot::frontend::Program>>* out_programs,
+                         std::string* out_error) {
+    if (loaded == nullptr || loading == nullptr || out_programs == nullptr || out_error == nullptr) {
+        return false;
+    }
+
+    std::error_code ec;
+    const std::string module_id =
+        std::filesystem::weakly_canonical(module_path, ec).string();
+    const std::string normalized_id = ec ? module_path.lexically_normal().string() : module_id;
+
+    if (loaded->count(normalized_id) > 0) {
+        return true;
+    }
+    if (loading->count(normalized_id) > 0) {
+        *out_error = "Import circular detectado en modulo: " + normalized_id;
+        return false;
+    }
+
+    loading->insert(normalized_id);
+
+    std::unique_ptr<clot::frontend::Program> program;
+    if (!ParseProgramFromFile(module_path, &program, out_error)) {
+        loading->erase(normalized_id);
+        return false;
+    }
+
+    std::vector<const clot::frontend::ImportStmt*> imports;
+    CollectImportsRecursive(program->statements, &imports);
+    for (const auto* import_stmt : imports) {
+        if (import_stmt == nullptr || import_stmt->module_name.empty() || import_stmt->module_name == "math") {
+            continue;
+        }
+
+        const std::filesystem::path imported_path =
+            ResolveModulePathForAnalyze(import_stmt->module_name, module_path.parent_path());
+        if (!std::filesystem::exists(imported_path)) {
+            *out_error = "No se encontro modulo importado '" + import_stmt->module_name +
+                         "' (resuelto como '" + imported_path.string() + "').";
+            loading->erase(normalized_id);
+            return false;
+        }
+
+        if (!LoadModuleForAnalyze(imported_path, loaded, loading, out_programs, out_error)) {
+            loading->erase(normalized_id);
+            return false;
+        }
+    }
+
+    loading->erase(normalized_id);
+    loaded->insert(normalized_id);
+    out_programs->push_back(std::move(program));
+    return true;
+}
+
+bool BuildAnalyzeProgramSet(const std::string& entry_path,
+                            const clot::frontend::Program& entry_program,
+                            std::vector<std::unique_ptr<clot::frontend::Program>>* out_imported_programs,
+                            std::string* out_error) {
+    if (out_imported_programs == nullptr || out_error == nullptr) {
+        return false;
+    }
+    out_imported_programs->clear();
+
+    std::vector<const clot::frontend::ImportStmt*> imports;
+    CollectImportsRecursive(entry_program.statements, &imports);
+
+    std::set<std::string> loaded;
+    std::set<std::string> loading;
+    const std::filesystem::path entry_file_path(entry_path);
+    for (const auto* import_stmt : imports) {
+        if (import_stmt == nullptr || import_stmt->module_name.empty() || import_stmt->module_name == "math") {
+            continue;
+        }
+
+        const std::filesystem::path imported_path =
+            ResolveModulePathForAnalyze(import_stmt->module_name, entry_file_path.parent_path());
+        if (!std::filesystem::exists(imported_path)) {
+            *out_error = "No se encontro modulo importado '" + import_stmt->module_name +
+                         "' (resuelto como '" + imported_path.string() + "').";
+            return false;
+        }
+
+        if (!LoadModuleForAnalyze(imported_path, &loaded, &loading, out_imported_programs, out_error)) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 bool ParseArgs(int argc, char* argv[], CliOptions* out_options, std::string* out_error) {
@@ -326,9 +652,24 @@ int main(int argc, char* argv[]) {
     }
 
     if (options.mode == RunMode::Analyze) {
+        std::vector<std::unique_ptr<clot::frontend::Program>> imported_programs;
+        std::string import_resolution_error;
+        if (!BuildAnalyzeProgramSet(options.input_path, program, &imported_programs, &import_resolution_error)) {
+            std::cerr << clot::runtime::Tr("Error: ", "Error: ")
+                      << clot::runtime::TranslateDiagnostic(import_resolution_error) << "\n";
+            return 1;
+        }
+
+        std::vector<const clot::frontend::Program*> analysis_units;
+        analysis_units.reserve(imported_programs.size() + 1);
+        for (const auto& imported_program : imported_programs) {
+            analysis_units.push_back(imported_program.get());
+        }
+        analysis_units.push_back(&program);
+
         clot::frontend::StaticAnalyzer analyzer;
         clot::frontend::AnalysisReport report;
-        analyzer.Analyze(program, &report);
+        analyzer.Analyze(analysis_units, &report);
 
         for (const auto& warning : report.warnings) {
             std::cerr << clot::runtime::Tr("Advertencia: ", "Warning: ")
