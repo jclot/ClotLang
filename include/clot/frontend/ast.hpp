@@ -54,6 +54,10 @@ enum class DeclarationType {
     List,
     Object,
     Function,
+    String,
+    Bool,
+    Null,
+    Custom,
 };
 
 enum class TypeHint {
@@ -79,6 +83,7 @@ enum class TypeHint {
 struct TypeAnnotation {
     TypeHint base = TypeHint::Inferred;
     std::vector<TypeAnnotation> type_args;
+    std::string custom_name;
 };
 
 enum class MemberVisibility {

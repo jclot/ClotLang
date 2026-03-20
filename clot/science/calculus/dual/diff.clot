@@ -1,0 +1,62 @@
+import math;
+
+class Dual:
+    public float value;
+    public float derivative;
+
+    constructor(value: float, derivative: float = 0.0):
+        this.value = value;
+        this.derivative = derivative;
+    endconstructor
+
+    // suma
+    public func Dual add(other: Dual):
+        return Dual(this.value + other.value, this.derivative + other.derivative);
+    endfunc
+
+    // resta
+    public func Dual sub(other: Dual):
+        return Dual(this.value - other.value, this.derivative - other.derivative);
+    endfunc
+
+    // multiplicación
+    public func Dual mul(other: Dual):
+        value = this.value * other.value;
+        deriv = this.value * other.derivative + this.derivative * other.value;
+        return Dual(value, deriv);
+    endfunc
+
+    // división
+    public func Dual div(other: Dual):
+        value = this.value / other.value;
+        deriv = (this.derivative * other.value - this.value * other.derivative) / pow(other.value, 2);
+        return Dual(value, deriv);
+    endfunc
+
+    // potencia
+    public func Dual powf(power: float):
+        value = pow(this.value, power);
+        deriv = power * pow(this.value, power - 1) * this.derivative;
+        return Dual(value, deriv);
+    endfunc
+endclass
+
+// Convierte un número a Dual si no lo es ya
+func Dual to_dual(x):
+    if type(x) == "object":
+        if "__class__" in x:
+            if x.__class__ == "Dual":
+                return x;
+            endif
+        endif
+    endif
+    return Dual(cast(x, "float"), 0.0);
+endfunc
+
+// differentiate: en Clot no hay closures nativos, así que recibe f y x directamente.
+// Equivale a llamar df(x) donde df = differentiate(f) en Python.
+func float differentiate(f: function, x: float):
+    x_dual = Dual(x, 1.0);   // dx/dx = 1
+    y = f(x_dual);
+    return y.derivative;
+endfunc

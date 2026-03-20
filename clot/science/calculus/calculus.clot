@@ -1,2 +1,4 @@
 // Placeholder module: calculus
 // Future APIs: derivatives, integrals, series, symbolic helpers.
+
+import clot.science.calculus.dual;

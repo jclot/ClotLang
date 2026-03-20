@@ -173,6 +173,7 @@ bool Parser::ParseStatement(
         tokens[0].kind == TokenKind::KeywordTuple ||
         tokens[0].kind == TokenKind::KeywordSet ||
         tokens[0].kind == TokenKind::KeywordMap ||
+        tokens[0].kind == TokenKind::KeywordNull ||
         tokens[0].kind == TokenKind::KeywordFunctionType ||
         tokens[0].kind == TokenKind::KeywordConst) {
         return ParseAssignment(line_index, tokens, out_statements, out_error);

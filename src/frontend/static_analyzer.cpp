@@ -362,6 +362,12 @@ private:
             updated.hint = TypeHint::Number;
         } else if (effective_type == DeclarationType::Char) {
             updated.hint = TypeHint::Char;
+        } else if (effective_type == DeclarationType::String) {
+            updated.hint = TypeHint::String;
+        } else if (effective_type == DeclarationType::Bool) {
+            updated.hint = TypeHint::Bool;
+        } else if (effective_type == DeclarationType::Null) {
+            updated.hint = TypeHint::Null;
         } else if (effective_type == DeclarationType::Tuple) {
             updated.hint = TypeHint::Tuple;
         } else if (effective_type == DeclarationType::Set) {
@@ -374,6 +380,8 @@ private:
             updated.hint = TypeHint::Object;
         } else if (effective_type == DeclarationType::Function) {
             updated.hint = TypeHint::Function;
+        } else if (effective_type == DeclarationType::Custom) {
+            updated.hint = TypeHint::Unknown;
         } else if (assignment.op == AssignmentOp::AddAssign || assignment.op == AssignmentOp::SubAssign) {
             updated.hint = TypeHint::Number;
         } else {
@@ -943,6 +951,31 @@ private:
         const ExpressionFacts& rhs,
         std::size_t statement_id,
         const std::string& variable_name) {
+        if (declaration_type == DeclarationType::String) {
+            if (rhs.hint != TypeHint::Unknown && rhs.hint != TypeHint::String) {
+                AddError(statement_id, "Asignacion potencialmente invalida para string en '" + variable_name + "'.");
+            }
+            return;
+        }
+
+        if (declaration_type == DeclarationType::Bool) {
+            if (rhs.hint != TypeHint::Unknown && rhs.hint != TypeHint::Bool) {
+                AddError(statement_id, "Asignacion potencialmente invalida para bool en '" + variable_name + "'.");
+            }
+            return;
+        }
+
+        if (declaration_type == DeclarationType::Null) {
+            if (rhs.hint != TypeHint::Unknown && rhs.hint != TypeHint::Null) {
+                AddError(statement_id, "Asignacion potencialmente invalida para null en '" + variable_name + "'.");
+            }
+            return;
+        }
+
+        if (declaration_type == DeclarationType::Custom) {
+            return;
+        }
+
         if (declaration_type == DeclarationType::Char) {
             if (rhs.hint != TypeHint::Unknown &&
                 rhs.hint != TypeHint::Char &&

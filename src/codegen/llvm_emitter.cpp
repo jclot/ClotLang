@@ -462,12 +462,16 @@ bool LlvmEmitter::EmitAssignment(const frontend::AssignmentStmt& statement) {
     } else if (statement.declaration_type == frontend::DeclarationType::Float ||
                statement.declaration_type == frontend::DeclarationType::Decimal ||
                statement.declaration_type == frontend::DeclarationType::Char ||
+               statement.declaration_type == frontend::DeclarationType::String ||
+               statement.declaration_type == frontend::DeclarationType::Bool ||
+               statement.declaration_type == frontend::DeclarationType::Null ||
                statement.declaration_type == frontend::DeclarationType::List ||
                statement.declaration_type == frontend::DeclarationType::Tuple ||
                statement.declaration_type == frontend::DeclarationType::Set ||
                statement.declaration_type == frontend::DeclarationType::Map ||
                statement.declaration_type == frontend::DeclarationType::Object ||
-               statement.declaration_type == frontend::DeclarationType::Function) {
+               statement.declaration_type == frontend::DeclarationType::Function ||
+               statement.declaration_type == frontend::DeclarationType::Custom) {
         error_ = "Declaracion tipada no soportada en AOT LLVM; usa runtime bridge.";
         return false;
     } else if (statement.declaration_type == frontend::DeclarationType::Long) {

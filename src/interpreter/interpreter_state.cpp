@@ -110,7 +110,9 @@ const char* TypeHintName(frontend::TypeHint hint) {
 }
 
 std::string TypeAnnotationName(const frontend::TypeAnnotation& annotation) {
-    std::string name = TypeHintName(annotation.base);
+    std::string name = annotation.custom_name.empty()
+                           ? std::string(TypeHintName(annotation.base))
+                           : annotation.custom_name;
     if (!annotation.type_args.empty()) {
         name.push_back('<');
         for (std::size_t i = 0; i < annotation.type_args.size(); ++i) {
@@ -126,12 +128,20 @@ std::string TypeAnnotationName(const frontend::TypeAnnotation& annotation) {
 
 frontend::TypeAnnotation EffectiveTypeAnnotation(const frontend::TypeAnnotation& annotation,
                                                  frontend::TypeHint fallback_hint) {
-    if (annotation.base != frontend::TypeHint::Inferred || !annotation.type_args.empty()) {
+    if (annotation.base != frontend::TypeHint::Inferred ||
+        !annotation.type_args.empty() ||
+        !annotation.custom_name.empty()) {
         return annotation;
     }
     frontend::TypeAnnotation effective;
     effective.base = fallback_hint;
     return effective;
+}
+
+bool HasConcreteTypeAnnotation(const frontend::TypeAnnotation& annotation) {
+    return annotation.base != frontend::TypeHint::Inferred ||
+           !annotation.type_args.empty() ||
+           !annotation.custom_name.empty();
 }
 
 bool SplitQualifiedName(const std::string& text, std::vector<std::string>* out_segments) {
@@ -877,7 +887,43 @@ bool Interpreter::NormalizeValueForTypeAnnotation(
     }
 
     frontend::TypeAnnotation effective = annotation;
-    if (effective.base == frontend::TypeHint::Inferred && effective.type_args.empty()) {
+    if (effective.base == frontend::TypeHint::Inferred &&
+        effective.type_args.empty() &&
+        effective.custom_name.empty()) {
+        *out_value = value;
+        return true;
+    }
+
+    if (!effective.custom_name.empty()) {
+        if (!effective.type_args.empty()) {
+            if (out_error != nullptr) {
+                *out_error = "El tipo de clase '" + effective.custom_name + "' no acepta argumentos genericos.";
+            }
+            return false;
+        }
+
+        std::string expected_class_name = effective.custom_name;
+        const auto expected_alias = class_aliases_.find(expected_class_name);
+        if (expected_alias != class_aliases_.end()) {
+            expected_class_name = expected_alias->second;
+        }
+        if (FindClass(expected_class_name) == nullptr) {
+            if (out_error != nullptr) {
+                *out_error = "Tipo de clase no definido: " + effective.custom_name;
+            }
+            return false;
+        }
+
+        std::string instance_class_name;
+        if (!IsClassInstance(value, &instance_class_name) ||
+            !IsClassTypeOrDerived(instance_class_name, expected_class_name)) {
+            if (out_error != nullptr) {
+                *out_error = "La expresion requiere una instancia de clase '" +
+                             effective.custom_name + "'.";
+            }
+            return false;
+        }
+
         *out_value = value;
         return true;
     }
@@ -1171,12 +1217,15 @@ bool Interpreter::AssignValue(
         target_kind = runtime::VariableKind::Object;
     } else if (statement.declaration_type == frontend::DeclarationType::Function) {
         target_kind = runtime::VariableKind::Function;
+    } else if (statement.declaration_type == frontend::DeclarationType::String ||
+               statement.declaration_type == frontend::DeclarationType::Bool ||
+               statement.declaration_type == frontend::DeclarationType::Null ||
+               statement.declaration_type == frontend::DeclarationType::Custom) {
+        target_kind = runtime::VariableKind::Dynamic;
     }
 
     runtime::Value normalized;
-    const bool has_annotation =
-        statement.type_annotation.base != frontend::TypeHint::Inferred ||
-        !statement.type_annotation.type_args.empty();
+    const bool has_annotation = HasConcreteTypeAnnotation(statement.type_annotation);
     if (has_annotation) {
         if (!NormalizeValueForTypeAnnotation(statement.type_annotation, value, &normalized, out_error)) {
             return false;
@@ -1311,8 +1360,7 @@ bool Interpreter::ApplyTargetMutation(
 
                 const frontend::TypeAnnotation field_annotation =
                     EffectiveTypeAnnotation(field->type_annotation, field->type_hint);
-                if (field_annotation.base != frontend::TypeHint::Inferred ||
-                    !field_annotation.type_args.empty()) {
+                if (HasConcreteTypeAnnotation(field_annotation)) {
                     runtime::Value normalized;
                     std::string type_error;
                     if (!NormalizeValueForTypeAnnotation(field_annotation, merged_value, &normalized, &type_error)) {
@@ -1492,8 +1540,7 @@ bool Interpreter::ApplyTargetMutation(
 
                 const frontend::TypeAnnotation field_annotation =
                     EffectiveTypeAnnotation(field->type_annotation, field->type_hint);
-                if (field_annotation.base != frontend::TypeHint::Inferred ||
-                    !field_annotation.type_args.empty()) {
+                if (HasConcreteTypeAnnotation(field_annotation)) {
                     runtime::Value normalized;
                     std::string type_error;
                     if (!NormalizeValueForTypeAnnotation(field_annotation, value_to_store, &normalized, &type_error)) {

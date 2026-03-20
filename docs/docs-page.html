@@ -1588,6 +1588,14 @@ benchmarks/baseline.sh ./build/wsl-release/clot
                                         <td>Solo acepta refs validas</td>
                                         <td><code>function f = ping();</code></td>
                                     </tr>
+                                    <tr>
+                                        <td><code>TipoDeClase</code> (ej. <code>User</code>)</td>
+                                        <td>Instancia de clase nominal</td>
+                                        <td>N/A</td>
+                                        <td>Exige instancia de esa clase o subclase en firmas/declaraciones tipadas
+                                        </td>
+                                        <td><code>User owner = User();</code></td>
+                                    </tr>
                                 </tbody>
                             </table>
                         </div>
@@ -1596,6 +1604,24 @@ benchmarks/baseline.sh ./build/wsl-release/clot
                             valor inicial. Si necesitas reservar la variable para completarla despues, usa
                             <code>x = null;</code>. <code>null</code> es un valor real de ausencia, no un estado
                             especial de "sin inicializar".
+                        </div>
+
+                        <h3>Declaraciones locales tipadas (explicitas)</h3>
+                        <p>
+                            Puedes declarar variables locales con tipo explicito usando la misma sintaxis de tipos del
+                            lenguaje. La validacion ocurre en runtime al asignar y al reasignar.
+                        </p>
+                        <pre class="shadow-lg rounded"><code class="language-clike">string nombre = "Ada";
+bool activo = true;
+null vacio = null;
+
+list bolsa = [1, "dos", true];      // tipado de contenedor
+list&lt;int&gt; ids = [1, 2, 3];          // tipado interno fuerte
+</code></pre>
+                        <div class="docs-callout">
+                            Regla practica: primero defines el tipo del contenedor
+                            (<code>list/map/object/tuple/set</code>) y luego, si necesitas validacion interna fuerte,
+                            agregas genericos (<code>list&lt;T&gt;</code>, <code>map&lt;K,V&gt;</code>, etc.).
                         </div>
 
                         <h3>Field Summary for Composite Types</h3>
@@ -1886,14 +1912,21 @@ endtry
                                 <code>float</code>, <code>decimal</code>, <code>long</code>, <code>byte</code>,
                                 <code>char</code>, <code>tuple</code>, <code>set</code>, <code>map</code>,
                                 <code>function</code>, <code>string</code>, <code>bool</code>, <code>list</code>,
-                                <code>object</code>, <code>null</code>.</li>
+                                <code>object</code>, <code>null</code> y tipos de clase de usuario
+                                (ej. <code>User</code>, <code>crm.models.Customer</code>).</li>
                             <li>Soporte de genericos en hints: <code>list&lt;T&gt;</code>, <code>tuple&lt;T&gt;</code>,
                                 <code>set&lt;T&gt;</code>, <code>object&lt;T&gt;</code>, <code>map&lt;K, V&gt;</code>.
                             </li>
+                            <li>Los tipos de clase son nominales: el valor debe ser una instancia de esa clase (o una
+                                subclase). El parser no soporta genericos nominales estilo
+                                <code>MiClase&lt;T&gt;</code>.</li>
                             <li>Tipado de colecciones en 2 fases:
                                 <code>list/object</code> para el contenedor y
                                 <code>list&lt;int&gt;</code>/<code>map&lt;string, int&gt;</code> para tipado interno
                                 fuerte (incluye anidacion).</li>
+                            <li>Tambien puedes usar clases como tipo interno en colecciones:
+                                <code>list&lt;User&gt;</code>, <code>map&lt;string, User&gt;</code>,
+                                <code>object&lt;User&gt;</code>.</li>
                             <li><code>any</code> y <code>dynamic</code> son alias: ambos significan tipo dinamico
                                 (internamente equivalente a omitir el tipo).</li>
                             <li>Sin tipo de retorno (<code>func nombre(...):</code>) o con
@@ -1944,6 +1977,37 @@ endfunc
 println(echo_any("hola"));
 println(echo_dynamic(42));
 show_params(10, "texto", [1, 2, 3]);
+</code></pre>
+
+                        <h3>Firmas con tipos de clase personalizados</h3>
+                        <pre class="shadow-lg rounded"><code class="language-clike">class User:
+    public string name = "anon";
+endclass
+
+func User make_user(name: string):
+    u = User();
+    u.name = name;
+    return u;
+endfunc
+
+func string greet_user(user: User):
+    return "Hola " + user.name;
+endfunc
+
+println(greet_user(make_user("Ada")));
+</code></pre>
+                        <div class="docs-callout">
+                            Si un parametro/retorno esta anotado como <code>User</code>, pasar un valor no-instancia
+                            produce error de tipo en runtime.
+                        </div>
+
+                        <h3>Declaraciones locales tipadas</h3>
+                        <pre class="shadow-lg rounded"><code class="language-clike">string title = "Reporte";
+bool ok = true;
+null nothing = null;
+
+// Clases en variables locales tipadas
+User owner = make_user("Lin");
 </code></pre>
 
                         <h3>Tipado de Colecciones (Detallado)</h3>
@@ -2158,6 +2222,38 @@ endfor
                                 </tbody>
                             </table>
                         </div>
+
+                        <h3 class="section-heading">Tipos de clase en firmas (metodos, interfaces y constructores)</h3>
+                        <p>
+                            En OOP puedes usar tipos de clase en firmas de metodos, parametros de constructor y firmas
+                            de interfaces. La verificacion es nominal y respeta herencia.
+                        </p>
+                        <pre class="shadow-lg rounded"><code class="language-clike">class User:
+    public string name = "anon";
+endclass
+
+interface UserReader:
+    func User find(id: string);
+endinterface
+
+class UserRepo implements UserReader:
+    public func User find(id: string):
+        u = User();
+        u.name = "id=" + id;
+        return u;
+    endfunc
+endclass
+
+class UserService:
+    constructor(repo: UserReader):
+        this.repo = repo;
+    endconstructor
+
+    public func string label(user: User):
+        return "User(" + user.name + ")";
+    endfunc
+endclass
+</code></pre>
 
                         <h3 class="section-heading">Ejemplo corto: <code>abstract</code> + <code>protected</code></h3>
                         <pre class="shadow-lg rounded"><code class="language-clike">abstract class Report:
@@ -2385,6 +2481,31 @@ println(20 in list_values);      // true
 println("a" in dict);            // true (clave)
 println("name" in obj);          // true (propiedad)
 println("da" in "Ada");          // true (substring)
+</code></pre>
+                        <h3>Colecciones tipadas por fases</h3>
+                        <pre class="shadow-lg rounded"><code class="language-clike">// Fase 1: tipado de contenedor (interno flexible)
+list bucket = [1, "dos", true];
+map registry = map("id", 1, 2, "dos");
+
+// Fase 2: tipado interno fuerte
+list&lt;int&gt; numbers = [1, 2, 3];
+map&lt;string, int&gt; scores = map("ana", 10, "bob", 20);
+object&lt;int&gt; counters = {ok: 1, fail: 0};
+</code></pre>
+                        <h3>Colecciones tipadas con clases</h3>
+                        <pre class="shadow-lg rounded"><code class="language-clike">class Item:
+    public string name = "n/a";
+endclass
+
+i1 = Item();
+i1.name = "A";
+i2 = Item();
+i2.name = "B";
+
+list&lt;Item&gt; items = [i1, i2];
+for (Item it in items):
+    println(it.name);
+endfor
 </code></pre>
                         <div class="docs-callout warn">
                             Mutar <code>tuple</code> con <code>[]</code> genera error runtime.
@@ -3474,6 +3595,10 @@ int x;
 // valido
 x = null;
 x = 42;
+
+// valido con tipo local explicito
+string name = "Ada";
+bool ready = false;
 </code></pre>
                         <div class="docs-callout">
                             Usa <code>null</code> como placeholder cuando quieras "todavia no tengo valor". Eso no
@@ -3753,6 +3878,11 @@ endclass
                                         <td><a href="#item-lang-oop">OOP MVP</a></td>
                                     </tr>
                                     <tr>
+                                        <td>class type hint</td>
+                                        <td>Type system</td>
+                                        <td><a href="#item-lang-functions">Functions</a></td>
+                                    </tr>
+                                    <tr>
                                         <td>clot</td>
                                         <td>Package root</td>
                                         <td><a href="#item-packages-resolution-order">Module Resolution Order</a></td>
@@ -3878,6 +4008,11 @@ endclass
                                         <td><a href="#item-lang-collections">Collections</a></td>
                                     </tr>
                                     <tr>
+                                        <td>strong inner typing</td>
+                                        <td>Type system</td>
+                                        <td><a href="#item-lang-functions">Functions</a></td>
+                                    </tr>
+                                    <tr>
                                         <td>null</td>
                                         <td>Type</td>
                                         <td><a href="#item-lang-types">Type System</a></td>
@@ -3916,6 +4051,11 @@ endclass
                                         <td>readonly</td>
                                         <td>OOP modifier</td>
                                         <td><a href="#item-lang-oop">OOP MVP</a></td>
+                                    </tr>
+                                    <tr>
+                                        <td>typed local declaration</td>
+                                        <td>Type system</td>
+                                        <td><a href="#item-lang-types">Type System</a></td>
                                     </tr>
                                     <tr>
                                         <td>super</td>
@@ -4070,6 +4210,23 @@ endclass
                                         <td>Typed declaration</td>
                                         <td>Declaracion con keyword explicita (<code>long</code>, <code>byte</code>,
                                             etc.) que fuerza validacion.</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Class type hint</td>
+                                        <td>Anotacion nominal que usa una clase de usuario en firma o declaracion
+                                            (ej. <code>User</code>).</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Container typing</td>
+                                        <td>Primera fase del tipado de colecciones: valida el tipo contenedor
+                                            (<code>list</code>, <code>map</code>, etc.) sin restringir aun los valores
+                                            internos.</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Strong inner typing</td>
+                                        <td>Segunda fase del tipado de colecciones: validacion recursiva del tipo
+                                            interno via genericos (<code>list&lt;T&gt;</code>, <code>map&lt;K,V&gt;</code>,
+                                            etc.).</td>
                                     </tr>
                                     <tr>
                                         <td>Function reference</td>

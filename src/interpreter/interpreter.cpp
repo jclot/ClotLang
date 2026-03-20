@@ -164,7 +164,9 @@ const char* TypeHintName(frontend::TypeHint hint) {
 }
 
 std::string TypeAnnotationName(const frontend::TypeAnnotation& annotation) {
-    std::string name = TypeHintName(annotation.base);
+    std::string name = annotation.custom_name.empty()
+                           ? std::string(TypeHintName(annotation.base))
+                           : annotation.custom_name;
     if (!annotation.type_args.empty()) {
         name.push_back('<');
         for (std::size_t i = 0; i < annotation.type_args.size(); ++i) {
@@ -180,7 +182,9 @@ std::string TypeAnnotationName(const frontend::TypeAnnotation& annotation) {
 
 frontend::TypeAnnotation EffectiveTypeAnnotation(const frontend::TypeAnnotation& annotation,
                                                  frontend::TypeHint fallback_hint) {
-    if (annotation.base != frontend::TypeHint::Inferred || !annotation.type_args.empty()) {
+    if (annotation.base != frontend::TypeHint::Inferred ||
+        !annotation.type_args.empty() ||
+        !annotation.custom_name.empty()) {
         return annotation;
     }
     frontend::TypeAnnotation effective;
@@ -188,8 +192,16 @@ frontend::TypeAnnotation EffectiveTypeAnnotation(const frontend::TypeAnnotation&
     return effective;
 }
 
+bool HasConcreteTypeAnnotation(const frontend::TypeAnnotation& annotation) {
+    return annotation.base != frontend::TypeHint::Inferred ||
+           !annotation.type_args.empty() ||
+           !annotation.custom_name.empty();
+}
+
 bool TypeAnnotationEquals(const frontend::TypeAnnotation& lhs, const frontend::TypeAnnotation& rhs) {
-    if (lhs.base != rhs.base || lhs.type_args.size() != rhs.type_args.size()) {
+    if (lhs.base != rhs.base ||
+        lhs.custom_name != rhs.custom_name ||
+        lhs.type_args.size() != rhs.type_args.size()) {
         return false;
     }
     for (std::size_t i = 0; i < lhs.type_args.size(); ++i) {
@@ -228,6 +240,14 @@ frontend::TypeHint DeclarationTypeToTypeHint(frontend::DeclarationType declarati
         return frontend::TypeHint::Object;
     case frontend::DeclarationType::Function:
         return frontend::TypeHint::Function;
+    case frontend::DeclarationType::String:
+        return frontend::TypeHint::String;
+    case frontend::DeclarationType::Bool:
+        return frontend::TypeHint::Bool;
+    case frontend::DeclarationType::Null:
+        return frontend::TypeHint::Null;
+    case frontend::DeclarationType::Custom:
+        return frontend::TypeHint::Inferred;
     case frontend::DeclarationType::Inferred:
     default:
         return frontend::TypeHint::Inferred;
@@ -1039,7 +1059,7 @@ bool Interpreter::ExecuteClassDeclaration(const frontend::ClassDeclStmt& declara
 
         const frontend::TypeAnnotation field_annotation =
             EffectiveTypeAnnotation(field.type_annotation, field.type_hint);
-        if ((field_annotation.base != frontend::TypeHint::Inferred || !field_annotation.type_args.empty()) &&
+        if (HasConcreteTypeAnnotation(field_annotation) &&
             !(field.default_value == nullptr && value.IsNull())) {
             runtime::Value normalized;
             std::string type_error;
@@ -1095,7 +1115,7 @@ bool Interpreter::InitializeInstanceFields(const frontend::ClassDeclStmt& declar
 
         const frontend::TypeAnnotation field_annotation =
             EffectiveTypeAnnotation(field.type_annotation, field.type_hint);
-        if ((field_annotation.base != frontend::TypeHint::Inferred || !field_annotation.type_args.empty()) &&
+        if (HasConcreteTypeAnnotation(field_annotation) &&
             !(field.default_value == nullptr && value.IsNull())) {
             runtime::Value normalized;
             std::string type_error;
@@ -1241,7 +1261,7 @@ bool Interpreter::ExecuteClassSetter(runtime::Value* instance,
     runtime::Value normalized_value = value;
     const frontend::TypeAnnotation setter_annotation =
         EffectiveTypeAnnotation(accessor->setter_param_annotation, accessor->setter_param_type);
-    if (setter_annotation.base != frontend::TypeHint::Inferred || !setter_annotation.type_args.empty()) {
+    if (HasConcreteTypeAnnotation(setter_annotation)) {
         std::string type_error;
         if (!NormalizeValueForTypeAnnotation(setter_annotation, value, &normalized_value, &type_error)) {
             *out_error = "Setter '" + class_name + "." + property_name +
@@ -1522,6 +1542,10 @@ bool Interpreter::ExecuteForEach(const frontend::ForEachStmt& statement, std::st
     case frontend::DeclarationType::Function:
         kind = runtime::VariableKind::Function;
         break;
+    case frontend::DeclarationType::String:
+    case frontend::DeclarationType::Bool:
+    case frontend::DeclarationType::Null:
+    case frontend::DeclarationType::Custom:
     case frontend::DeclarationType::Inferred:
     default:
         kind = runtime::VariableKind::Dynamic;
@@ -1530,8 +1554,7 @@ bool Interpreter::ExecuteForEach(const frontend::ForEachStmt& statement, std::st
 
     const frontend::TypeAnnotation variable_annotation =
         EffectiveTypeAnnotation(statement.variable_annotation, DeclarationTypeToTypeHint(statement.variable_type));
-    const bool has_annotation =
-        variable_annotation.base != frontend::TypeHint::Inferred || !variable_annotation.type_args.empty();
+    const bool has_annotation = HasConcreteTypeAnnotation(variable_annotation);
 
     ++loop_depth_;
     for (const auto& element : elements) {
@@ -2995,8 +3018,7 @@ bool Interpreter::ExecuteCallable(const std::string& callable_name,
         const frontend::FunctionParam& param = params[i];
         const frontend::TypeAnnotation param_annotation =
             EffectiveTypeAnnotation(param.type_annotation, param.type_hint);
-        const bool param_has_annotation =
-            param_annotation.base != frontend::TypeHint::Inferred || !param_annotation.type_args.empty();
+        const bool param_has_annotation = HasConcreteTypeAnnotation(param_annotation);
         const bool has_argument = i < call.arguments.size();
         if (!has_argument && param.default_value == nullptr) {
             *out_error = "Numero incorrecto de argumentos para funcion '" + callable_name + "'.";
@@ -3103,9 +3125,7 @@ bool Interpreter::ExecuteCallable(const std::string& callable_name,
 
     const frontend::TypeAnnotation effective_return_annotation =
         EffectiveTypeAnnotation(return_annotation, return_type);
-    const bool has_return_annotation =
-        effective_return_annotation.base != frontend::TypeHint::Inferred ||
-        !effective_return_annotation.type_args.empty();
+    const bool has_return_annotation = HasConcreteTypeAnnotation(effective_return_annotation);
     if (has_return_annotation) {
         if (!returned.has_value()) {
             *out_error =
@@ -3135,9 +3155,7 @@ bool Interpreter::ExecuteCallable(const std::string& callable_name,
         const auto updated = environment_.find(ref.param);
         if (updated != environment_.end()) {
             runtime::VariableSlot propagated_slot = updated->second;
-            const bool ref_has_annotation =
-                ref.type_annotation.base != frontend::TypeHint::Inferred ||
-                !ref.type_annotation.type_args.empty();
+            const bool ref_has_annotation = HasConcreteTypeAnnotation(ref.type_annotation);
             if (ref_has_annotation) {
                 runtime::Value normalized;
                 std::string type_error;

@@ -1,4 +1,12 @@
-import clot.science.physics.electromagnetism.ac_circuits;
+import clot.science.calculus.dual;
+import math;
 
-pf = power_factor(10, 2);
-println(pf);
+
+func Dual f(x: Dual):
+    sq = x.powf(2.0);
+    three = to_dual(3.0);
+    term = three.mul(x);
+    return sq.add(term);
+endfunc
+
+println(differentiate(f, 2.0));

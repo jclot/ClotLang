@@ -189,10 +189,16 @@ bool TryMapTypeHintToDeclarationType(TypeHint hint, DeclarationType* out_declara
     case TypeHint::Function:
         *out_declaration_type = DeclarationType::Function;
         return true;
-    case TypeHint::Inferred:
     case TypeHint::String:
+        *out_declaration_type = DeclarationType::String;
+        return true;
     case TypeHint::Bool:
+        *out_declaration_type = DeclarationType::Bool;
+        return true;
     case TypeHint::Null:
+        *out_declaration_type = DeclarationType::Null;
+        return true;
+    case TypeHint::Inferred:
         return false;
     }
     return false;
@@ -260,7 +266,9 @@ const char* TypeHintKeyword(TypeHint hint) {
 }
 
 std::string TypeAnnotationToString(const TypeAnnotation& annotation) {
-    std::string text = TypeHintKeyword(annotation.base);
+    std::string text = annotation.custom_name.empty()
+                           ? std::string(TypeHintKeyword(annotation.base))
+                           : annotation.custom_name;
     if (!annotation.type_args.empty()) {
         text.push_back('<');
         for (std::size_t i = 0; i < annotation.type_args.size(); ++i) {
@@ -292,16 +300,19 @@ bool ParseTypeAnnotationTokens(const std::vector<Token>& tokens,
         return false;
     }
 
+    TypeAnnotation annotation;
     TypeHint base = TypeHint::Inferred;
-    if (!TryParseTypeHintToken(tokens[*cursor], &base)) {
+    if (TryParseTypeHintToken(tokens[*cursor], &base)) {
+        annotation.base = base;
+    } else if (tokens[*cursor].kind == TokenKind::Identifier) {
+        annotation.base = TypeHint::Inferred;
+        annotation.custom_name = tokens[*cursor].lexeme;
+    } else {
         if (out_error != nullptr) {
             *out_error = "Tipo no reconocido: '" + tokens[*cursor].lexeme + "'.";
         }
         return false;
     }
-
-    TypeAnnotation annotation;
-    annotation.base = base;
     ++(*cursor);
 
     if (*cursor < tokens.size() && tokens[*cursor].kind == TokenKind::Less) {
@@ -344,6 +355,12 @@ bool ParseTypeAnnotationTokens(const std::vector<Token>& tokens,
     }
 
     if (!annotation.type_args.empty() && !TypeHintSupportsTypeArguments(annotation.base)) {
+        if (!annotation.custom_name.empty()) {
+            if (out_error != nullptr) {
+                *out_error = "El tipo de clase '" + annotation.custom_name + "' no acepta argumentos genericos.";
+            }
+            return false;
+        }
         if (out_error != nullptr) {
             *out_error = "El type hint '" + std::string(TypeHintKeyword(annotation.base)) +
                          "' no acepta argumentos genericos.";
@@ -386,7 +403,11 @@ bool Parser::ParseAssignment(std::size_t* line_index, const std::vector<Token>& 
         std::string type_error;
         if (ParseTypeAnnotationTokens(tokens, &cursor, &parsed_annotation, &type_error)) {
             DeclarationType parsed_declaration = DeclarationType::Inferred;
-            if (TryMapTypeHintToDeclarationType(parsed_annotation.base, &parsed_declaration) &&
+            if (!parsed_annotation.custom_name.empty()) {
+                parsed_declaration = DeclarationType::Custom;
+            }
+            if ((parsed_declaration == DeclarationType::Custom ||
+                 TryMapTypeHintToDeclarationType(parsed_annotation.base, &parsed_declaration)) &&
                 cursor < tokens.size() &&
                 tokens[cursor].kind == TokenKind::Identifier) {
                 declaration_type = parsed_declaration;
@@ -2418,7 +2439,11 @@ bool Parser::ParseFor(std::size_t* line_index, const std::vector<Token>& tokens,
             std::string type_error;
             if (ParseTypeAnnotationTokens(binding_tokens, &cursor, &parsed_annotation, &type_error)) {
                 DeclarationType parsed_declaration = DeclarationType::Inferred;
-                if (TryMapTypeHintToDeclarationType(parsed_annotation.base, &parsed_declaration) &&
+                if (!parsed_annotation.custom_name.empty()) {
+                    parsed_declaration = DeclarationType::Custom;
+                }
+                if ((parsed_declaration == DeclarationType::Custom ||
+                     TryMapTypeHintToDeclarationType(parsed_annotation.base, &parsed_declaration)) &&
                     cursor < binding_tokens.size() &&
                     binding_tokens[cursor].kind == TokenKind::Identifier) {
                     variable_type = parsed_declaration;
