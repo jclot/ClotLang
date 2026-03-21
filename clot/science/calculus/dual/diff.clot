@@ -9,54 +9,99 @@ class Dual:
         this.derivative = derivative;
     endconstructor
 
-    // suma
+    // sum
     public func Dual add(other: Dual):
         return Dual(this.value + other.value, this.derivative + other.derivative);
     endfunc
 
-    // resta
+    // substraction
     public func Dual sub(other: Dual):
         return Dual(this.value - other.value, this.derivative - other.derivative);
     endfunc
 
-    // multiplicación
+    // multiplication
     public func Dual mul(other: Dual):
         value = this.value * other.value;
         deriv = this.value * other.derivative + this.derivative * other.value;
         return Dual(value, deriv);
     endfunc
 
-    // división
+    // divison
     public func Dual div(other: Dual):
         value = this.value / other.value;
         deriv = (this.derivative * other.value - this.value * other.derivative) / pow(other.value, 2);
         return Dual(value, deriv);
     endfunc
 
-    // potencia
+    // pow
     public func Dual powf(power: float):
         value = pow(this.value, power);
         deriv = power * pow(this.value, power - 1) * this.derivative;
         return Dual(value, deriv);
     endfunc
+
+    // e^x
+    public func Dual exp(x: Dual):
+        value = exp(x.value);
+        deriv = value * x.derivative;
+        return Dual(value, deriv);
+    endfunc
+
+    // ln(x)
+    public func Dual log(x: Dual):
+        value = ln(x.value);
+        deriv = x.derivative / x.value;
+        return Dual(value, deriv);
+    endfunc
+
+    // sin(x)
+    public func Dual sin(x: Dual):
+        value = sin(x.value);
+        deriv = cos(x.value) * x.derivative;
+        return Dual(value, deriv);
+    endfunc
+
+    // sqrt(x)
+    public func Dual sqrt(x: Dual):
+        value = sqrt(x.value);
+        deriv = x.derivative / (2 * value);
+        return Dual(value, deriv);
+    endfunc
+
+    // atan(x)
+    public func Dual atan(x: Dual):
+        value = atan(x.value);
+        deriv = x.derivative / (1 + x.value * x.value);
+        return Dual(value, deriv);
+    endfunc
 endclass
 
-// Convierte un número a Dual si no lo es ya
 func Dual to_dual(x):
-    if type(x) == "object":
-        if "__class__" in x:
-            if x.__class__ == "Dual":
-                return x;
-            endif
-        endif
+    if isinstance(x, "Dual"):
+        return x;
     endif
     return Dual(cast(x, "float"), 0.0);
 endfunc
 
-// differentiate: en Clot no hay closures nativos, así que recibe f y x directamente.
-// Equivale a llamar df(x) donde df = differentiate(f) en Python.
-func float differentiate(f: function, x: float):
-    x_dual = Dual(x, 1.0);   // dx/dx = 1
-    y = f(x_dual);
-    return y.derivative;
+class Derivative:
+    public function f;
+
+    constructor(f: function):
+        this.f = f;
+    endconstructor
+
+    public func float at(x: float):
+        x_dual = Dual(x, 1.0);   // dx/dx = 1
+        function fn = this.f;
+        y = fn(x_dual);
+        return y.derivative;
+    endfunc
+endclass
+
+func Derivative differentiate(f: function):
+    return Derivative(f);
+endfunc
+
+func float differentiate_at(f: function, x: float):
+    return differentiate(f).at(x);
 endfunc
