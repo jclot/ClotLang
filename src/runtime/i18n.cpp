@@ -139,6 +139,7 @@ std::string TranslateSpanishToEnglish(const std::string& text) {
         {"Mutacion invalida: falta expresion en un lado de la asignacion.", "Invalid mutation: missing expression on one side of assignment."},
         {"Asignacion de mutacion incompleta.", "Incomplete mutation assignment."},
         {"Formato invalido en return. Use: return; o return expr;", "Invalid return format. Use: return; or return expr;"},
+        {"Falta ';' para cerrar return.", "Missing ';' to close return."},
         {"print requiere cerrar ')' antes de ';'.", "print requires closing ')' before ';'."},
         {"Error de parseo en linea ", "Parse error at line "},
         {"Error de ejecucion: ", "Runtime error: "},
