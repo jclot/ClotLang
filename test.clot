@@ -3,10 +3,17 @@ import math;
 
 
 func Dual f(x: Dual):
-    sq = x.powf(2.0);
-    three = to_dual(3.0);
-    term = three.mul(x);
-    return sq.add(term);
+    term1 = x.exp(x.powf(2.0)).mul(x.log(x.powf(3.0).add(to_dual(1.0))));
+
+    term2 = x.sqrt(x.sin(x).add(x.powf(4.0)));
+
+    frac = term1.div(term2);
+
+    term3 = x.atan(x.powf(2.0).div(to_dual(1.0).add(x.exp(x.mul(to_dual(-1.0))))));
+
+    return frac.add(term3);
 endfunc
 
-println(differentiate(f, 2.0));
+df = differentiate(f);
+
+println(differentiate_at(f, 3.0));
