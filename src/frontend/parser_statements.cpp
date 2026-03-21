@@ -2778,22 +2778,85 @@ bool Parser::ParseMutation(std::size_t* line_index, const std::vector<Token>& to
 
 bool Parser::ParseReturn(std::size_t* line_index, const std::vector<Token>& tokens,
                          std::vector<std::unique_ptr<Statement>>* out_statements, Diagnostic* out_error) const {
-    if (tokens.size() < 2 || tokens.back().kind != TokenKind::Semicolon) {
-        *out_error =
-            MakeError(*line_index + 1, tokens[0].column, "Formato invalido en return. Use: return; o return expr;");
+    std::vector<Token> expression_tokens;
+    std::size_t current_line = *line_index;
+    std::size_t token_start = 1;
+    bool found_semicolon = false;
+
+    while (current_line < lines_.size()) {
+        const std::vector<Token> current_tokens =
+            current_line == *line_index ? tokens : Tokenizer::TokenizeLine(lines_[current_line]);
+
+        if (current_tokens.empty()) {
+            ++current_line;
+            token_start = 0;
+            continue;
+        }
+
+        if (current_tokens[0].kind == TokenKind::Unknown) {
+            *out_error = MakeError(
+                current_line + 1,
+                current_tokens[0].column,
+                "Token no reconocido: '" + current_tokens[0].lexeme + "'.");
+            return false;
+        }
+
+        if (current_line != *line_index && internal::IsControlToken(current_tokens)) {
+            *out_error = MakeError(
+                current_line + 1,
+                current_tokens[0].column,
+                "Falta ';' para cerrar return.");
+            return false;
+        }
+
+        std::size_t semicolon_index = current_tokens.size();
+        for (std::size_t i = token_start; i < current_tokens.size(); ++i) {
+            if (current_tokens[i].kind == TokenKind::Semicolon) {
+                semicolon_index = i;
+                break;
+            }
+        }
+
+        const std::size_t expression_end = semicolon_index == current_tokens.size()
+                                               ? current_tokens.size()
+                                               : semicolon_index;
+        for (std::size_t i = token_start; i < expression_end; ++i) {
+            expression_tokens.push_back(current_tokens[i]);
+        }
+
+        if (semicolon_index != current_tokens.size()) {
+            if (semicolon_index + 1 != current_tokens.size()) {
+                const Token& invalid = current_tokens[semicolon_index + 1];
+                *out_error = MakeError(
+                    current_line + 1,
+                    invalid.column,
+                    "Formato invalido en return. Use: return; o return expr;");
+                return false;
+            }
+
+            found_semicolon = true;
+            break;
+        }
+
+        ++current_line;
+        token_start = 0;
+    }
+
+    if (!found_semicolon) {
+        const std::size_t column = tokens.empty() ? 1 : tokens[0].column;
+        *out_error = MakeError(*line_index + 1, column, "Falta ';' para cerrar return.");
         return false;
     }
 
     std::unique_ptr<Expr> return_expr;
-    if (tokens.size() > 2) {
-        std::vector<Token> expression_tokens(tokens.begin() + 1, tokens.end() - 1);
+    if (!expression_tokens.empty()) {
         if (!ParseExpression(*line_index + 1, std::move(expression_tokens), &return_expr, out_error)) {
             return false;
         }
     }
 
     out_statements->push_back(std::make_unique<ReturnStmt>(std::move(return_expr)));
-    ++(*line_index);
+    *line_index = current_line + 1;
     return true;
 }
 

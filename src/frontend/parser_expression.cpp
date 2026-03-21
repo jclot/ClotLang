@@ -292,14 +292,31 @@ private:
                 }
 
                 auto* receiver_variable = dynamic_cast<VariableExpr*>(receiver.get());
-                if (receiver_variable == nullptr) {
-                    Fail(open_paren.column, "Solo append(...) se permite sobre accesos encadenados.");
-                    return nullptr;
+                if (receiver_variable != nullptr) {
+                    expression = std::make_unique<CallExpr>(
+                        receiver_variable->name + "." + member_name,
+                        std::move(arguments));
+                    continue;
+                }
+
+                std::vector<CallArgument> member_arguments;
+                member_arguments.reserve(arguments.size() + 2);
+
+                CallArgument receiver_argument;
+                receiver_argument.value = std::move(receiver);
+                member_arguments.push_back(std::move(receiver_argument));
+
+                CallArgument member_name_argument;
+                member_name_argument.value = std::make_unique<StringExpr>(member_name);
+                member_arguments.push_back(std::move(member_name_argument));
+
+                for (auto& argument : arguments) {
+                    member_arguments.push_back(std::move(argument));
                 }
 
                 expression = std::make_unique<CallExpr>(
-                    receiver_variable->name + "." + member_name,
-                    std::move(arguments));
+                    "__member_call__",
+                    std::move(member_arguments));
                 continue;
             }
 

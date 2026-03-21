@@ -1141,9 +1141,16 @@ bool Interpreter::InitializeInstanceFields(const frontend::ClassDeclStmt& declar
 bool Interpreter::ExecuteClassConstructor(const frontend::ClassDeclStmt& declaration,
                                           runtime::Value* instance,
                                           const frontend::CallExpr& call,
-                                          std::string* out_error) {
+                                          std::string* out_error,
+                                          std::size_t call_argument_offset) {
     if (declaration.constructor_body.empty()) {
-        if (!declaration.constructor_params.empty() || !call.arguments.empty()) {
+        if (call.arguments.size() < call_argument_offset) {
+            *out_error = "Error interno: indice de argumento invalido.";
+            return false;
+        }
+
+        const std::size_t provided_arguments = call.arguments.size() - call_argument_offset;
+        if (!declaration.constructor_params.empty() || provided_arguments != 0) {
             *out_error = "Numero incorrecto de argumentos para constructor de clase '" + declaration.name + "'.";
             return false;
         }
@@ -1154,7 +1161,7 @@ bool Interpreter::ExecuteClassConstructor(const frontend::ClassDeclStmt& declara
                 return false;
             }
             frontend::CallExpr base_call("super", {});
-            if (!ExecuteClassConstructor(*base, instance, base_call, out_error)) {
+            if (!ExecuteClassConstructor(*base, instance, base_call, out_error, 0)) {
                 return false;
             }
         }
@@ -1194,7 +1201,8 @@ bool Interpreter::ExecuteClassConstructor(const frontend::ClassDeclStmt& declara
         out_error,
         instance,
         true,
-        &constructor_called_super)) {
+        &constructor_called_super,
+        call_argument_offset)) {
         return false;
     }
 
@@ -1209,7 +1217,8 @@ bool Interpreter::ExecuteClassConstructor(const frontend::ClassDeclStmt& declara
 bool Interpreter::InstantiateClass(const frontend::ClassDeclStmt& declaration,
                                    const frontend::CallExpr& call,
                                    runtime::Value* out_value,
-                                   std::string* out_error) {
+                                   std::string* out_error,
+                                   std::size_t call_argument_offset) {
     if (declaration.is_abstract) {
         *out_error = "No se puede instanciar clase abstracta: " + declaration.name;
         return false;
@@ -1223,7 +1232,7 @@ bool Interpreter::InstantiateClass(const frontend::ClassDeclStmt& declaration,
         return false;
     }
 
-    if (!ExecuteClassConstructor(declaration, &instance, call, out_error)) {
+    if (!ExecuteClassConstructor(declaration, &instance, call, out_error, call_argument_offset)) {
         return false;
     }
 
@@ -2670,6 +2679,136 @@ bool Interpreter::ExecuteCall(const frontend::CallExpr& call, bool require_retur
         return true;
     }
 
+    if (call.callee == "__member_call__") {
+        if (call.arguments.size() < 2) {
+            *out_error = "Error interno: indice de argumento invalido.";
+            return false;
+        }
+        if (call.arguments[0].value == nullptr || call.arguments[1].value == nullptr) {
+            *out_error = "Error interno: argumento de llamada vacio.";
+            return false;
+        }
+
+        std::string member_name;
+        if (const auto* member_name_literal = dynamic_cast<const frontend::StringExpr*>(call.arguments[1].value.get())) {
+            member_name = member_name_literal->value;
+        } else {
+            runtime::Value member_name_value;
+            if (!EvaluateExpression(*call.arguments[1].value, &member_name_value, out_error)) {
+                return false;
+            }
+            member_name = member_name_value.ToString();
+        }
+
+        runtime::Value* mutable_receiver = nullptr;
+        std::string ignored_mutable_receiver_error;
+        const bool receiver_is_mutable_target = ResolveMutableTarget(
+            *call.arguments[0].value,
+            false,
+            &mutable_receiver,
+            &ignored_mutable_receiver_error);
+
+        runtime::Value receiver_value;
+        if (receiver_is_mutable_target && mutable_receiver != nullptr) {
+            receiver_value = *mutable_receiver;
+        } else if (!EvaluateExpression(*call.arguments[0].value, &receiver_value, out_error)) {
+            return false;
+        }
+
+        std::string class_name;
+        if (IsClassInstance(receiver_value, &class_name)) {
+            const frontend::ClassDeclStmt* class_decl = FindClass(class_name);
+            if (class_decl == nullptr) {
+                *out_error = "Clase no definida para instancia: " + class_name;
+                return false;
+            }
+
+            const frontend::ClassMethodDecl* method = nullptr;
+            std::string owner_class;
+            if (!ResolveClassMethod(*class_decl, member_name, &method, &owner_class)) {
+                *out_error = "Metodo no definido: " + class_name + "." + member_name;
+                return false;
+            }
+
+            if (method->is_static) {
+                *out_error = "Metodo static debe invocarse por nombre de clase: " + class_name + "." + member_name;
+                return false;
+            }
+
+            if (!CanAccessMember(method->visibility, owner_class)) {
+                *out_error = "Metodo no accesible por visibilidad: " + class_name + "." + member_name;
+                return false;
+            }
+
+            runtime::Value bound_instance = receiver_value;
+            if (!ExecuteClassCallable(
+                    owner_class,
+                    class_name + "." + member_name,
+                    method->return_type,
+                    method->return_annotation,
+                    method->params,
+                    method->body,
+                    call,
+                    require_return_value,
+                    out_value,
+                    out_error,
+                    &bound_instance,
+                    false,
+                    nullptr,
+                    2)) {
+                return false;
+            }
+
+            if (receiver_is_mutable_target && mutable_receiver != nullptr) {
+                *mutable_receiver = std::move(bound_instance);
+            }
+            return true;
+        }
+
+        if (!receiver_value.IsObject()) {
+            *out_error = "Llamada de metodo requiere instancia de clase: " + member_name;
+            return false;
+        }
+
+        const runtime::Value* module_member = receiver_value.GetObjectProperty(member_name);
+        if (module_member == nullptr) {
+            *out_error = "Propiedad no encontrada: " + member_name;
+            return false;
+        }
+
+        if (const auto* function_ref = module_member->AsFunctionRefValue()) {
+            const auto function_it = functions_.find(function_ref->name);
+            if (function_it == functions_.end()) {
+                *out_error = "Funcion no definida: " + function_ref->name;
+                return false;
+            }
+
+            const frontend::FunctionDeclStmt& function = *function_it->second;
+            return ExecuteCallable(
+                function.name,
+                function.return_type,
+                function.return_annotation,
+                function.params,
+                function.body,
+                call,
+                require_return_value,
+                out_value,
+                out_error,
+                nullptr,
+                2);
+        }
+
+        if (module_member->IsString()) {
+            const std::string class_from_member = module_member->ToString();
+            if (const frontend::ClassDeclStmt* member_class = FindClass(class_from_member)) {
+                return InstantiateClass(*member_class, call, out_value, out_error, 2);
+            }
+        }
+
+        *out_error = "Miembro no invocable: " + member_name;
+        return false;
+    }
+
     if (call.callee == "super") {
         return ExecuteSuperCall(call, require_return_value, out_value, out_error);
     }
@@ -2947,7 +3086,8 @@ bool Interpreter::ExecuteClassCallable(const std::string& class_name,
                                        std::string* out_error,
                                        runtime::Value* bound_this,
                                        bool is_constructor,
-                                       bool* out_constructor_called_super) {
+                                       bool* out_constructor_called_super,
+                                       std::size_t call_argument_offset) {
     class_execution_stack_.push_back(class_name);
     if (is_constructor) {
         constructor_execution_stack_.push_back(class_name);
@@ -2965,7 +3105,8 @@ bool Interpreter::ExecuteClassCallable(const std::string& class_name,
         require_return_value,
         out_value,
         out_error,
-        bound_this);
+        bound_this,
+        call_argument_offset);
 
     if (is_constructor && !constructor_execution_stack_.empty()) {
         if (out_constructor_called_super != nullptr && !constructor_super_called_stack_.empty()) {
@@ -2994,8 +3135,15 @@ bool Interpreter::ExecuteCallable(const std::string& callable_name,
                                   bool require_return_value,
                                   runtime::Value* out_value,
                                   std::string* out_error,
-                                  runtime::Value* bound_this) {
-    if (call.arguments.size() > params.size()) {
+                                  runtime::Value* bound_this,
+                                  std::size_t call_argument_offset) {
+    if (call.arguments.size() < call_argument_offset) {
+        *out_error = "Error interno: indice de argumento invalido.";
+        return false;
+    }
+
+    const std::size_t provided_arguments = call.arguments.size() - call_argument_offset;
+    if (provided_arguments > params.size()) {
         *out_error = "Numero incorrecto de argumentos para funcion '" + callable_name + "'.";
         return false;
     }
@@ -3019,7 +3167,7 @@ bool Interpreter::ExecuteCallable(const std::string& callable_name,
         const frontend::TypeAnnotation param_annotation =
             EffectiveTypeAnnotation(param.type_annotation, param.type_hint);
         const bool param_has_annotation = HasConcreteTypeAnnotation(param_annotation);
-        const bool has_argument = i < call.arguments.size();
+        const bool has_argument = i < provided_arguments;
         if (!has_argument && param.default_value == nullptr) {
             *out_error = "Numero incorrecto de argumentos para funcion '" + callable_name + "'.";
             return false;
@@ -3031,7 +3179,7 @@ bool Interpreter::ExecuteCallable(const std::string& callable_name,
                 return false;
             }
 
-            const frontend::CallArgument& argument = call.arguments[i];
+            const frontend::CallArgument& argument = call.arguments[call_argument_offset + i];
             const auto* variable = dynamic_cast<const frontend::VariableExpr*>(argument.value.get());
             if (variable == nullptr) {
                 *out_error = "Parametro por referencia '" + param.name + "' requiere una variable.";
@@ -3069,7 +3217,7 @@ bool Interpreter::ExecuteCallable(const std::string& callable_name,
 
         runtime::Value evaluated;
         if (has_argument) {
-            const frontend::CallArgument& argument = call.arguments[i];
+            const frontend::CallArgument& argument = call.arguments[call_argument_offset + i];
             if (argument.by_reference) {
                 *out_error = "No se puede pasar '&' a un parametro por valor: " + param.name;
                 return false;

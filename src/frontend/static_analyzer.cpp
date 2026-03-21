@@ -633,6 +633,13 @@ private:
             return ExpressionFacts{TypeHint::Unknown, false, 0.0};
         }
 
+        if (call.callee == "__member_call__") {
+            if (call.arguments.size() < 2) {
+                AddError(statement_id, "Error interno: indice de argumento invalido.");
+            }
+            return ExpressionFacts{TypeHint::Unknown, false, 0.0};
+        }
+
         if (call.callee == "sum") {
             if (!math_imported_) {
                 AddWarning(statement_id, "sum(a, b) requiere import math para evitar fallo en runtime.");

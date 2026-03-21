@@ -76,7 +76,8 @@ private:
         bool require_return_value,
         runtime::Value* out_value,
         std::string* out_error,
-        runtime::Value* bound_this = nullptr);
+        runtime::Value* bound_this = nullptr,
+        std::size_t call_argument_offset = 0);
 
     bool ExecuteClassCallable(
         const std::string& class_name,
@@ -91,7 +92,8 @@ private:
         std::string* out_error,
         runtime::Value* bound_this = nullptr,
         bool is_constructor = false,
-        bool* out_constructor_called_super = nullptr);
+        bool* out_constructor_called_super = nullptr,
+        std::size_t call_argument_offset = 0);
 
     bool ExecuteUserFunction(
         const frontend::FunctionDeclStmt& function,
@@ -111,7 +113,8 @@ private:
         const frontend::ClassDeclStmt& declaration,
         const frontend::CallExpr& call,
         runtime::Value* out_value,
-        std::string* out_error);
+        std::string* out_error,
+        std::size_t call_argument_offset = 0);
     bool InitializeInstanceFields(
         const frontend::ClassDeclStmt& declaration,
         runtime::Value* instance,
@@ -120,7 +123,8 @@ private:
         const frontend::ClassDeclStmt& declaration,
         runtime::Value* instance,
         const frontend::CallExpr& call,
-        std::string* out_error);
+        std::string* out_error,
+        std::size_t call_argument_offset = 0);
     bool ExecuteClassSetter(
         runtime::Value* instance,
         const std::string& class_name,
