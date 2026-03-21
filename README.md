@@ -13,7 +13,8 @@ Refactor de arquitectura para separar claramente frontend, runtime, interprete y
 - Migracion funcional base completada en modo interprete: listas, objetos, indexacion, propiedades, funciones y `import math`.
 - Builtins utilitarios nuevos en runtime: `len`, `range`, `enumerate`, `zip`, `all`, `any`, `isinstance`, `chr`, `ord`, `hex`, `bin`, `hash`, `id`.
 - Strings con escapes (`\\n`, `\\t`, `\\r`, `\\\"`, `\\\\`) e interpolacion (`"Hola {nombre}"`).
-- Colecciones mas ergonomicas: acceso encadenado (`lista[i].prop`), `append(value)` en listas y repeticion de listas (`[null] * n`).
+- Colecciones y llamadas mas ergonomicas: acceso encadenado (`lista[i].prop`), encadenamiento general de llamadas (`obj.a().b().c()`), `append(value)` en listas y repeticion de listas (`[null] * n`).
+- `return` multilinea soportado mientras cierre con `;`.
 
 ## Perfil del lenguaje
 - Multiparadigma (dominante: imperativo/procedural).
@@ -348,11 +349,12 @@ Soportado en modo interprete:
 - Strings con escapes (`\n`, `\t`, `\r`, `\"`, `\\`) e interpolacion (`"Hola {nombre}"`)
 - Concatenacion string con conversion implicita (`"precio=" + 300.0`)
 - Listas dinamicas con `append(value)` y repeticion (`[null] * n`)
+- Encadenamiento general de llamadas de miembro sobre expresiones (`factory().build().run()`)
 - Mutaciones sobre propiedades e indices:
   - `obj.prop = ...`, `obj.prop += ...`
   - `lista[i] = ...`, `lista[i] += ...`
 - Funciones de usuario (`func/endfunc`) con soporte de referencia `&`
-- `return;` y `return expresion;`
+- `return;`, `return expresion;` y `return` multilinea terminado en `;`
 - Type hints opcionales en funciones:
   - Retorno: `func float promedio(...):`
   - Parametros: `func greet(name: string):`

@@ -762,9 +762,15 @@
                                     </tr>
                                     <tr>
                                         <td>List ergonomics</td>
-                                        <td><code>append(value)</code>, acceso encadenado <code>lista[i].prop</code> y
-                                            repeticion <code>[null] * n</code></td>
+                                        <td><code>append(value)</code>, acceso encadenado <code>lista[i].prop</code>,
+                                            encadenamiento general <code>obj.a().b().c()</code> y repeticion
+                                            <code>[null] * n</code></td>
                                         <td>API de colecciones mas natural para uso diario</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Function ergonomics</td>
+                                        <td><code>return</code> multilinea (cerrando con <code>;</code>)</td>
+                                        <td>Permite retornos complejos sin forzar una sola linea</td>
                                     </tr>
                                     <tr>
                                         <td>I/O output</td>
@@ -826,6 +832,8 @@
                                 <code>switch</code> anidado en un bucle, continua la iteracion del bucle externo.</li>
                             <li><code>defer</code> solo acepta sentencias simples y se ejecuta en orden LIFO al salir del
                                 bloque actual.</li>
+                            <li><code>return</code> puede abrirse en una linea y cerrar en otra; el terminador
+                                <code>;</code> sigue siendo obligatorio.</li>
                             <li><code>in</code> verifica elementos en <code>list</code>/<code>tuple</code>/<code>set</code>,
                                 claves en <code>map</code>, nombres de propiedad en <code>object</code> y substring en
                                 <code>string</code>.</li>
@@ -1025,7 +1033,7 @@ endfor
                     </section>
 
                     <section class="docs-section" id="item-tutorial-strings-collections-ergonomics">
-                        <h2 class="section-heading">Strings y Listas (Ergonomia Nueva)</h2>
+                        <h2 class="section-heading">Strings, Listas y Encadenamiento</h2>
                         <pre class="shadow-lg rounded"><code class="language-clike">// Escapes + interpolacion
 user = "Ada";
 total = 3;
@@ -1047,11 +1055,36 @@ println(records[0].meta.name);
 // inicializacion por repeticion
 slots = [null] * 4;
 println(len(slots));          // 4
+
+// encadenamiento general de llamadas
+class Counter:
+    public int value = 0;
+    public func Counter add(delta: int):
+        this.value += delta;
+        return this;
+    endfunc
+    public func int value_get():
+        return this.value;
+    endfunc
+endclass
+
+println(Counter().add(2).add(3).value_get()); // 5
 </code></pre>
                         <div class="docs-callout">
                             <code>append(value)</code> aplica a <code>list</code>. Si el receptor no es lista, el
                             runtime reporta error.
                         </div>
+                        <h3 class="section-heading">Return multilinea</h3>
+                        <pre class="shadow-lg rounded"><code class="language-clike">func int pair_sum(a: int, b: int):
+    return
+        (
+            a +
+            b
+        );
+endfunc
+
+println(pair_sum(4, 5)); // 9
+</code></pre>
                         <div class="docs-callout warn">
                             En strings con interpolacion, usa <code>{{</code> y <code>}}</code> para imprimir llaves
                             literales. Ejemplo: <code>"{{}}"</code> imprime <code>{}</code>.
@@ -1832,8 +1865,9 @@ list&lt;int&gt; ids = [1, 2, 3];          // tipado interno fuerte
                                     </tr>
                                     <tr>
                                         <td>Return</td>
-                                        <td><code>return;</code> o <code>return expr;</code></td>
-                                        <td>Fuera de formato: parse error</td>
+                                        <td><code>return;</code>, <code>return expr;</code> o return multilinea
+                                            terminado en <code>;</code></td>
+                                        <td>Fuera de formato o sin <code>;</code>: parse error</td>
                                     </tr>
                                     <tr>
                                         <td>Try/catch/finally</td>
@@ -1940,8 +1974,12 @@ endtry
                                 <code>func f(x: float = 1.0):</code>.</li>
                             <li>Las funciones son de primera clase via tipo <code>function</code>.</li>
                             <li>Si no hay <code>return</code>, el valor implicito es <code>null</code>.</li>
+                            <li><code>return</code> acepta formato multilinea; el parser sigue leyendo hasta encontrar
+                                <code>;</code>.</li>
                             <li>Si declaras tipo de retorno, la funcion debe retornar un valor compatible con ese tipo.
                                 En <code>func null ...</code>, debes hacer <code>return null;</code> explicito.</li>
+                            <li>Las llamadas de miembro pueden encadenarse sobre resultados intermedios (por ejemplo:
+                                <code>builder.make().with_x(1).build()</code>).</li>
                             <li>Reglas de firma: los parametros sin default no pueden ir despues de uno con default;
                                 parametros por referencia (<code>&amp;</code>) no aceptan default.</li>
                         </ul>
@@ -1978,6 +2016,20 @@ println(echo_any("hola"));
 println(echo_dynamic(42));
 show_params(10, "texto", [1, 2, 3]);
 </code></pre>
+
+                        <h3>Return multilinea</h3>
+                        <pre class="shadow-lg rounded"><code class="language-clike">func int weighted_sum(a: int, b: int):
+    return
+        (
+            a * 2 +
+            b
+        );
+endfunc
+</code></pre>
+                        <div class="docs-callout">
+                            El <code>;</code> final sigue siendo obligatorio. Si falta, el parser reporta
+                            <code>Falta ';' para cerrar return.</code>.
+                        </div>
 
                         <h3>Firmas con tipos de clase personalizados</h3>
                         <pre class="shadow-lg rounded"><code class="language-clike">class User:
@@ -2477,6 +2529,12 @@ set uniq = set(1, 1, 2, 3);
 map dict = map("a", 1, 2, "b");
 println(dict[2]);
 
+func int inc(x: int):
+    return x + 1;
+endfunc
+holder = {ops: {inc: inc}};
+println(holder.ops["inc"](10)); // llamada encadenada sobre resultado intermedio
+
 println(20 in list_values);      // true
 println("a" in dict);            // true (clave)
 println("name" in obj);          // true (propiedad)
@@ -2512,6 +2570,8 @@ endfor
                             El operador <code>in</code> no busca valores dentro de <code>map</code> u
                             <code>object</code>; busca claves o nombres de propiedad.
                             <code>append(value)</code> solo aplica a listas.
+                            El encadenamiento de llamadas funciona sobre expresiones; en objetos, usa
+                            <code>[]</code> cuando necesites seleccionar un miembro invocable por nombre dinamico.
                         </div>
                     </section>
 
@@ -3519,6 +3579,8 @@ println(a.value + b.value);
                             un
                             tipo de retorno (por ejemplo <code>func int f(...):</code>), entonces debe retornar un valor
                             compatible o se produce error runtime.
+                            Tambien puedes escribir <code>return</code> en varias lineas siempre que cierres con
+                            <code>;</code>.
                         </p>
                         <p>
                             Cantidad de tipos de retorno por funcion: <strong>uno</strong> cuando declaras hint
@@ -3868,6 +3930,11 @@ endclass
                                         <td><a href="#item-lib-core">Core Module</a></td>
                                     </tr>
                                     <tr>
+                                        <td>call chaining</td>
+                                        <td>Expression model</td>
+                                        <td><a href="#item-lang-collections">Collections</a></td>
+                                    </tr>
+                                    <tr>
                                         <td>char</td>
                                         <td>Type</td>
                                         <td><a href="#item-lang-types">Type System</a></td>
@@ -4051,6 +4118,11 @@ endclass
                                         <td>readonly</td>
                                         <td>OOP modifier</td>
                                         <td><a href="#item-lang-oop">OOP MVP</a></td>
+                                    </tr>
+                                    <tr>
+                                        <td>return multiline</td>
+                                        <td>Function syntax</td>
+                                        <td><a href="#item-lang-functions">Functions</a></td>
                                     </tr>
                                     <tr>
                                         <td>typed local declaration</td>
