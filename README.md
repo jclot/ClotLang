@@ -1,486 +1,182 @@
-# Clot Programming Language
+<div align="center">
+  <img src="docs/assets/images/iconos/clot-nb.png" alt="Clot Programming Language Logo" width="200" />
+  
+  <h1>Clot Programming Language</h1>
 
-Refactor de arquitectura para separar claramente frontend, runtime, interprete y backend LLVM.
+  [![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](#) 
+  [![License](https://img.shields.io/badge/license-MIT-blue)](#) 
+  [![Version](https://img.shields.io/badge/version-v0.2.0-lightgrey)](#)
+</div>
 
-## Estado actual
-- Nuevo CLI unificado: `clot`.
-- Nuevo frontend (tokenizador + parser + AST) en `include/clot/frontend` y `src/frontend`.
-- Nuevo interprete modular en `include/clot/interpreter` y `src/interpreter`.
-- Backend LLVM para compilacion AOT (`--mode compile`) en `include/clot/codegen` y `src/codegen`.
-- Internacionalizacion basica de interfaz y diagnosticos (`--lang es|en`, `CLOT_LANG`).
-- Tipado opcional en funciones y parametros (incluye `any`/`dynamic` como alias).
-- OOP MVP en modo interprete: `class/interface`, `extends`, `implements`, `constructor`, `get/set`, `public/private/protected/static/readonly/override/abstract`, `super(...)` y `super.metodo(...)`.
-- Migracion funcional base completada en modo interprete: listas, objetos, indexacion, propiedades, funciones y `import math`.
-- Builtins utilitarios nuevos en runtime: `len`, `range`, `enumerate`, `zip`, `all`, `any`, `isinstance`, `chr`, `ord`, `hex`, `bin`, `hash`, `id`.
-- Strings con escapes (`\\n`, `\\t`, `\\r`, `\\\"`, `\\\\`) e interpolacion (`"Hola {nombre}"`).
-- Colecciones y llamadas mas ergonomicas: acceso encadenado (`lista[i].prop`), encadenamiento general de llamadas (`obj.a().b().c()`), `append(value)` en listas y repeticion de listas (`[null] * n`).
-- `return` multilinea soportado mientras cierre con `;`.
 
-## Perfil del lenguaje
-- Multiparadigma (dominante: imperativo/procedural).
-- OOP MVP disponible (encapsulacion, herencia simple, contratos por interfaces).
-- Funcional ligero (funciones de primera clase), pero no funcional puro.
-- Ejecucion dual:
-  - Interpretado: `--mode interpret`
-  - Compilado AOT LLVM: `--mode compile`
-- Tipado dinamico con hints opcionales:
-  - Declaraciones y type hints se validan en runtime.
-  - Fase 1: tipado de contenedor en colecciones (`list` / `object`).
-  - Fase 2: tipado fuerte interno con anotaciones genericas (`list<int>`, `tuple<float>`, `set<char>`, `map<string, int>`, `object<int>`; admite anidacion).
-  - `--mode analyze` agrega chequeo estatico auxiliar con resolucion cross-file de imports (no reemplaza tipado estatico completo).
-- El tipado explicito sigue siendo opt-in: puedes combinar estilo dinamico y tipado por hints.
+Clot is a multiparadigm programming language (imperative/procedural, with lightweight object-oriented and functional features) designed to offer both flexibility and performance. It features a **dual execution** model, allowing developers to run code rapidly via its built-in interpreter or compile it natively (AOT) utilizing an LLVM backend.
 
-## Estructura
-```text
-include/
-  clot/
-    codegen/
-      llvm_compiler.hpp
-    frontend/
-      ast.hpp
-      parser.hpp
-      source_loader.hpp
-      token.hpp
-      tokenizer.hpp
-    interpreter/
-      interpreter.hpp
-    runtime/
-      i18n.hpp
-      value.hpp
-src/
-  cli/
-    main.cpp
-  codegen/
-    llvm_aot_support.cpp
-    llvm_backend_internal.hpp
-    llvm_compiler.cpp
-    llvm_emitter.cpp
-    llvm_linker.cpp
-    runtime_bridge.cpp
-  frontend/
-    parser_core.cpp
-    parser_expression.cpp
-    parser_statements.cpp
-    parser_support.hpp
-    source_loader.cpp
-    tokenizer.cpp
-  interpreter/
-    interpreter.cpp
-    interpreter_modules.cpp
-    interpreter_state.cpp
-  runtime/
-    i18n.cpp
-scripts/
-  check.sh
-  install.sh
-  install.ps1
-  install_llvm_wsl.sh
-  uninstall.sh
-  uninstall.ps1
-CMakeLists.txt
-Makefile
-```
+## Resources
 
-## Requisitos
-- Ubuntu 24.04+ en WSL2.
-- `cmake` 3.20+.
-- `ninja` recomendado.
-- LLVM/Clang para usar `--mode compile`.
+* **Source Code:** https://github.com/jclot/ClotLang
+* **Architecture Documentation:** `docs/architecture.md`
+* **Issue Tracker:** https://github.com/jclot/ClotLang/issues
 
-## Instalacion rapida (usuarios finales)
-Linux/macOS (instala en `~/.local/bin`):
+---
+
+## Key Features
+
+* **Dual Execution:** Interpreter mode for rapid iteration (`--mode interpret`) and native AOT compilation with LLVM for maximum performance (`--mode compile`).
+* **Gradual Typing:** Support for pure dynamic typing or explicit type hinting with runtime validation (`list<int>`, `map<string, int>`).
+* **Object-Oriented Programming (MVP):** Support for `class`, `interface`, single inheritance (`extends`), contracts (`implements`), access modifiers (`public`, `private`, `protected`), and polymorphism (`override`).
+* **Modern and Ergonomic Syntax:** String interpolation (`"Hello {name}"`), method chaining (`obj.a().b()`), membership operators (`in`), and robust exception handling (`try/catch/finally/defer`).
+* **Growing Standard Library:** Built-in utilities such as `len`, `range`, `enumerate`, `zip`, base conversions (`hex`, `bin`), and support for multi-file module imports.
+
+---
+
+## Quick Installation (End Users)
+
+To download and install the latest pre-compiled version of the Clot interpreter:
+
+**Linux / macOS** (installs to `~/.local/bin`):
 ```bash
-curl -fsSL https://raw.githubusercontent.com/jclot/ClotLang/master/scripts/install.sh | bash
+curl -fsSL [https://raw.githubusercontent.com/jclot/ClotLang/master/scripts/install.sh](https://raw.githubusercontent.com/jclot/ClotLang/master/scripts/install.sh) | bash
 ```
 
-Windows PowerShell (instala en `%LOCALAPPDATA%\Clot\bin`):
+**Windows PowerShell** (installs to `%LOCALAPPDATA%\Clot\bin`):
 ```powershell
-iwr -useb https://raw.githubusercontent.com/jclot/ClotLang/master/scripts/install.ps1 | iex
+iwr -useb [https://raw.githubusercontent.com/jclot/ClotLang/master/scripts/install.ps1](https://raw.githubusercontent.com/jclot/ClotLang/master/scripts/install.ps1) | iex
 ```
 
-Despues de instalar:
+Once installed, you can execute your scripts:
 ```bash
-clot programa.clot
+clot program.clot
+```
+> **Note:** Pre-compiled binaries only include the interpreter. To utilize the compiler mode (`--mode compile`), you must build the project from source with LLVM installed.
+
+<details>
+<summary><strong>Advanced Installation and Uninstallation Options</strong></summary>
+
+**Pin a specific version:**
+* Linux/macOS: `CLOT_VERSION=v0.2.0 curl ...`
+* Windows: `$env:CLOT_VERSION="v0.2.0"; iwr ...`
+
+**Uninstall:**
+* Linux/macOS: `bash scripts/uninstall.sh`
+* Windows: `iwr -useb https://raw.githubusercontent.com/jclot/ClotLang/master/scripts/uninstall.ps1 | iex`
+</details>
+
+---
+
+## A Quick Look at Clot
+
+Clot combines a clean syntax with powerful control structures and optional typing:
+
+```clot
+// Module import
+import math;
+
+// Functions with optional typing
+func list<int> filter_evens(xs: list<int>):
+    list<int> result = [];
+    for (item in xs):
+        if (item % 2 == 0):
+            result.append(item);
+        endif
+    endfor
+    return result;
+endfunc
+
+// Exception handling and deferred execution
+try:
+    defer println("Cleanup finished.");
+    numbers = range(10);
+    evens = filter_evens(numbers);
+    println("Evens: {evens}");
+catch(Error err):
+    println("An error occurred: {err}");
+endtry
 ```
 
-Opcional:
-- Fijar version Linux/macOS: `CLOT_VERSION=v0.2.0`
-- Fijar version Windows PowerShell: `$env:CLOT_VERSION="v0.2.0"`
-- Cambiar prefijo Linux/macOS: `CLOT_PREFIX=/ruta/personal`
-- Cambiar ruta Windows: `$env:CLOT_INSTALL_DIR="C:\Ruta\Clot"`
+---
 
-Notas:
-- Los instaladores descargan assets desde GitHub Releases con nombres como `clot-linux-x86_64.tar.gz`, `clot-macos-arm64.tar.gz`, `clot-windows-x86_64.zip`.
-- Los binarios de release se publican sin LLVM (solo modo interprete). Para `--mode compile`, compila desde fuente con LLVM.
+## Build Instructions (Developers)
 
-Verificar checksum (opcional):
-- Linux/macOS: `shasum -a 256 clot-linux-x86_64.tar.gz`
-- Windows: `Get-FileHash clot-windows-x86_64.zip -Algorithm SHA256`
+If you wish to contribute to the language or use the LLVM-based AOT compiler, you will need to build Clot from source.
 
-Desinstalar:
-- Linux/macOS: `bash scripts/uninstall.sh`
-- Windows PowerShell: `iwr -useb https://raw.githubusercontent.com/jclot/ClotLang/master/scripts/uninstall.ps1 | iex`
+### Prerequisites
+* Ubuntu 24.04+ (native or via WSL2).
+* `cmake` 3.20+ and build tools (`make` or `ninja`).
+* LLVM/Clang (required for `--mode compile`).
 
-## Instalar LLVM en WSL
+**Installing LLVM dependencies on WSL:**
 ```bash
 ./scripts/install_llvm_wsl.sh
 ```
-Nota: el script usa `sudo` y pedira tu password de Ubuntu en WSL.
 
-Instala:
-- `clang`
-- `lld`
-- `llvm`
-- `llvm-dev`
-- `libclang-dev`
+### Building the Project (CMake)
 
-## Compilar (CMake)
-Opcion A (recomendada, usando presets WSL):
+Clot utilizes CMake for its build system. The recommended workflow using presets for WSL is:
+
 ```bash
 cmake --preset wsl-release
 cmake --build --preset build-release -j4
 ```
-Binario generado: `./build/wsl-release/clot`
+*The resulting binary will be generated at `./build/wsl-release/clot`.*
 
-Opcion B (directa, sin presets):
+### Recommended Environment: Visual Studio 2026 + WSL
+1. Open the repository folder in Visual Studio.
+2. Select the WSL (Ubuntu) toolchain.
+3. Configure CMake with the following argument: `-DCLOT_ENABLE_LLVM=ON`
+4. Build the `clot` target.
+
+---
+
+## Advanced Usage and CLI
+
+The unified `clot` CLI manages both interpretation and compilation workflows.
+
+**Interpreter Mode:**
 ```bash
-cmake -S . -B build -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DCLOT_ENABLE_LLVM=ON
-cmake --build build -j4
-```
-Binario generado: `./build/clot`
-
-Notas sobre paralelismo (`-j` / `--parallel`):
-- `cmake --build ...` -> build normal (sin forzar paralelismo).
-- `cmake --build ... -j4` -> ejecuta 4 tareas de compilacion en paralelo.
-- `cmake --build ... -j8` -> igual, pero con 8 tareas.
-- `cmake --build ... --parallel` -> usa paralelismo automatico segun el sistema.
-- `cmake --build ... --parallel 6` -> fija 6 tareas en paralelo.
-
-Alternativa:
-```bash
-make
+clot program.clot
 ```
 
-## Uso
-### Modo interprete
+**LLVM Compiler Mode (AOT):**
 ```bash
-./build/clot programa.clot
+# Generate a native executable
+clot program.clot --mode compile --emit exe -o my_program
+
+# Generate an object file
+clot program.clot --mode compile --emit obj -o program.o
+
+# View LLVM Intermediate Representation (IR)
+clot program.clot --mode compile --emit ir -o program.ll
 ```
 
-Si compilaste con presets, usa:
-```bash
-./build/wsl-release/clot programa.clot
-```
+> **Internationalization:** Clot supports diagnostics in multiple languages. You can force English output by using the `--lang en` flag or setting the `CLOT_LANG=en` environment variable.
 
-Modo ingles:
-```bash
-./build/clot programa.clot --lang en
-# o:
-CLOT_LANG=en ./build/clot programa.clot
-```
+---
 
-### Modo compilador LLVM
-Generar ejecutable:
-```bash
-./build/clot programa.clot --mode compile --emit exe -o programa
-```
+## Testing and Development
 
-Generar ejecutable en ingles (diagnosticos de compilacion):
-```bash
-./build/clot programa.clot --mode compile --emit exe -o programa --lang en
-# o:
-CLOT_LANG=en ./build/clot programa.clot --mode compile --emit exe -o programa
-```
+To ensure the stability of your local changes, run the provided test suites:
 
-Ejecutar binario compilado en ingles (si usa runtime bridge):
 ```bash
-CLOT_LANG=en ./programa
-```
+# Smoke tests
+tests/smoke.sh ./build/wsl-release/clot
 
-Generar objeto:
-```bash
-./build/clot programa.clot --mode compile --emit obj -o programa.o
-```
-
-Generar IR LLVM:
-```bash
-./build/clot programa.clot --mode compile --emit ir -o programa.ll
-```
-
-## Pruebas rapidas
-```bash
-tests/smoke.sh ./build/clot
-```
-
-Prueba de compilacion LLVM con features completas:
-```bash
+# LLVM compilation tests
 tests/llvm_smoke.sh ./build/wsl-release/clot
-```
 
-Chequeo local completo:
-```bash
+# Full local check and benchmarks
 scripts/check.sh
-```
-
-Comparacion diferencial interpret vs compile (incluye fallback runtime bridge):
-```bash
-scripts/diff_interpret_compile.sh ./build/wsl-release/clot examples/basic.clot
-```
-
-Baseline de benchmarks (Fase 0):
-```bash
 benchmarks/baseline.sh ./build/wsl-release/clot
 ```
 
-## Ejemplos rapidos
-```clot
-const long n = 5;
-sum = 0;
+---
 
-for (int i = 0; i < n; i++):
-    if(i == 2):
-        continue;
-    endif
-    sum += i;
-endfor
+## Project Architecture
 
-for (item in [10, 20, 30]):
-    println(item);
-endfor
+Clot is designed with a modular architecture, maintaining a strict separation between the frontend, the runtime environment, and the code generation backends:
 
-for i in range(3):
-    println("i={i}");
-endfor
+* **`frontend/`**: Tokenizer, Parser, AST, and source loading mechanisms.
+* **`interpreter/`**: Modular interpreter designed for direct execution.
+* **`codegen/`**: LLVM backend responsible for AOT compilation.
+* **`runtime/`**: Core data structures, I18N, and value management.
 
-items = [];
-items.append("linea 1\nlinea 2");
-println(items[0]);
-
-switch(sum):
-    case 8:
-        println("ok");
-        break;
-    default:
-        println("otro");
-endswitch
-
-do:
-    sum -= 1;
-while(sum > 0);
-
-try:
-    throw("boom");
-catch(err):
-    println(err);
-finally:
-    println("cleanup");
-endtry
-
-func demo():
-    defer println("fin de bloque");
-    println(3 in [1, 2, 3]);
-endfunc
-```
-
-## Sintaxis de control de flujo
-```clot
-for (int i = 0; i < n; i++):
-    println(i);
-endfor
-
-for (const item in coleccion):
-    println(item);
-endfor
-
-for item in range(10):
-    println(item);
-endfor
-
-switch(valor):
-    case 1:
-        println("uno");
-        break;
-    default:
-        pass;
-endswitch
-
-do:
-    trabajo();
-while(condicion);
-
-try:
-    trabajo_riesgoso();
-catch(Error err):
-    println(err);
-finally:
-    println("cleanup");
-endtry
-
-defer println("al salir del bloque");
-```
-
-- `for (init; cond; update):` conserva cabecera tipo Java, pero el bloque sigue usando `:` y `endfor`.
-- `init` y `update` aceptan declaraciones, mutaciones o expresiones simples; no aceptan bloques ni control de flujo.
-- `for (item in coleccion):` y `for item in coleccion:` usan `in` para iterar listas, tuple, set, map, object o string; el binding puede ser `const` y/o tipado.
-- `switch` soporta `case`, `default`, fallthrough estilo Java y `break;` para cortar el flujo.
-- `break;` sale del bucle o `switch` mas cercano. `continue;` solo aplica a bucles, incluso si aparece dentro de un `switch` anidado.
-- `pass;` no hace nada y sirve como placeholder valido.
-- `defer` solo acepta sentencias simples y se ejecuta en orden LIFO al salir del bloque actual.
-- `finally` siempre se ejecuta al cerrar el `try`, haya excepcion capturada, no capturada o retorno temprano.
-- `in` tambien funciona como operador de pertenencia: `clave in mapa`, `item in lista`, `"na" in "banana"`.
-
-## Alcance actual
-Soportado en modo interprete:
-- Asignaciones numericas (`=`, `+=`, `-=`)
-- Declaraciones `long` y `byte` (tratadas como numericas)
-- `print(...)` de expresiones numericas y string
-- `if / else / endif`
-- `switch/case/default/endswitch` (con fallthrough estilo Java y `break;`)
-- Bucles y control de flujo:
-  - `while/endwhile`
-  - `for/endfor` clasico: `for (int i = 0; i < n; i++):`
-  - `for-each`: `for (item in coleccion):` y `for item in coleccion:`
-  - `do ... while(condicion);`
-  - `break;`, `continue;`, `pass;`
-- Operadores aritmeticos, comparacion y logicos
-- Operador de pertenencia `in` (listas, tuple, set, map, object, string)
-- `const` para declarar valores inmutables
-- Listas y objetos (incluye `nums[2]`, `user.name` y `lista[i].prop`)
-- Strings con escapes (`\n`, `\t`, `\r`, `\"`, `\\`) e interpolacion (`"Hola {nombre}"`)
-- Concatenacion string con conversion implicita (`"precio=" + 300.0`)
-- Listas dinamicas con `append(value)` y repeticion (`[null] * n`)
-- Encadenamiento general de llamadas de miembro sobre expresiones (`factory().build().run()`)
-- Mutaciones sobre propiedades e indices:
-  - `obj.prop = ...`, `obj.prop += ...`
-  - `lista[i] = ...`, `lista[i] += ...`
-- Funciones de usuario (`func/endfunc`) con soporte de referencia `&`
-- `return;`, `return expresion;` y `return` multilinea terminado en `;`
-- Type hints opcionales en funciones:
-  - Retorno: `func float promedio(...):`
-  - Parametros: `func greet(name: string):`
-  - Genericos en retorno/parametros: `func list<int> filtrar(xs: list<int>):`
-  - Valores por defecto: `func f(x: float = 1.0):`
-  - Retorno tipado: exactamente 1 tipo por funcion (sin unions)
-  - Tipos permitidos en retorno/parametros: `int`, `double`, `float`, `decimal`, `long`, `byte`, `char`, `tuple`, `set`, `map`, `function`, `string`, `bool`, `list`, `object`, `null`
-  - Aridad generica valida: `list<T>`, `tuple<T>`, `set<T>`, `object<T>`, `map<K, V>`
-  - `any` y `dynamic` son alias (equivalentes)
-  - Retorno dinamico: omitir tipo (`func nombre(...):`) o usar `func any nombre(...):` / `func dynamic nombre(...):`
-  - En parametros: `x`, `x: any` y `x: dynamic` son equivalentes (aceptan cualquier valor)
-  - `any/dynamic` en la doc significa "any o dynamic"; no se escribe literal con barra
-  - Validacion runtime cuando el hint esta presente
-- Tipado de colecciones en variables:
-  - Contenedor: `list nums = [1, 2, 3];`, `object cfg = {enabled: true};`
-  - Interno fuerte: `list<int> ids = [1, 2, 3];`, `map<string, int> scores = map("a", 10);`
-  - Si algun elemento interno no coincide, falla en runtime con error tipado.
-  - Aridad generica: `list<T>`, `tuple<T>`, `set<T>`, `object<T>`, `map<K, V>` (tambien se permite sin genericos por compatibilidad).
-
-Ejemplos detallados de tipado de colecciones:
-
-```clot
-// Fase 1: tipado de contenedor
-list datos = [1, "dos", true];
-object meta = {id: 1, name: "Ana", ok: true};
-```
-
-```clot
-// Fase 2: tipado interno fuerte
-list<int> ids = [1, 2, 3];
-tuple<float> coords = tuple(1, 2.5, 3);
-set<char> letras = set('a', "b", 67);
-map<string, int> score = map("ana", 10, "luis", 20);
-object<int> counters = {ok: 5, fail: 1};
-list<map<string, int>> tabla = [map("a", 1), map("b", 2)];
-```
-
-```clot
-// Errores tipicos
-list<int> bad1 = [1, "2"];                    // Elemento list[1] incompatible con 'int'
-map<string, int> bad2 = map("ana", 10, 2, 20); // Clave map[1] incompatible con 'string'
-object<int> bad3 = {ok: 1, label: "x"};       // Propiedad object.label incompatible con 'int'
-```
-
-```clot
-// Funciones y for-each tipados
-func list<int> keep(xs: list<int>):
-    return xs;
-endfunc
-
-for (list<int> row in [[1, 2], [3, 4]]):
-    println(row[0]);
-endfor
-```
-- Modulos por archivo:
-  - `import modulo.submodulo;`
-  - `import modulo.submodulo as alias;`
-  - `from modulo.submodulo import simbolo;`
-  - `from modulo.submodulo import simbolo as alias;`
-  (resuelve `modulo/submodulo.clot` y busca desde el directorio actual y sus ancestros, incluyendo raiz de proyecto)
-- `import math` con builtin `sum(a, b)` como modulo nativo
-- Builtins de colecciones/tipos estilo Python:
-  - `len(value)` para `string/list/tuple/set/map/object/char`
-  - `range(stop)`, `range(start, stop)`, `range(start, stop, step)` (retorna `list`, maximo 1,000,000 elementos)
-  - `enumerate(iterable, start=0)` y `zip(iter1, iter2, ...)` (retornan `list` de `tuple`)
-  - `all(iterable)` / `any(iterable)` para validaciones booleanas masivas
-  - `isinstance(value, type_name)` con `type_name` string o coleccion de strings
-  - `chr(code)` / `ord(char)` para conversion char <-> entero ASCII (0..255)
-  - `hex(value)` / `bin(value)` para conversion de base con prefijos `0x`/`0b`
-  - `hash(value)` para fingerprint estructural y `id(value)` para identidad runtime estable por valor
-- Manejo de excepciones:
-  - `throw(value);`
-  - `try/catch/endtry` con formas: `catch:`, `catch(err):`, `catch(Tipo):`, `catch(Tipo err):`
-  - `finally` opcional: `try/finally/endtry` o `try/catch/finally/endtry`
-  - `try/catch` es opcional: si no hay `catch` compatible, termina con `Excepcion no capturada: <Tipo>: <mensaje>`
-  - Tipos runtime base inferidos para errores internos: `RuntimeError`, `TypeError`, `ArgumentError`, `MissingArgumentError`, `TooManyArgumentsError`, `ValueError`, `RangeError`, `IndexError`, `NameError`, `AttributeError`, `IOError`, `FileNotFoundError`, `PermissionError`, `FileExistsError`, `FileClosedError`, `AssertionError`, `ImportError`, `ModuleNotFoundError`
-- Ejecucion diferida con `defer` (LIFO al salir del bloque actual)
-- Modulo base de excepciones en Clot: `import clot.core.exceptions;`
-- OOP MVP:
-  - `interface/endinterface` con firmas `func ...;`
-  - `class/endclass` con `extends` (herencia simple) y `implements` (multiple)
-  - `constructor/endconstructor`
-  - `get/endget`, `set/endset`
-  - modificadores: `public` (default), `private`, `protected`, `static`, `readonly`, `override`, `abstract`
-  - validaciones runtime:
-    - `override` obligatorio al sobrescribir
-    - compatibilidad de firma/retorno en override
-    - contrato de interfaces (`implements`)
-    - visibilidad `private`/`protected`
-    - clase concreta no puede dejar metodos abstract sin implementar
-    - clase abstract no se puede instanciar
-    - `readonly` de instancia (solo constructor de la clase propietaria)
-    - `readonly static`
-    - `super(...)` obligatorio como primera sentencia en constructor derivado
-    - `super(...)` maximo una vez por constructor
-
-Soportado en modo compile LLVM:
-- Nucleo numerico (`=`, `+=`, `-=`, `if`, operadores, `print` numerico/string literal)
-- `import math` y llamada `sum(a,b)` en expresiones numericas
-- Funciones de usuario AOT (`func/endfunc`) sin retorno:
-  - Llamadas como sentencia (`foo(...);`)
-  - Parametros por valor y por referencia (`&`)
-- Soporte completo del lenguaje via runtime bridge automatico
-  (listas, objetos, funciones con `return`, referencias `&`, propiedades, indexacion, modulos, OOP MVP)
-
-No soportado aun en modo compile LLVM:
-- AOT nativo de listas/objetos/indexacion/propiedades
-- AOT nativo de `return` y funciones usadas como expresion
-- AOT nativo de modulos de archivo
-- AOT nativo de OOP (`class/interface/constructor/get/set/extends/implements/super`)
-- AOT nativo de `switch`, `for-each`, `do-while`, `defer` y `finally`
-- AOT nativo del operador de pertenencia `in`
-- Strings no literales como expresion general en AOT (fuera de `print("...")`)
-
-## Visual Studio 2026 + WSL
-Flujo recomendado:
-1. Abrir carpeta del repo en Visual Studio.
-2. Seleccionar toolchain de WSL (Ubuntu).
-3. Usar CMake integrado con preset/manual:
-   - `-DCLOT_ENABLE_LLVM=ON`
-4. Compilar target `clot`.
-5. Ejecutar con argumentos desde el perfil de depuracion:
-   - `programa.clot --mode compile --emit exe -o programa`
-
-## Documentacion de arquitectura
-- `docs/architecture.md`
-
-## Nota de compatibilidad
-El refactor organiza la base para extender el compilador LLVM gradualmente. Si LLVM no esta instalado, `--mode compile` se deshabilita automaticamente y el binario sigue funcionando en modo interprete.
+For a comprehensive view of feature support (detailing what is natively supported in AOT versus the Interpreter), please refer to the [Architecture Documentation](docs/architecture.md).
