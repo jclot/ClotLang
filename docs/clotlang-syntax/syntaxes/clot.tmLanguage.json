@@ -1,0 +1,145 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "ClotLang",
+  "scopeName": "source.clot",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#strings" },
+    { "include": "#chars" },
+    { "include": "#keywords" },
+    { "include": "#types" },
+    { "include": "#constants" },
+    { "include": "#builtins" },
+    { "include": "#numbers" },
+    { "include": "#operators" },
+    { "include": "#functions" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.clot",
+          "match": "//.*$"
+        }
+      ]
+    },
+    "strings": {
+      "name": "string.quoted.double.clot",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        {
+          "name": "constant.character.escape.clot",
+          "match": "\\\\([nrt\\\\\"'0]|x[0-9a-fA-F]{2})"
+        },
+        {
+          "name": "variable.interpolation.clot",
+          "match": "\\{[^\\}]+\\}"
+        },
+        {
+          "name": "constant.character.escape.clot",
+          "match": "\\{\\{|\\}\\}"
+        }
+      ]
+    },
+    "chars": {
+      "name": "string.quoted.single.clot",
+      "begin": "'",
+      "end": "'",
+      "patterns": [
+        {
+          "name": "constant.character.escape.clot",
+          "match": "\\\\."
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.clot",
+          "match": "\\b(if|elseif|else|endif|while|endwhile|for|endfor|do|switch|case|default|endswitch|break|continue|pass|return|try|catch|finally|endtry|defer)\\b"
+        },
+        {
+          "name": "keyword.operator.word.clot",
+          "match": "\\b(in)\\b"
+        },
+        {
+          "name": "keyword.control.import.clot",
+          "match": "\\b(import|from|as)\\b"
+        },
+        {
+          "name": "storage.modifier.clot",
+          "match": "\\b(public|private|protected|static|readonly|override|abstract|const)\\b"
+        },
+        {
+          "name": "keyword.declaration.clot",
+          "match": "\\b(class|endclass|interface|endinterface|constructor|endconstructor|get|endget|set|endset|extends|implements|enum)\\b"
+        },
+        {
+          "name": "storage.type.function.clot",
+          "match": "\\b(func|endfunc)\\b"
+        },
+        {
+          "name": "variable.language.clot",
+          "match": "\\b(this|super)\\b"
+        }
+      ]
+    },
+    "types": {
+      "patterns": [
+        {
+          "name": "storage.type.clot",
+          "match": "\\b(int|double|float|decimal|long|byte|char|string|bool|list|tuple|set|map|object|function|any|dynamic|null)\\b"
+        }
+      ]
+    },
+    "constants": {
+      "patterns": [
+        {
+          "name": "constant.language.clot",
+          "match": "\\b(true|false|null|endl)\\b"
+        },
+        {
+          "name": "constant.numeric.math.clot",
+          "match": "\\b(PI|E|TAU|PHI)\\b"
+        }
+      ]
+    },
+    "builtins": {
+      "patterns": [
+        {
+          "name": "support.function.builtin.clot",
+          "match": "\\b(print|println|printf|input|throw|type|cast|isinstance|hash|id|assert|len|range|enumerate|zip|all|any|enum_name|enum_value|chr|ord|hex|bin|read_file|write_file|append_file|file_exists|now_ms|sleep_ms|async_read_file|task_ready|await|sum|factorial|sqrt|pow|log|ln|exp|abs|sin|cos|tan|asin|acos|atan|gcd|lcm)\\b(?=\\s*\\()"
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.float.clot",
+          "match": "\\b\\d+\\.\\d+\\b"
+        },
+        {
+          "name": "constant.numeric.integer.clot",
+          "match": "\\b\\d+\\b"
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.clot",
+          "match": "(\\+|-|\\*|/|%|\\^|!|<|<=|>|>=|==|!=|&&|\\|\\||=|\\+=|-=)"
+        }
+      ]
+    },
+    "functions": {
+      "patterns": [
+        {
+          "name": "entity.name.function.clot",
+          "match": "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\b(?=\\s*\\()"
+        }
+      ]
+    }
+  }
+}

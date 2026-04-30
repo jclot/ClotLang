@@ -1,0 +1,66 @@
+---
+title: How to read these docs
+description: A quick orientation to help you navigate the documentation and find answers faster.
+icon: CircleQuestionMark
+---
+
+import { BookIcon, CodeIcon, TerminalIcon, HelpCircleIcon, GithubIcon, MessageSquareIcon, BookMarked, ClipboardCheck } from 'lucide-react';
+
+Welcome to the ClotLang documentation! To help you find exactly what you need without getting overwhelmed, our guides are structured into three distinct page types.
+
+## Page types
+
+<Cards>
+  <Card 
+    icon={<BookIcon />} 
+    title="Concept pages" 
+    description="High-level explanations of how things work behind the scenes (e.g., the Typing System or Runtime Bridge). Read these to understand the 'why'." 
+  />
+  <Card 
+    icon={<ClipboardCheck />} 
+    title="Task pages" 
+    description="Step-by-step, practical guides focused on achieving a specific goal. Read these when you need to know 'how' to do something." 
+  />
+  <Card 
+    icon={<BookMarked />} 
+    title="Reference pages" 
+    description="Authoritative, detailed lists of syntax, APIs, and rules. Best used when you already understand the concepts and just need the exact technical specifications." 
+  />
+</Cards>
+
+## Sidebar organization
+
+The navigation sidebar on the left is organized to mirror a typical developer's journey:
+
+* **Getting Started:** The essentials to install the language and run your first scripts.
+* **Core Modules:** Deep dives into language features, syntax, and standard libraries.
+* **Advanced & Contributing:** Lower-level details regarding the LLVM backend and static analyzer for contributors.
+
+<Callout type="info">
+  **Pro tip:** You can collapse sections in the sidebar to keep your view clean, or use the search bar (`Ctrl + K`) to bypass navigation entirely.
+</Callout>
+
+## Where to go for help
+
+If you run into issues, encounter a bug, or just want to connect with other developers, here are the best places to look:
+
+<Cards>
+  <Card 
+    icon={<HelpCircleIcon />} 
+    title="FAQ" 
+    href="/docs/faq" 
+    description="Check the Frequently Asked Questions for quick solutions to common setup and compilation problems." 
+  />
+  <Card 
+    icon={<GithubIcon />} 
+    title="GitHub issues" 
+    href="https://github.com/jclot/ClotLang/issues" 
+    description="Found a bug or have a feature request? Open an issue on our official repository." 
+  />
+  <Card 
+    icon={<MessageSquareIcon />} 
+    title="Community channels" 
+    href="#" 
+    description="Join the conversation with other developers, runtime contributors, and compiler experts." 
+  />
+</Cards>

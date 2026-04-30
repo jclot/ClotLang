@@ -1,0 +1,102 @@
+---
+title: Why defer exists
+description: An exploration of the rationale behind the 'defer' statement in ClotLang, its benefits for resource management and error handling, and how it compares to traditional approaches.
+icon: Hourglass
+---
+
+import { HourglassIcon, AlertTriangleIcon, FileCode2Icon, Trash2Icon, IndentIcon, BracesIcon, CheckIcon, XIcon } from 'lucide-react';
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Card, Cards } from 'fumadocs-ui/components/card';
+import { Tabs, Tab } from 'fumadocs-ui/components/tabs';
+
+In any programming language, acquiring a resource, whether it is opening a file descriptor, acquiring a mutex lock, or opening a network connection comes with a strict obligation: **you must release it when you are done.**
+
+Failing to do so leads to resource leaks, deadlocks, and system crashes. However, ensuring that cleanup code runs reliably is notoriously difficult when a function has multiple `return` statements or when an exception (`throw`) interrupts the normal control flow.
+
+This is the exact problem the `defer` keyword was designed to solve.
+
+---
+
+## The problem: Control flow complexity
+
+Without a dedicated mechanism for deferred execution, developers usually have to manually duplicate cleanup code before every possible exit point of a function. 
+
+<Tabs items={['The Messy Way (Without defer)', 'The ClotLang Way (With defer)']}>
+  <Tab value="The Messy Way (Without defer)">
+    ```clot
+    func process_data(path: string):
+        file = open_stream(path);
+        
+        if !file:
+            return null;
+        endif
+
+        try:
+            data = read_chunk(file);
+            if data == "EOF":
+                close_stream(file); // Cleanup 1
+                return false;
+            endif
+            
+            process(data);
+            
+            close_stream(file); // Cleanup 2
+            return true;
+            
+        catch(err):
+            close_stream(file); // Cleanup 3
+            throw(err);
+        endtry
+    endfunc
+    ```
+    *Notice how `close_stream(file)` is repeated three times. If you add another early return, you might forget to close the file.*
+  </Tab>
+  <Tab value="The ClotLang Way (With defer)">
+    ```clot
+    func process_data(path: string):
+        file = open_stream(path);
+        if !file: return null; endif
+        
+        // Scheduled to run when the block exits, no matter how.
+        defer close_stream(file); 
+        
+        data = read_chunk(file);
+        if data == "EOF":
+            return false;
+        endif
+        
+        process(data);
+        return true;
+    endfunc
+    ```
+    *The cleanup is declared exactly where the resource is allocated. It is impossible to forget, and the code is drastically shorter.*
+  </Tab>
+</Tabs>
+
+---
+
+## How `defer` works under the hood
+
+When the ClotLang compiler/interpreter encounters a `defer` statement, it does not execute the action immediately. Instead, it pushes the statement onto a hidden stack tied to the current execution block.
+
+When the block scope ends whether by reaching the end of the block naturally, hitting a `return`, or throwing an exception the runtime pops and executes all deferred statements in **Last-In, First-Out (LIFO)** order.
+
+<div className="my-8 relative overflow-hidden rounded-2xl border border-blue-500/30 bg-gradient-to-b from-blue-500/10 to-transparent p-6 shadow-sm">
+  <div className="flex items-center gap-4 mb-4">
+    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-500/20 text-blue-600 dark:text-blue-400 ring-4 ring-blue-500/10">
+      <HourglassIcon className="h-5 w-5" />
+    </div>
+    <h3 className="m-0 text-lg font-semibold text-foreground">The LIFO Guarantee</h3>
+  </div>
+  <p className="text-sm text-muted-foreground mb-4"> LIFO (Last-In, First-Out) is crucial because resources often depend on each other. If you acquire Resource A, and then use it to acquire Resource B, you must release B *before* you release A. </p>
+</div>
+  ```clot
+  func secure_transaction():
+      db_lock = acquire_lock();
+      defer release_lock(db_lock); // Runs second
+
+      session = open_session(db_lock);
+      defer close_session(session); // Runs first
+      
+      // ... do work ...
+  endfunc

@@ -1,10 +1,10 @@
 import math;
 
 class Dual:
-    public float value;
-    public float derivative;
+    public decimal value;
+    public decimal derivative;
 
-    constructor(value: float, derivative: float = 0.0):
+    constructor(value: decimal, derivative: decimal = 0.0):
         this.value = value;
         this.derivative = derivative;
     endconstructor
@@ -34,7 +34,7 @@ class Dual:
     endfunc
 
     // pow
-    public func Dual powf(power: float):
+    public func Dual powf(power: decimal):
         value = pow(this.value, power);
         deriv = power * pow(this.value, power - 1) * this.derivative;
         return Dual(value, deriv);
@@ -80,7 +80,7 @@ func Dual to_dual(x):
     if isinstance(x, "Dual"):
         return x;
     endif
-    return Dual(cast(x, "float"), 0.0);
+    return Dual(cast(x, "decimal"), 0.0);
 endfunc
 
 class Derivative:
@@ -90,7 +90,7 @@ class Derivative:
         this.f = f;
     endconstructor
 
-    public func float at(x: float):
+    public func decimal at(x: decimal):
         x_dual = Dual(x, 1.0);   // dx/dx = 1
         function fn = this.f;
         y = fn(x_dual);
@@ -102,6 +102,6 @@ func Derivative differentiate(f: function):
     return Derivative(f);
 endfunc
 
-func float differentiate_at(f: function, x: float):
+func decimal differentiate_at(f: function, x: decimal):
     return differentiate(f).at(x);
 endfunc

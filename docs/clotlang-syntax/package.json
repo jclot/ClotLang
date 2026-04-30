@@ -1,0 +1,35 @@
+{
+  "name": "clotlang-syntax",
+  "displayName": "clotlang-syntax",
+  "description": "Syntax support for ClotLang",
+  "version": "0.0.2",
+  "publisher": "jclot",
+  "icon": "clot-nb.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jclot/ClotLang"
+  },
+  "engines": {
+    "vscode": "^1.116.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [{
+      "id": "clot",
+      "aliases": ["ClotLang", "clot"],
+      "extensions": [".clot"],
+      "icon": {
+          "light": "./icons/clot-nb.png",
+          "dark": "./icons/clot-nb.png"
+        },
+      "configuration": "./language-configuration.json"
+    }],
+    "grammars": [{
+      "language": "clot",
+      "scopeName": "source.clot",
+      "path": "./syntaxes/clot.tmLanguage.json"
+    }]
+  }
+}

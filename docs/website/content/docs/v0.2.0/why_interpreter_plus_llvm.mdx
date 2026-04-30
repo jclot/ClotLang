@@ -1,0 +1,126 @@
+---
+title: Why Interpreter + LLVM exists
+description: Discover why ClotLang ships with both a dynamic interpreter and an LLVM Ahead-of-Time (AOT) compiler, and learn how to influence each mode for rapid prototyping and production deployment.
+icon: Merge
+---
+
+import { MergeIcon, TerminalIcon, CpuIcon, RocketIcon, ShieldCheckIcon, PlayIcon, ArrowRightIcon, BoxIcon } from 'lucide-react';
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Card, Cards } from 'fumadocs-ui/components/card';
+import { Tabs, Tab } from 'fumadocs-ui/components/tabs';
+
+Historically, programming languages have forced you to choose your execution model on day one. 
+
+You either choose an interpreted language (like Python or JavaScript) for instant startup times and rapid iteration, or you choose a compiled language (like C, Go, or Rust) for native performance and standalone binary distribution. 
+
+ClotLang eliminates this dilemma by embedding both a **dynamic interpreter** and an **LLVM Ahead-of-Time (AOT) compiler** into the same toolchain.
+
+---
+
+## The Dual Engine Architecture
+
+At its core, ClotLang treats execution not as a fixed property of the language, but as a dial you turn depending on what stage of development you are in.
+
+<div className="my-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+  {/* The Interpreter */}
+  <div className="relative overflow-hidden rounded-2xl border border-amber-500/30 bg-gradient-to-b from-amber-500/10 to-transparent p-6 shadow-sm">
+    <div className="flex items-center gap-4 mb-4">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 ring-4 ring-amber-500/10">
+        <TerminalIcon className="h-5 w-5" />
+      </div>
+      <div>
+        <h3 className="m-0 text-lg font-semibold text-foreground">The Interpreter</h3>
+        <span className="text-xs font-mono text-amber-600/80 dark:text-amber-400/80">--mode interpret</span>
+      </div>
+    </div>
+    <p className="text-sm text-muted-foreground mb-4"> Optimized for **Creation**. It reads your AST and executes it immediately. There are no build steps, no linking phases, and no waiting. </p>
+    <ul className="m-0 p-0 space-y-2 list-none text-sm text-muted-foreground">
+      <li className="flex items-center gap-2"><PlayIcon className="h-4 w-4 text-amber-500" /> Instant startup time</li>
+      <li className="flex items-center gap-2"><PlayIcon className="h-4 w-4 text-amber-500" /> Forgiving dynamic dispatch</li>
+      <li className="flex items-center gap-2"><PlayIcon className="h-4 w-4 text-amber-500" /> Perfect for scripts and testing</li>
+    </ul>
+  </div>
+
+  {/* The LLVM Compiler */}
+  <div className="relative overflow-hidden rounded-2xl border border-blue-500/30 bg-gradient-to-b from-blue-500/10 to-transparent p-6 shadow-sm">
+    <div className="flex items-center gap-4 mb-4">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-500/20 text-blue-600 dark:text-blue-400 ring-4 ring-blue-500/10">
+        <CpuIcon className="h-5 w-5" />
+      </div>
+      <div>
+        <h3 className="m-0 text-lg font-semibold text-foreground">The LLVM Compiler</h3>
+        <span className="text-xs font-mono text-blue-600/80 dark:text-blue-400/80">--mode compile</span>
+      </div>
+    </div>
+    <p className="text-sm text-muted-foreground mb-4">Optimized for **Deployment**. It lowers your code into LLVM Intermediate Representation (IR), applying aggressive optimizations to output a native binary.</p>
+    <ul className="m-0 p-0 space-y-2 list-none text-sm text-muted-foreground">
+      <li className="flex items-center gap-2"><PlayIcon className="h-4 w-4 text-blue-500" /> High-performance execution</li>
+      <li className="flex items-center gap-2"><PlayIcon className="h-4 w-4 text-blue-500" /> Standalone distributable binaries</li>
+      <li className="flex items-center gap-2"><PlayIcon className="h-4 w-4 text-blue-500" /> Source code protection</li>
+    </ul>
+  </div>
+</div>
+
+---
+
+## Why not just one or the other?
+
+If we only built an interpreter, ClotLang could never be used for CPU-intensive tasks like cryptography, heavy math, or systems tooling. You would always be bottlenecked by interpreter overhead.
+
+If we only built an AOT compiler, we would destroy the developer experience. Forcing a developer to run a 5-second CMake/LLVM build step just to check if a `printf` works completely ruins the flow state. 
+
+By having both, you get the **ergonomics of a scripting language** with the **ceiling of a systems language**.
+
+---
+
+## The Developer Lifecycle
+
+Because both engines understand the exact same syntax, the typical ClotLang development lifecycle flows linearly through the toolchain.
+
+<div className="my-10 flex flex-col md:flex-row items-center justify-between gap-4 bg-card border border-border p-6 rounded-2xl shadow-sm">
+  {/* Step 1 */}
+  <div className="flex flex-col items-center text-center flex-1">
+    <div className="h-12 w-12 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center mb-3">
+      <RocketIcon className="h-6 w-6" />
+    </div>
+    <h4 className="font-semibold text-foreground m-0">1. Prototype</h4>
+    <p className="text-xs text-muted-foreground mt-1 mb-2">Write fast, fail fast.</p>
+    <code className="text-[11px] bg-muted px-2 py-1 rounded">clot app.clot</code>
+  </div>
+
+  <ArrowRightIcon className="hidden md:block h-6 w-6 text-muted-foreground/30" />
+
+  {/* Step 2 */}
+  <div className="flex flex-col items-center text-center flex-1">
+    <div className="h-12 w-12 rounded-full bg-purple-500/10 text-purple-500 flex items-center justify-center mb-3">
+      <ShieldCheckIcon className="h-6 w-6" />
+    </div>
+    <h4 className="font-semibold text-foreground m-0">2. Validate</h4>
+    <p className="text-xs text-muted-foreground mt-1 mb-2">Catch errors early.</p>
+    <code className="text-[11px] bg-muted px-2 py-1 rounded">--mode analyze</code>
+  </div>
+
+  <ArrowRightIcon className="hidden md:block h-6 w-6 text-muted-foreground/30" />
+
+  {/* Step 3 */}
+  <div className="flex flex-col items-center text-center flex-1">
+    <div className="h-12 w-12 rounded-full bg-blue-500/10 text-blue-500 flex items-center justify-center mb-3">
+      <BoxIcon className="h-6 w-6" />
+    </div>
+    <h4 className="font-semibold text-foreground m-0">3. Deploy</h4>
+    <p className="text-xs text-muted-foreground mt-1 mb-2">Ship the binary.</p>
+    <code className="text-[11px] bg-muted px-2 py-1 rounded">--mode compile</code>
+  </div>
+</div>
+
+---
+
+## Bridging the Gap
+
+A common issue with dual-execution languages is that the interpreter supports features the AOT compiler cannot (due to LLVM's strict static nature). 
+
+To prevent fragmentation where "Feature X only works in the interpreter", ClotLang uses a **Runtime Bridge**. When compiling AOT, if the LLVM backend encounters a highly dynamic feature (like a mixed `for-each` loop or `defer`), it safely falls back to calling the C++ runtime bridge to handle that specific operation, while keeping the rest of your code running at native speeds.
+
+<Callout type="info">
+  **Consistency Guarantee:** A valid ClotLang program will produce the exact same output whether it is run via `--mode interpret` or compiled into a binary via `--mode compile`. The only difference you should notice is execution speed.
+</Callout>

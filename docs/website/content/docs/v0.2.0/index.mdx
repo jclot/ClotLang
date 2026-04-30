@@ -1,0 +1,104 @@
+---
+title: Introduction to ClotLang
+description: Getting Started with ClotLang
+icon: Rocket
+---
+
+import { CpuIcon, CodeIcon } from 'lucide-react';
+import { Accordion, Accordions } from 'fumadocs-ui/components/accordion';
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+
+## What is ClotLang?
+
+ClotLang is a **multi-paradigm programming language** that primarily follows an imperative/procedural style while incorporating Object-Oriented Programming (OOP) via a ["MVP" (Minimum Viable Product)](/docs/v0.2.0) model featuring classes and interfaces. 
+It also includes light functional programming elements, such as first-class functions.
+
+Technically, the language is versatile in its execution:
+
+<Cards>
+
+<Card icon={<CpuIcon />} title='Execution Modes'>
+
+It can be run through an interpreter for quick execution or compiled [Ahead-of-Time (AOT)]() using an [LLVM](https://llvm.org/) backend to generate executables and object files.
+
+</Card>
+
+<Card icon={<CodeIcon />} title='Typing System'>
+
+Dynamic by default with optional type hints validated at runtime. It includes a static analyzer to catch errors and ensure safety before the code runs.
+
+</Card>
+
+</Cards>
+
+## What problems does it solve?
+
+ClotLang is designed to balance imperative productivity with dynamic flexibility. Specifically, it addresses:
+
+<Accordions type="multiple">
+  <Accordion title="Integer Overflows">By using `int` (BigInt) as the default numeric type, it prevents fixed-range overflow errors that are common in lower-level languages.</Accordion>
+  <Accordion title="Development Safety">The inclusion of a static analyzer and a typed exception system `try/catch/finally` helps developers detect and handle errors early in the development cycle.</Accordion>
+  <Accordion title="Binary Autonomy vs. Size">Through its [Runtime Bridge](), it allows for a balance between native AOT performance and the dynamic features required for complex logic.</Accordion>
+  <Accordion title="Modern Ergonomics">It simplifies common tasks with features like string interpolation, collection helpers (e.g., append, membership tests with in), and defer for resource management.</Accordion>
+</Accordions>
+
+## Who is it for?
+
+They are three primary **Audience Paths**:
+
+<Steps>
+<Step>
+### Application Developers
+Those looking to build software using the language’s core features, standard library, and OOP capabilities.
+</Step>
+<Step>
+### Runtime Contributors
+Developers interested in the internal mechanics, type validations, and contributing to the language's core runtime.
+</Step>
+<Step>
+### Compiler Contributors
+Technical experts focused on the LLVM backend, AOT constraints, and the technical evolution of the compiler and bridge.
+</Step>
+</Steps>
+
+## How to navigate the documentation?
+
+The documentation is structured into specialized sections to help you find information quickly.
+
+<Callout type="info" title="Quick Search">
+  Press <kbd>Ctrl</kbd> + <kbd>K</kbd> anywhere to open the search bar. You can index titles, tables, and even specific code snippets.
+</Callout>
+
+### Key sections
+
+Explore the different pillars of ClotLang through these core modules:
+
+<Cards>
+  <Card 
+    title="Installation" 
+    href="/docs/installation" 
+    description="Setup a consistent environment and the foundation for the language."
+  />
+  <Card 
+    title="Getting Started" 
+    href="/docs/getting-started" 
+    description="Rapid hands-on understanding through minimal working examples."
+  />
+  <Card 
+    title="Language Basics" 
+    href="/docs/basics" 
+    description="Learn the fundamental syntax, semantics, and core constructs."
+  />
+  <Card 
+    title="Reference" 
+    href="/docs/reference" 
+    description="The authoritative specification of syntax, rules, and APIs."
+  />
+</Cards>
+
+<p className="text-sm text-muted-foreground">**Pro Tip:** Use the sidebar on the left to jump directly between modules or specific sub-topics at any time.</p>
+
+
+
+
+

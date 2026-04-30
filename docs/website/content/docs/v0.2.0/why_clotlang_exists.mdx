@@ -1,0 +1,133 @@
+---
+title: Why ClotLang exists
+description: Discover the motivation behind ClotLang and how it aims to revolutionize the way we write high-performance code with safety and ease.
+icon: FileQuestionMark
+---
+
+import { ScaleIcon, ZapIcon, ShieldCheckIcon, CpuIcon, Code2Icon, ArrowRightLeftIcon, ActivitySquare, UserIcon } from 'lucide-react';
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Card, Cards } from 'fumadocs-ui/components/card';
+import { Accordion, Accordions } from 'fumadocs-ui/components/accordion';
+import { Tabs, Tab } from 'fumadocs-ui/components/tabs';
+
+Every programming language is a collection of compromises. ClotLang was born from a desire to eliminate the friction between rapid, dynamic prototyping and safe, high-performance execution. It is built for developers who want the predictable control flow of imperative languages without sacrificing modern developer ergonomics.
+
+If you are evaluating ClotLang for your next project, this page explains the "why" behind the language, the gap it fills, and the trade-offs we consciously accepted.
+
+## The gap it fills
+
+Historically, developers have had to choose between the rapid development cycle of dynamic, interpreted languages (which often struggle with performance and runtime safety) and the strictness of AOT-compiled languages (which carry a high cognitive overhead). 
+
+ClotLang bridges this gap through a **multi-paradigm approach**:
+
+<Cards>
+  <Card 
+    icon={<ZapIcon />} 
+    title="Imperative Productivity" 
+    description="A syntax that feels instantly familiar to C/Java developers, but with modern conveniences like string interpolation and simplified OOP constraints." 
+  />
+  <Card 
+    icon={<ShieldCheckIcon />} 
+    title="Runtime Safety" 
+    description="Eliminates silent failures like fixed-range integer overflows by defaulting to BigInt, while offering a typed exception system." 
+  />
+  <Card 
+    icon={<CpuIcon />} 
+    title="Deployment Flexibility" 
+    description="Run scripts instantly via the interpreter, or compile them Ahead-of-Time (AOT) via LLVM for native performance." 
+  />
+</Cards>
+
+## Design trade-offs
+
+A language that tries to do everything perfectly ends up doing nothing well. Here are the deliberate design decisions we made and what we sacrificed to achieve them.
+
+<Accordions type="single" collapsible>
+  <Accordion title="Dynamic by default vs. Global static guarantees" icon={<ScaleIcon />}>
+    **The Decision:** Bindings in ClotLang are dynamic by default. You are not forced to write type annotations unless you want to enforce a contract (e.g., in a function signature or a strict collection).
+    
+    **The Trade-off:** We prioritized cognitive ease and rapid prototyping over the absolute guarantee that a static compiler provides. While the `--mode analyze` flag catches many errors, ClotLang is fundamentally a dynamic language that enforces its rules at runtime.
+  </Accordion>
+
+  <Accordion title="Mathematical safety vs. Raw memory efficiency" icon={<ActivitySquare />}>
+    **The Decision:** The default numeric type `int` is a dynamic `BigInt`. 
+    
+    **The Trade-off:** By eliminating fixed-range integer overflows (a massive source of security and logic bugs in lower-level languages), we sacrificed the absolute peak CPU efficiency of a standard 32-bit integer. When raw performance and memory layout are critical, developers must consciously opt into using the strict `long` or `byte` types.
+  </Accordion>
+
+  <Accordion title="Binary autonomy vs. Binary size" icon={<ArrowRightLeftIcon />}>
+    **The Decision:** ClotLang relies on a **Runtime Bridge** to handle complex dynamic features (`switch`, `for-each`, `defer`, and the `in` operator) when compiling via LLVM AOT.
+    
+    **The Trade-off:** You get the speed of LLVM for your core logic without losing the language's most expressive features. The sacrifice is that your final compiled executable will be larger, as it must bundle the bridge to handle these dynamic dispatch scenarios.
+  </Accordion>
+</Accordions>
+
+## Language philosophy: Why do these features exist?
+
+To understand ClotLang, you must understand the reasoning behind its core mechanics.
+
+<Tabs items={['Interpreter + LLVM', 'Two-Phase Typing', 'Deferred Execution']}>
+  <Tab value="Interpreter + LLVM">
+    ### Why support both execution modes?
+    
+    The development lifecycle has two distinct phases: **creation** and **deployment**. 
+    
+    * **Interpreter Mode (`--mode interpret`):** Optimized for creation. It is dynamic, immediate, and forgiving. You can write a `.clot` file and see the output instantly.
+    * **Compile Mode (`--mode compile`):** Optimized for deployment. It lowers your code to LLVM IR, statically enforces stricter rules, and produces a standalone binary for distribution.
+    
+    We built both because forcing developers to compile an AOT binary just to test a 10-line script is a waste of time, but running a production server purely on an interpreter wastes CPU cycles.
+  </Tab>
+
+  <Tab value="Two-Phase Typing">
+    ### Why separate container validation from inner typing?
+    
+    ClotLang introduces [**Two-Phase Typing**](/docs/v0.2.0/why_to_phase_typing) for collections (`list`, `map`, `object`, etc.) to give you progressive strictness.
+    
+    1.  **Phase 1 (Container):** You just need a list. You don't care what's in it yet. `list bucket = [1, "two"];`
+    2.  **Phase 2 (Inner Enforcement):** You are building a strict data pipeline and need a guarantee. `list<int> ids = [1, 2, 3];`
+    
+    This exists because not every array needs to be strictly typed, but when you *do* need the safety (like passing a dataset to a critical function), the language provides it without forcing you to change paradigms.
+  </Tab>
+
+  <Tab value="Deferred Execution">
+    ### Why does `defer` exist?
+    
+    Resource leaks (forgetting to close a file or release a lock) are notoriously hard to track down in complex control flows.
+    
+    Instead of relying on clunky `try/finally` blocks for every minor cleanup, or depending on unpredictable garbage collector finalizers, `defer` guarantees that a simple statement runs exactly when the block exits—in strict LIFO order. It exists to provide **predictable, localized cleanup** right next to the allocation.
+  </Tab>
+</Tabs>
+
+
+
+## The ClotLang Developer
+
+Ultimately, ClotLang is designed for the pragmatic developer. 
+
+If you are tired of fighting the borrow checker in Rust just to write a simple CLI tool, but you are equally frustrated by the silent `undefined is not a function` errors in JavaScript, ClotLang offers a middle ground. 
+
+<div className="relative overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-b from-primary/5 to-transparent p-6 md:p-10 my-10">
+  
+  <h3 className="text-xl font-semibold mb-6 mt-0">Why I built this</h3>
+  
+  <div className="space-y-4 text-muted-foreground leading-relaxed">
+    <p> I’ve always been fascinated by the idea of systems and programs that, despite being fundamental, aren’t often explored by most programmers, such as compilers, operating systems, or embedded systems. A programmer usually starts by asking, “How do I program in this language?” I started by asking, “How was this language programmed?” I’ve always been interested in what’s behind many of the tools we have available today as developers. That’s why I started this project to study and learn how a language works and, in the process, create my own. When you write a couple of lines of code just to print “Hello World,” you don’t realize the number of procedures, structures, and algorithms behind it.  </p>
+    <p> I’m curious to understand where things come from, not just how they’re used but how they work, and that’s where the motivation comes from to create something new and innovative with my own ideas. Building ClotLang went from being a personal learning experiment to becoming a truly functional language. I imagine that many of those who have developed a programming language, including the creators of the biggest ones, at the time of developing it, once thought, "This is the language I would like to use to solve real problems.” We know that technology advances, and programming languages are part of that; that’s why there will never be a perfect language, but rather languages that evolve to better adapt to the needs of each era. </p>
+    <p> My goal isn’t to create a language that has everything, but rather to shape one that, by focusing on the essentials, can inspire ideas, solve real-world problems, and leave a lasting impression on those who use it, so that one day, another developer, like me, will be inspired to create their own programming language. </p>
+  </div>
+
+  <div className="flex items-center gap-4 mt-8 pt-6 border-t border-primary/10">
+    <div className="h-12 w-12 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden">
+      <UserIcon className="h-6 w-6 text-primary" />
+    </div>
+    <div>
+      <div className="font-semibold text-foreground">Julián Clot</div>
+      <div className="text-sm text-muted-foreground">Creator of ClotLang</div>
+    </div>
+  </div>
+</div>
+
+
+<Callout type="tip" title="The guiding principle">
+  **Explicit is better than implicit, but boilerplate is the enemy.** We require you to initialize every binding (no empty `int x;` declarations) and explicitly use `null` if you mean "no value". In return, we give you string interpolation, built-in helpers, and a syntax that gets out of your way.
+</Callout>
