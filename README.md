@@ -166,6 +166,9 @@ tests/llvm_smoke.sh ./build/wsl-release/clot
 # Full local check and benchmarks
 scripts/check.sh
 benchmarks/baseline.sh ./build/wsl-release/clot
+
+# Run
+./build/wsl-release/clot test.clot --lang es
 ```
 
 ---
