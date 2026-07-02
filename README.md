@@ -5,7 +5,7 @@
 
   [![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](#) 
   [![License](https://img.shields.io/badge/license-MIT-blue)](#) 
-  [![Version](https://img.shields.io/badge/version-v0.2.0-lightgrey)](#)
+  [![Version](https://img.shields.io/badge/version-v0.3.0-lightgrey)](#)
 </div>
 
 
@@ -53,8 +53,8 @@ clot program.clot
 <summary><strong>Advanced Installation and Uninstallation Options</strong></summary>
 
 **Pin a specific version:**
-* Linux/macOS: `CLOT_VERSION=v0.2.0 curl ...`
-* Windows: `$env:CLOT_VERSION="v0.2.0"; iwr ...`
+* Linux/macOS: `CLOT_VERSION=v0.3.0 curl ...`
+* Windows: `$env:CLOT_VERSION="v0.3.0"; iwr ...`
 
 **Uninstall:**
 * Linux/macOS: `bash scripts/uninstall.sh`
