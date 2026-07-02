@@ -8,6 +8,10 @@ if [[ ! -x "$BIN_PATH" ]]; then
     exit 1
 fi
 
+# The CLI now defaults to English, but the verbose messages checked below are
+# asserted in Spanish. Pin this suite to Spanish so those checks keep matching.
+export CLOT_LANG=es
+
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
