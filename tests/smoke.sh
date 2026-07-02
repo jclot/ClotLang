@@ -8,6 +8,13 @@ if [[ ! -x "$BIN_PATH" ]]; then
     exit 1
 fi
 
+# The CLI now defaults to English, but most assertions below were authored
+# against the Spanish messages. Pin the suite to Spanish so those default
+# invocations keep matching; tests that check English override this per-run
+# with `CLOT_LANG=en` / `--lang en`, and the default-language behavior is
+# covered explicitly via `env -u CLOT_LANG` further down.
+export CLOT_LANG=es
+
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -339,6 +346,36 @@ if ! grep -q "Unhandled Exception: RuntimeError: fatal" "$TMP_DIR/uncaught_throw
     cat "$TMP_DIR/uncaught_throw_en.err" >&2
     exit 1
 fi
+
+# Default language (no CLOT_LANG, no --lang) must be English.
+set +e
+env -u CLOT_LANG "$BIN_PATH" "$TMP_DIR/uncaught_throw.clot" \
+    >"$TMP_DIR/uncaught_throw_default.out" 2>"$TMP_DIR/uncaught_throw_default.err"
+STATUS_UNCAUGHT_THROW_DEFAULT=$?
+set -e
+
+if [[ "$STATUS_UNCAUGHT_THROW_DEFAULT" -eq 0 ]]; then
+    echo "Fallo test uncaught_throw_default: se esperaba fallo de ejecucion." >&2
+    exit 1
+fi
+
+if ! grep -q "Unhandled Exception: RuntimeError: fatal" "$TMP_DIR/uncaught_throw_default.err"; then
+    echo "Fallo test uncaught_throw_default: el idioma por defecto debe ser ingles." >&2
+    echo "stderr actual:" >&2
+    cat "$TMP_DIR/uncaught_throw_default.err" >&2
+    exit 1
+fi
+
+# `clot --version` and `clot -v` print the version.
+for version_flag in --version -v; do
+    VERSION_OUT="$(env -u CLOT_LANG "$BIN_PATH" "$version_flag")"
+    if ! grep -qE '^clot [0-9]+\.[0-9]+\.[0-9]+' <<<"$VERSION_OUT"; then
+        echo "Fallo test version ($version_flag): salida inesperada." >&2
+        echo "stdout actual:" >&2
+        printf '%s\n' "$VERSION_OUT" >&2
+        exit 1
+    fi
+done
 
 cat > "$TMP_DIR/long_near_max_ok.clot" <<'PROG'
 long value = 9223372036854775800;
