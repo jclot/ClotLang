@@ -10,7 +10,7 @@ namespace clot::runtime {
 
 namespace {
 
-std::atomic<Language> g_language(Language::Spanish);
+std::atomic<Language> g_language(Language::English);
 
 bool StartsWith(const std::string& text, const std::string& prefix) {
     return text.size() >= prefix.size() && text.compare(0, prefix.size(), prefix) == 0;

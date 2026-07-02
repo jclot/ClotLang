@@ -26,9 +26,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Dedicated `.` (dot) token** in the tokenizer, improving decimal/float
   literal handling (`1.0`) and member access parsing.
 - **Multiline `return`** support and additional collection ergonomics.
+- **`clot --version` / `clot -v`** print the CLI version (sourced from the
+  CMake project version).
 
 ### Changed
 
+- **English is now the default CLI language.** Help text and diagnostics print
+  in English out of the box; pass `--lang es` or set `CLOT_LANG=es` for Spanish.
 - **Expression parser** reworked for more robust member access and call
   chaining (`factory().build().run()`).
 - **Call dispatch** now supports an argument offset, fixing `this` binding and

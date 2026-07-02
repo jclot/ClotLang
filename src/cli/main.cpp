@@ -15,6 +15,10 @@
 #include "clot/runtime/env.hpp"
 #include "clot/runtime/i18n.hpp"
 
+#ifndef CLOT_VERSION
+#define CLOT_VERSION "0.3.0"
+#endif
+
 namespace {
 
 enum class RunMode {
@@ -25,12 +29,17 @@ enum class RunMode {
 
 struct CliOptions {
     bool show_help = false;
+    bool show_version = false;
     bool verbose = false;
     std::string input_path;
     RunMode mode = RunMode::Interpret;
-    clot::runtime::Language language = clot::runtime::Language::Spanish;
+    clot::runtime::Language language = clot::runtime::Language::English;
     clot::codegen::CompileOptions compile_options;
 };
+
+void PrintVersion() {
+    std::cout << "clot " << CLOT_VERSION << "\n";
+}
 
 void PrintHelp() {
     if (clot::runtime::GetLanguage() == clot::runtime::Language::English) {
@@ -40,6 +49,7 @@ void PrintHelp() {
             << "  clot [file.clot] [options]\n\n"
             << "Options:\n"
             << "  -h, --help               Show this help\n"
+            << "  -v, --version            Show the clot version\n"
             << "  --mode interpret|compile|analyze Run in interpreter, LLVM compiler or static analyzer mode\n"
             << "  --emit exe|obj|ir        Output type in compile mode\n"
             << "  -o, --output <file>      Output path in compile mode\n"
@@ -61,6 +71,7 @@ void PrintHelp() {
         << "  clot [archivo.clot] [opciones]\n\n"
         << "Opciones:\n"
         << "  -h, --help               Muestra esta ayuda\n"
+        << "  -v, --version            Muestra la version de clot\n"
         << "  --mode interpret|compile|analyze Ejecuta en modo interprete, compilador LLVM o analizador estatico\n"
         << "  --emit exe|obj|ir        Tipo de salida en modo compile\n"
         << "  -o, --output <archivo>   Ruta de salida en modo compile\n"
@@ -455,6 +466,11 @@ bool ParseArgs(int argc, char* argv[], CliOptions* out_options, std::string* out
             continue;
         }
 
+        if (arg == "-v" || arg == "--version") {
+            out_options->show_version = true;
+            continue;
+        }
+
         if (arg == "--verbose") {
             out_options->verbose = true;
             out_options->compile_options.verbose = true;
@@ -576,11 +592,11 @@ bool ParseArgs(int argc, char* argv[], CliOptions* out_options, std::string* out
         }
     }
 
-    if (out_options->input_path.empty() && !out_options->show_help) {
+    if (out_options->input_path.empty() && !out_options->show_help && !out_options->show_version) {
         out_options->input_path = FindDefaultInput();
     }
 
-    if (out_options->input_path.empty() && !out_options->show_help) {
+    if (out_options->input_path.empty() && !out_options->show_help && !out_options->show_version) {
         *out_error = clot::runtime::Tr(
             "No se encontro archivo .clot de entrada.",
             "No input .clot file was found.");
@@ -614,6 +630,11 @@ int main(int argc, char* argv[]) {
     }
 
     clot::runtime::SetLanguage(options.language);
+
+    if (options.show_version) {
+        PrintVersion();
+        return 0;
+    }
 
     if (options.show_help) {
         PrintHelp();

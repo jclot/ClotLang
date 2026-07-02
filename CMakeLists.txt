@@ -14,6 +14,8 @@ add_executable(clot ${CLOT_SOURCES})
 
 target_include_directories(clot PRIVATE include)
 
+target_compile_definitions(clot PRIVATE CLOT_VERSION="${PROJECT_VERSION}")
+
 if(MSVC)
     target_compile_options(clot PRIVATE /W4 /permissive-)
 else()
