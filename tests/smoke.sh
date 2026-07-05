@@ -1715,4 +1715,62 @@ if ! grep -q "Runtime error: Operator 'in' requires list, tuple, set, map, objec
     exit 1
 fi
 
+# Regression: the bundled standard library must resolve relative to the
+# installed binary (not just from an ancestor `clot/` folder), so `import
+# clot.core.exceptions;` works after a normal install regardless of the
+# working directory or CLI language. We build a minimal install layout
+# (<inst>/bin/clot + <inst>/lib/clot/...) and run a script from a directory
+# that has no `clot/` ancestor.
+INSTALL_DIR="$TMP_DIR/install_layout"
+INSTALL_BIN="$INSTALL_DIR/bin"
+INSTALL_LIB_EXC="$INSTALL_DIR/lib/clot/core/exceptions"
+mkdir -p "$INSTALL_BIN" "$INSTALL_LIB_EXC"
+cp "$BIN_PATH" "$INSTALL_BIN/clot"
+chmod +x "$INSTALL_BIN/clot"
+cp "$REPO_ROOT/clot/core/exceptions/exceptions.clot" "$INSTALL_LIB_EXC/exceptions.clot"
+
+# Isolated project dir OUTSIDE $TMP_DIR (which already contains a `clot/` from
+# earlier tests) so ancestor resolution cannot mask a binary-relative failure.
+ISOLATED_DIR="$(mktemp -d)"
+trap 'rm -rf "$TMP_DIR" "$ISOLATED_DIR"' EXIT
+cat > "$ISOLATED_DIR/installed_import.clot" <<'PROG'
+import clot.core.exceptions;
+
+try:
+    throw(ValueError("installed-stdlib"));
+catch(RuntimeError err):
+    println(err.message);
+endtry
+PROG
+
+EXPECTED_INSTALLED_IMPORT=$'installed-stdlib'
+ACTUAL_INSTALLED_IMPORT="$(cd "$ISOLATED_DIR" && "$INSTALL_BIN/clot" ./installed_import.clot)"
+if [[ "$ACTUAL_INSTALLED_IMPORT" != "$EXPECTED_INSTALLED_IMPORT" ]]; then
+    echo "Fallo test installed_stdlib_import (binary-relative resolution)" >&2
+    echo "Esperado:" >&2
+    printf '%s\n' "$EXPECTED_INSTALLED_IMPORT" >&2
+    echo "Actual:" >&2
+    printf '%s\n' "$ACTUAL_INSTALLED_IMPORT" >&2
+    exit 1
+fi
+
+# The same must hold in English (the default) — the stdlib is language-agnostic.
+ACTUAL_INSTALLED_IMPORT_EN="$(cd "$ISOLATED_DIR" && env -u CLOT_LANG "$INSTALL_BIN/clot" ./installed_import.clot)"
+if [[ "$ACTUAL_INSTALLED_IMPORT_EN" != "$EXPECTED_INSTALLED_IMPORT" ]]; then
+    echo "Fallo test installed_stdlib_import_default_lang" >&2
+    echo "Actual:" >&2
+    printf '%s\n' "$ACTUAL_INSTALLED_IMPORT_EN" >&2
+    exit 1
+fi
+
+# CLOT_HOME override must also expose the stdlib.
+CLOT_HOME_DIR="$INSTALL_DIR"
+ACTUAL_INSTALLED_IMPORT_HOME="$(cd / && CLOT_HOME="$CLOT_HOME_DIR" "$INSTALL_BIN/clot" "$ISOLATED_DIR/installed_import.clot")"
+if [[ "$ACTUAL_INSTALLED_IMPORT_HOME" != "$EXPECTED_INSTALLED_IMPORT" ]]; then
+    echo "Fallo test installed_stdlib_import_clot_home" >&2
+    echo "Actual:" >&2
+    printf '%s\n' "$ACTUAL_INSTALLED_IMPORT_HOME" >&2
+    exit 1
+fi
+
 echo "Smoke tests OK"

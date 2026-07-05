@@ -51,6 +51,21 @@ try {
   New-Item -ItemType Directory -Path $BinDir -Force | Out-Null
   Copy-Item -Path $Bin.FullName -Destination (Join-Path $BinDir "clot.exe") -Force
 
+  # Install the bundled standard library so `import clot.core.exceptions;` and
+  # friends resolve from anywhere. The binary looks for it at <InstallDir>\lib\clot.
+  $LibSrc = Get-ChildItem -Path $ExtractDir -Recurse -Directory |
+    Where-Object { $_.FullName -match "[\\/]lib[\\/]clot$" } | Select-Object -First 1
+  if ($LibSrc) {
+    $LibDest = Join-Path $InstallDir "lib"
+    New-Item -ItemType Directory -Path $LibDest -Force | Out-Null
+    $ClotLibDest = Join-Path $LibDest "clot"
+    if (Test-Path $ClotLibDest) { Remove-Item -Path $ClotLibDest -Recurse -Force }
+    Copy-Item -Path $LibSrc.FullName -Destination $ClotLibDest -Recurse -Force
+    Write-Host "Standard library: $ClotLibDest"
+  } else {
+    Write-Warning "Bundled standard library not found in the archive; 'import clot.*' may not resolve."
+  }
+
   $PathValue = [Environment]::GetEnvironmentVariable("Path", "User")
   $PathParts = @()
   if ($PathValue) { $PathParts = $PathValue -split ";" }

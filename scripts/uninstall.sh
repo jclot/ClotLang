@@ -48,6 +48,12 @@ else
   echo "Not found: $target"
 fi
 
+lib_dir="$PREFIX/lib/clot"
+if [[ -d "$lib_dir" ]]; then
+  rm -rf "$lib_dir"
+  echo "Removed: $lib_dir"
+fi
+
 if [[ -d "$BIN_DIR" ]]; then
   if [[ -z "$(ls -A "$BIN_DIR" 2>/dev/null || true)" ]]; then
     rmdir "$BIN_DIR" 2>/dev/null || true

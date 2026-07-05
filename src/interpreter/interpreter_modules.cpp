@@ -10,6 +10,7 @@
 
 #include "clot/frontend/parser.hpp"
 #include "clot/frontend/source_loader.hpp"
+#include "clot/runtime/paths.hpp"
 
 namespace clot::interpreter {
 
@@ -215,7 +216,13 @@ bool Interpreter::ExecuteModuleFile(const std::filesystem::path& module_path,
 
 std::filesystem::path Interpreter::ResolveModulePath(const std::string& module_name) const {
     const std::filesystem::path current_dir = CurrentModuleBaseDir();
-    const std::vector<std::filesystem::path> search_roots = CollectAncestorRoots(current_dir);
+    std::vector<std::filesystem::path> search_roots = CollectAncestorRoots(current_dir);
+    // Fall back to the installed standard library (relative to the binary or
+    // CLOT_HOME) so imports resolve outside a project checkout. Appended last so
+    // local project files always take precedence.
+    for (const auto& install_root : runtime::StdlibSearchRoots()) {
+        AddUniqueCandidate(&search_roots, install_root);
+    }
     std::vector<std::filesystem::path> candidates;
     const auto relative_candidates = DotPathToRelativeCandidates(module_name);
 

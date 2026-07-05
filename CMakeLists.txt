@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(ClotProgrammingLanguage VERSION 0.3.0 LANGUAGES C CXX)
+project(ClotProgrammingLanguage VERSION 0.3.1 LANGUAGES C CXX)
 
 option(CLOT_ENABLE_LLVM "Enable LLVM compilation backend" ON)
 
@@ -54,3 +54,8 @@ if(CLOT_ENABLE_LLVM)
 endif()
 
 install(TARGETS clot RUNTIME DESTINATION bin)
+
+# Bundle the standard library so `import clot.core.exceptions;` (and friends)
+# resolve after a normal install. The binary discovers it relative to itself
+# (see clot::runtime::StdlibSearchRoots), i.e. <prefix>/lib/clot.
+install(DIRECTORY clot DESTINATION lib FILES_MATCHING PATTERN "*.clot")

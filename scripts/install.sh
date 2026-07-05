@@ -115,6 +115,18 @@ cp "$bin_path" "$BIN_DIR/clot"
 chmod +x "$BIN_DIR/clot"
 
 echo "Installed: $BIN_DIR/clot"
+
+# Install the bundled standard library so `import clot.core.exceptions;` and
+# friends resolve from anywhere. The binary looks for it at <prefix>/lib/clot.
+lib_src="$(find "$extract_dir" -type d -path '*/lib/clot' 2>/dev/null | head -n 1 || true)"
+if [[ -n "$lib_src" ]]; then
+  mkdir -p "$PREFIX/lib"
+  rm -rf "$PREFIX/lib/clot"
+  cp -R "$lib_src" "$PREFIX/lib/clot"
+  echo "Standard library: $PREFIX/lib/clot"
+else
+  echo "Warning: bundled standard library not found in the archive; 'import clot.*' may not resolve." >&2
+fi
 if ! echo ":$PATH:" | grep -q ":$BIN_DIR:"; then
   echo "Warning: $BIN_DIR is not on PATH."
   echo "Add it with: export PATH=\"$BIN_DIR:\$PATH\""

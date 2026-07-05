@@ -5,6 +5,25 @@ All notable changes to the Clot Programming Language are documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2026-07-05
+
+### Fixed
+
+- **The bundled standard library now resolves after a normal install.**
+  Previously, imports such as `import clot.core.exceptions;` only worked when a
+  `clot/` folder happened to sit in a parent directory of the script, so a
+  freshly installed `clot` could not find the exceptions library (or any other
+  bundled module). The interpreter and analyzer now also look for the standard
+  library relative to the `clot` binary — at `<prefix>/lib/clot` — and honor a
+  `CLOT_HOME` environment variable, independent of the current working
+  directory and of the CLI language.
+
+### Changed
+
+- Release archives now ship the standard library alongside the binary (under
+  `lib/clot`), and both installers (`install.sh` / `install.ps1`) place it at
+  `<prefix>/lib/clot`. The `cmake --install` step installs it there too.
+
 ## [0.3.0] - 2026-07-02
 
 ### Added
@@ -65,5 +84,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`try`/`catch`/`finally`), `defer`, string interpolation, and multi-file
   module imports.
 
+[0.3.1]: https://github.com/jclot/ClotLang/releases/tag/v0.3.1
 [0.3.0]: https://github.com/jclot/ClotLang/releases/tag/v0.3.0
 [0.2.0]: https://github.com/jclot/ClotLang/releases/tag/v0.2.0

@@ -14,9 +14,10 @@
 #include "clot/interpreter/interpreter.hpp"
 #include "clot/runtime/env.hpp"
 #include "clot/runtime/i18n.hpp"
+#include "clot/runtime/paths.hpp"
 
 #ifndef CLOT_VERSION
-#define CLOT_VERSION "0.3.0"
+#define CLOT_VERSION "0.3.1"
 #endif
 
 namespace {
@@ -217,7 +218,12 @@ std::vector<std::filesystem::path> CollectAncestorRoots(const std::filesystem::p
 
 std::filesystem::path ResolveModulePathForAnalyze(const std::string& module_name,
                                                   const std::filesystem::path& current_module_dir) {
-    const std::vector<std::filesystem::path> search_roots = CollectAncestorRoots(current_module_dir);
+    std::vector<std::filesystem::path> search_roots = CollectAncestorRoots(current_module_dir);
+    // Also consult the installed standard library (binary-relative / CLOT_HOME)
+    // so `analyze` resolves stdlib imports the same way the interpreter does.
+    for (const auto& install_root : clot::runtime::StdlibSearchRoots()) {
+        AddUniqueCandidate(&search_roots, install_root);
+    }
     std::vector<std::filesystem::path> candidates;
     const auto relative_candidates = DotPathToRelativeCandidates(module_name);
 

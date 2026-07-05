@@ -39,7 +39,8 @@ bool RuntimeBridgeSourcesExist(
     const std::filesystem::path& interpreter_builtins_source,
     const std::filesystem::path& interpreter_state_source,
     const std::filesystem::path& interpreter_modules_source,
-    const std::filesystem::path& i18n_source) {
+    const std::filesystem::path& i18n_source,
+    const std::filesystem::path& paths_source) {
     return std::filesystem::exists(bridge_source) &&
            std::filesystem::exists(external_bridge_source) &&
            std::filesystem::exists(parser_core_source) &&
@@ -51,7 +52,8 @@ bool RuntimeBridgeSourcesExist(
            std::filesystem::exists(interpreter_builtins_source) &&
            std::filesystem::exists(interpreter_state_source) &&
            std::filesystem::exists(interpreter_modules_source) &&
-           std::filesystem::exists(i18n_source);
+           std::filesystem::exists(i18n_source) &&
+           std::filesystem::exists(paths_source);
 }
 
 }  // namespace
@@ -87,6 +89,7 @@ bool LinkExecutable(
         const std::filesystem::path interpreter_state_source = root / "src" / "interpreter" / "interpreter_state.cpp";
         const std::filesystem::path interpreter_modules_source = root / "src" / "interpreter" / "interpreter_modules.cpp";
         const std::filesystem::path i18n_source = root / "src" / "runtime" / "i18n.cpp";
+        const std::filesystem::path paths_source = root / "src" / "runtime" / "paths.cpp";
 
         const bool use_external_bridge = options.runtime_bridge_mode == CompileOptions::RuntimeBridgeMode::External;
         if (use_external_bridge) {
@@ -106,7 +109,8 @@ bool LinkExecutable(
                        interpreter_builtins_source,
                        interpreter_state_source,
                        interpreter_modules_source,
-                       i18n_source)) {
+                       i18n_source,
+                       paths_source)) {
             *out_error = "No se encontraron archivos fuente para runtime bridge LLVM en: " + root.string();
             return false;
         }
@@ -132,6 +136,7 @@ bool LinkExecutable(
             command += QuoteForShell(interpreter_state_source.string()) + " ";
             command += QuoteForShell(interpreter_modules_source.string()) + " ";
             command += QuoteForShell(i18n_source.string()) + " ";
+            command += QuoteForShell(paths_source.string()) + " ";
         }
         command += "-o " + QuoteForShell(executable_path);
     } else {

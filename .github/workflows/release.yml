@@ -53,6 +53,7 @@ jobs:
           PKG_DIR="dist/package/clot-${{ matrix.os_name }}-${{ matrix.arch }}"
           mkdir -p "$PKG_DIR"
           cp dist/install/bin/clot "$PKG_DIR/"
+          cp -R dist/install/lib "$PKG_DIR/lib"
           cp LICENSE.txt "$PKG_DIR/"
           tar -czf "dist/clot-${{ matrix.os_name }}-${{ matrix.arch }}.tar.gz" -C dist/package "clot-${{ matrix.os_name }}-${{ matrix.arch }}"
           if command -v sha256sum >/dev/null 2>&1; then
@@ -68,6 +69,7 @@ jobs:
           $pkgDir = "dist/package/clot-${{ matrix.os_name }}-${{ matrix.arch }}"
           New-Item -ItemType Directory -Force -Path $pkgDir | Out-Null
           Copy-Item "dist/install/bin/clot.exe" "$pkgDir/clot.exe" -Force
+          Copy-Item "dist/install/lib" "$pkgDir/lib" -Recurse -Force
           Copy-Item "LICENSE.txt" "$pkgDir/LICENSE.txt" -Force
           $zipPath = "dist/clot-${{ matrix.os_name }}-${{ matrix.arch }}.zip"
           Compress-Archive -Path "$pkgDir/*" -DestinationPath $zipPath -Force

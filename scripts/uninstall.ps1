@@ -20,6 +20,12 @@ if (Test-Path $Target) {
   Write-Host "Not found: $Target"
 }
 
+$LibDir = Join-Path (Join-Path $InstallDir "lib") "clot"
+if (Test-Path $LibDir) {
+  Remove-Item -Path $LibDir -Recurse -Force
+  Write-Host "Removed: $LibDir"
+}
+
 $PathValue = [Environment]::GetEnvironmentVariable("Path", "User")
 if ($PathValue) {
   $Parts = $PathValue -split ";"
