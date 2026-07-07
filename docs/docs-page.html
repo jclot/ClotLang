@@ -1899,7 +1899,8 @@ list&lt;int&gt; ids = [1, 2, 3];          // tipado interno fuerte
                                         <td><code>import modulo;</code>, <code>import modulo as alias;</code>,
                                             <code>from modulo import simbolo;</code>,
                                             <code>from modulo import simbolo as alias;</code></td>
-                                        <td>Soporta modulo completo, alias y symbol import directo</td>
+                                        <td>Modulo completo (namespace por ultimo segmento o alias, mas simbolos
+                                            sueltos), o symbol import directo</td>
                                     </tr>
                                     <tr>
                                         <td>Enum</td>
@@ -3410,10 +3411,23 @@ import clot.core.helpers;
 import clot.core.exceptions;
 
 // 1) Import de modulo completo
+//    Expone el modulo como namespace de acceso por punto usando su ULTIMO
+//    segmento (scripts.math -> math), y ademas deja los simbolos accesibles
+//    sin calificar.
 import scripts.math;
+println(math.add(4, 5));   // via namespace
+println(add(2, 3));        // via simbolo suelto
+
+// Para un modulo de un solo segmento, el namespace es su propio nombre:
+import inventario;
+b0 = inventario.Inventory(5);   // via namespace
+b1 = Inventory(9);              // via simbolo suelto
 
 // 2) Import de modulo con alias
-import scripts.math as math;
+//    Igual que (1), pero el namespace se llama como el alias (util para
+//    renombrar o evitar colisiones de nombre).
+import scripts.math as m;
+println(m.add(4, 5));
 
 // 3) Import directo de simbolo
 from scripts.math import add;
@@ -3421,15 +3435,18 @@ from scripts.math import add;
 // 4) Import directo de simbolo con alias
 from scripts.math import Box as Caja;
 
-println(add(2, 3));
-println(math.add(4, 5));
-
 a = Caja(7);
-b = math.Box(9);
+b = m.Box(9);
 println(a.value + b.value);
 </code></pre>
                         <div class="docs-callout">
-                            Si el modulo no tiene extension, el runtime busca <code>.clot</code> automaticamente.
+                            Un <code>import modulo;</code> (con o sin alias) hace dos cosas: (a) expone el
+                            modulo como objeto de acceso por punto &mdash; su nombre es el ultimo segmento
+                            (<code>scripts.math</code> &rarr; <code>math</code>) o el alias si lo indicas
+                            &mdash; y (b) fusiona los simbolos publicos del modulo (clases, funciones,
+                            variables) en el ambito actual, disponibles sin calificar. Usa
+                            <code>from modulo import simbolo;</code> para traer un unico simbolo. Si el
+                            modulo no tiene extension, el runtime busca <code>.clot</code> automaticamente.
                         </div>
                     </section>
                     <section class="docs-section" id="item-packages-resolution-order">

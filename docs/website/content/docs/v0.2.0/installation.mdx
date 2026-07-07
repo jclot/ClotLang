@@ -137,7 +137,7 @@ Both installers accept environment variables to pin a version or change the inst
   <Tab value="Linux / macOS">
     ```bash
     # Pin a specific release
-    CLOT_VERSION=v0.3.2 curl -fsSL https://raw.githubusercontent.com/jclot/ClotLang/master/scripts/install.sh | bash
+    CLOT_VERSION=v0.3.3 curl -fsSL https://raw.githubusercontent.com/jclot/ClotLang/master/scripts/install.sh | bash
 
     # Install to a custom prefix
     CLOT_PREFIX=/opt/clot curl -fsSL https://raw.githubusercontent.com/jclot/ClotLang/master/scripts/install.sh | bash
@@ -146,7 +146,7 @@ Both installers accept environment variables to pin a version or change the inst
   <Tab value="Windows (PowerShell)">
     ```powershell
     # Pin a specific release
-    $env:CLOT_VERSION="v0.3.2"; iwr -useb https://raw.githubusercontent.com/jclot/ClotLang/master/scripts/install.ps1 | iex
+    $env:CLOT_VERSION="v0.3.3"; iwr -useb https://raw.githubusercontent.com/jclot/ClotLang/master/scripts/install.ps1 | iex
 
     # Install to a custom directory
     $env:CLOT_INSTALL_DIR="C:\Tools\Clot"; iwr -useb https://raw.githubusercontent.com/jclot/ClotLang/master/scripts/install.ps1 | iex
@@ -259,7 +259,7 @@ Confirm that `clot` is on your `PATH` and responds:
 clot --version
 ```
 
-You should see the version printed, e.g. `clot 0.3.2`. For the full list of modes (`interpret`, `compile`, `analyze`) and flags, run `clot --help`. If you built from source without adding the binary to your `PATH`, call it directly instead:
+You should see the version printed, e.g. `clot 0.3.3`. For the full list of modes (`interpret`, `compile`, `analyze`) and flags, run `clot --help`. If you built from source without adding the binary to your `PATH`, call it directly instead:
 
 ```bash
 ./build/wsl-release/clot --version

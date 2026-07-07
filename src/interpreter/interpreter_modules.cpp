@@ -20,6 +20,17 @@ bool StartsWithPrefix(const std::string& text, const std::string& prefix) {
     return text.size() >= prefix.size() && text.compare(0, prefix.size(), prefix) == 0;
 }
 
+// Namespace handle for a dotted module name: `scripts.math` -> `math`,
+// `inventario` -> `inventario`. Used so a plain `import mod;` exposes the module
+// as a dot-access object, symmetric with `import mod as alias;`.
+std::string LastDottedSegment(const std::string& module_name) {
+    const std::size_t separator = module_name.find_last_of('.');
+    if (separator == std::string::npos) {
+        return module_name;
+    }
+    return module_name.substr(separator + 1);
+}
+
 std::filesystem::path WithClotExtension(std::filesystem::path path) {
     if (path.extension().empty()) {
         path += ".clot";
@@ -298,23 +309,35 @@ runtime::Value Interpreter::BuildModuleAliasValue(const ModuleExports& exports) 
 bool Interpreter::BindImportedSymbol(const frontend::ImportStmt& import_statement,
                                      const ModuleExports& exports,
                                      std::string* out_error) {
-    if (import_statement.style == frontend::ImportStmt::Style::Module) {
-        return true;
-    }
-
-    if (import_statement.style == frontend::ImportStmt::Style::ModuleAlias) {
-        if (import_statement.alias_name.empty()) {
-            *out_error = "Alias de modulo invalido en import.";
-            return false;
+    // A whole-module import (with or without alias) exposes the module as a
+    // dot-access namespace object. With `as alias` the handle is the alias; a
+    // plain `import a.b.c;` uses the last dotted segment (`c`). In both cases the
+    // module's top-level symbols are also merged into the current scope (that
+    // happens while the module executes), so unqualified access keeps working.
+    if (import_statement.style == frontend::ImportStmt::Style::Module ||
+        import_statement.style == frontend::ImportStmt::Style::ModuleAlias) {
+        std::string namespace_name;
+        if (import_statement.style == frontend::ImportStmt::Style::ModuleAlias) {
+            if (import_statement.alias_name.empty()) {
+                *out_error = "Alias de modulo invalido en import.";
+                return false;
+            }
+            namespace_name = import_statement.alias_name;
+        } else {
+            namespace_name = LastDottedSegment(import_statement.module_name);
+            if (namespace_name.empty()) {
+                // Nothing sensible to bind; symbols remain available unqualified.
+                return true;
+            }
         }
 
-        environment_[import_statement.alias_name] = runtime::VariableSlot{
+        environment_[namespace_name] = runtime::VariableSlot{
             BuildModuleAliasValue(exports),
             runtime::VariableKind::Dynamic,
         };
 
         std::vector<std::string> stale_aliases;
-        const std::string class_alias_prefix = import_statement.alias_name + ".";
+        const std::string class_alias_prefix = namespace_name + ".";
         for (const auto& class_alias : class_aliases_) {
             if (StartsWithPrefix(class_alias.first, class_alias_prefix)) {
                 stale_aliases.push_back(class_alias.first);

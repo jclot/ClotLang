@@ -288,6 +288,45 @@ if [[ "$ACTUAL_IMPORT_CACHE_REUSE" != "$EXPECTED_IMPORT_CACHE_REUSE" ]]; then
     exit 1
 fi
 
+# A plain `import mod;` (no alias) now also exposes the module as a dot-access
+# namespace object, symmetric with `import mod as alias;`. The handle is the
+# last dotted segment (`scripts.math` -> `math`, `inventario` -> `inventario`),
+# and the module's symbols stay available unqualified (backward compatible).
+cat > "$TMP_DIR/project_root/apps/deep/nested/inventario.clot" <<'PROG'
+class Inventory:
+    public int total = 0;
+
+    constructor(total):
+        this.total = total;
+    endconstructor
+endclass
+PROG
+
+cat > "$TMP_DIR/project_root/apps/deep/nested/import_namespace_no_alias.clot" <<'PROG'
+import scripts.math;
+import inventario;
+
+# dotted plain import: accessible under its last segment
+println(math.add(4, 5));
+println(math.Box(7).value);
+# single-segment plain import: accessible under its own name
+println(inventario.Inventory(11).total);
+# flat symbols remain available (backward compatible)
+println(add(2, 3));
+println(Inventory(9).total);
+PROG
+
+EXPECTED_IMPORT_NAMESPACE_NO_ALIAS=$'9\n7\n11\n5\n9'
+ACTUAL_IMPORT_NAMESPACE_NO_ALIAS="$($BIN_PATH "$TMP_DIR/project_root/apps/deep/nested/import_namespace_no_alias.clot")"
+if [[ "$ACTUAL_IMPORT_NAMESPACE_NO_ALIAS" != "$EXPECTED_IMPORT_NAMESPACE_NO_ALIAS" ]]; then
+    echo "Fallo test import_namespace_no_alias" >&2
+    echo "Esperado:" >&2
+    printf '%s\n' "$EXPECTED_IMPORT_NAMESPACE_NO_ALIAS" >&2
+    echo "Actual:" >&2
+    printf '%s\n' "$ACTUAL_IMPORT_NAMESPACE_NO_ALIAS" >&2
+    exit 1
+fi
+
 cat > "$TMP_DIR/i18n_en_error.clot" <<'PROG'
 print(unknown_var);
 PROG

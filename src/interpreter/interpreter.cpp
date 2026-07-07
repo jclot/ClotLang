@@ -539,11 +539,13 @@ bool Interpreter::ExecuteStatement(const frontend::Statement& statement, std::st
             return false;
         }
 
-        if (import_stmt->style == frontend::ImportStmt::Style::Module) {
-            return true;
-        }
-
+        // The special runtime `math` module exposes builtins, not an importable
+        // exports object: `import math;` simply enables them, and it cannot be
+        // aliased or symbol-imported.
         if (module_id == "math") {
+            if (import_stmt->style == frontend::ImportStmt::Style::Module) {
+                return true;
+            }
             *out_error = "Import directo/alias para 'math' no soportado; use 'import math;'.";
             return false;
         }

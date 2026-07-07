@@ -5,6 +5,20 @@ All notable changes to the Clot Programming Language are documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.3] - 2026-07-07
+
+### Fixed
+
+- **A plain `import mod;` now exposes the module as a dot-access namespace,**
+  symmetric with `import mod as alias;`. Previously only the aliased form created
+  a namespace object, so `import inventario;` followed by `inventario.Inventory()`
+  failed with `Undefined variable: inventario`, even though `import inventario as
+  inv;` made `inv.Inventory()` work. Now both forms bind a namespace object — the
+  handle is the module's last dotted segment (`scripts.math` → `math`,
+  `inventario` → `inventario`) or the alias when given. The module's public
+  symbols remain available unqualified in both cases, so existing code keeps
+  working.
+
 ## [0.3.2] - 2026-07-07
 
 ### Changed
@@ -106,6 +120,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`try`/`catch`/`finally`), `defer`, string interpolation, and multi-file
   module imports.
 
+[0.3.3]: https://github.com/jclot/ClotLang/releases/tag/v0.3.3
 [0.3.2]: https://github.com/jclot/ClotLang/releases/tag/v0.3.2
 [0.3.1]: https://github.com/jclot/ClotLang/releases/tag/v0.3.1
 [0.3.0]: https://github.com/jclot/ClotLang/releases/tag/v0.3.0
