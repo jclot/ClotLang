@@ -1,5 +1,11 @@
-import { defineConfig, defineDocs } from 'fumadocs-mdx/config';
+import {
+  defineConfig,
+  defineDocs,
+  defineCollections,
+  frontmatterSchema,
+} from 'fumadocs-mdx/config';
 import { metaSchema, pageSchema } from 'fumadocs-core/source/schema';
+import { z } from 'zod';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
@@ -24,6 +30,16 @@ export const docs = defineDocs({
   meta: {
     schema: metaSchema,
   },
+});
+
+export const blog = defineCollections({
+  type: 'doc',
+  dir: 'content/blog',
+  schema: frontmatterSchema.extend({
+    author: z.string(),
+    date: z.coerce.date(),
+    tag: z.string().optional(),
+  }),
 });
 
 export default defineConfig({

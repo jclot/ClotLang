@@ -19,14 +19,14 @@ export function baseOptions(): BaseLayoutProps {
         text: 'Documentation',
         items: [
           {
-            text: 'Getting Started',
-            description: 'Learn the basics of ClotLang',
+            text: 'Overview',
+            description: 'Start here — what ClotLang is and how to read the docs',
             url: '/docs',
           },
           {
-            text: 'API Reference',
-            description: 'Explore all available APIs',
-            url: '/docs/api',
+            text: 'Setup Guide',
+            description: 'Install ClotLang or build it from source',
+            url: '/docs',
           },
         ],
       },

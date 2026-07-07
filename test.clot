@@ -1,7 +1,6 @@
 import clot.science.calculus.dual;
 import math;
 
-
 func Dual f(x: Dual):
     term1 = x.exp(x.powf(2.0)).mul(x.log(x.powf(3.0).add(to_dual(1.0))));
 

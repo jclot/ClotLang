@@ -1,0 +1,65 @@
+---
+title: Announcing ClotLang 0.3.0
+description: Abstract classes and methods, protected visibility, user-defined types in annotations, and a brand-new automatic differentiation library.
+author: Julian Clot
+date: 2026-07-02
+tag: Release
+---
+
+ClotLang 0.3.0 is here. This release deepens the object-oriented core of the
+language, makes the type system more expressive, and ships the first piece of a
+scientific standard library.
+
+## Abstract classes and methods
+
+You can now mark both classes and methods as `abstract`. An abstract method
+declares a contract with an empty body, and every concrete subclass must
+implement it before it can be instantiated.
+
+```clot title="shapes.clot"
+abstract class Shape:
+    abstract func Float area():
+endclass
+
+class Circle(Shape):
+    Float r;
+
+    func Circle(r: Float):
+        this.r = r;
+    endfunc
+
+    func Float area():
+        return 3.14159 * this.r * this.r;
+    endfunc
+endclass
+```
+
+The analyzer enforces the rules for you: a concrete class cannot declare
+abstract methods, an abstract method cannot be `private` or `static`, and an
+abstract class cannot be instantiated.
+
+## `protected` visibility
+
+`protected` is now a first-class member modifier alongside `public` and
+`private`, so subclasses can share state without exposing it to the outside
+world.
+
+## User-defined types in annotations
+
+Type annotations accept your own class names, not just the built-in types:
+
+```clot
+func Dual f(x: Dual):
+    return x.mul(x);
+endfunc
+```
+
+## Automatic differentiation
+
+The new `clot.science.calculus.dual` module brings dual numbers to the standard
+library, with `differentiate(f)` and `differentiate_at(f, x)` helpers built on
+top of a full `Dual` arithmetic surface.
+
+Head over to the [changelog](https://github.com/jclot/ClotLang/blob/master/CHANGELOG.md)
+for the complete list, or jump straight to the [Setup Guide](/docs/v0.2.0/installation)
+to try it out.

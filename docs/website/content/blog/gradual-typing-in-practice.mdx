@@ -1,0 +1,47 @@
+---
+title: Gradual typing, in practice
+description: Start untyped, add annotations exactly where they earn their keep, and let the static analyzer catch mistakes before your code runs.
+author: Julian Clot
+date: 2026-04-08
+tag: Language
+---
+
+ClotLang is dynamically typed by default, but types are always within reach.
+The idea is simple: write code quickly without ceremony, then add annotations
+where they make the program clearer or safer.
+
+## Start without types
+
+```clot
+name = "world";
+println("Hi, {name}");
+```
+
+No declarations, no boilerplate — just run it.
+
+## Add types where they help
+
+As a function grows or crosses a module boundary, annotations document intent
+and let the analyzer verify your assumptions:
+
+```clot
+func Int add(a: Int, b: Int):
+    return a + b;
+endfunc
+```
+
+Annotations now accept your own class types too, so the same mechanism scales
+from primitives all the way to your domain model.
+
+## The analyzer has your back
+
+Run the static analyzer to catch type mismatches and structural mistakes before
+execution:
+
+```bash
+clot program.clot --mode analyze
+```
+
+Gradual typing means you never pay for types you did not ask for, and you never
+lose the option to add them. Read more about the reasoning in
+[Why Two-Phase Typing exists](/docs/v0.2.0/why_to_phase_typing).

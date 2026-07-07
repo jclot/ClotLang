@@ -1,0 +1,106 @@
+---
+title: First Run
+description: Write and run your first ClotLang program to confirm your toolchain works end to end.
+icon: Play
+---
+
+import { PlayIcon, FileCodeIcon, TerminalIcon, CheckIcon, RocketIcon } from 'lucide-react';
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Card, Cards } from 'fumadocs-ui/components/card';
+import { Tabs, Tab } from 'fumadocs-ui/components/tabs';
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+
+This page has exactly one goal: **run a single `.clot` file and see its output.** That is the fastest way to prove your installation works before you dive into the language itself.
+
+<Callout type="info" title="Before you start">
+  Make sure `clot` is installed and on your `PATH`. If `clot --help` does not print a usage banner, go back to the <a href="/docs/v0.2.0/installation">Setup Guide</a> first.
+</Callout>
+
+---
+
+## Run your first program
+
+<Steps>
+  <Step>
+    ### Create a file
+
+    Save the following as `hello.clot`:
+
+    ```clot title="hello.clot"
+    println("Hello from ClotLang!");
+
+    name = "world";
+    println("Interpolation works: {name}");
+
+    sum = 0;
+    for i in range(5):
+        sum += i;
+    endfor
+    println("0 + 1 + 2 + 3 + 4 = {sum}");
+    ```
+  </Step>
+  <Step>
+    ### Run it
+
+    From the same directory, run the file through the interpreter:
+
+    ```bash
+    clot hello.clot
+    ```
+
+    <Callout type="info" title="Built from source?">
+      If you did not add `clot` to your `PATH`, call the binary directly, e.g. `./build/wsl-release/clot hello.clot`.
+    </Callout>
+  </Step>
+  <Step>
+    ### Confirm the output
+
+    You should see exactly this:
+
+    ```text
+    Hello from ClotLang!
+    Interpolation works: world
+    0 + 1 + 2 + 3 + 4 = 10
+    ```
+  </Step>
+</Steps>
+
+<Callout type="success" title="That's it your toolchain works!">
+  If those three lines printed, ClotLang is installed correctly and running. You are ready to learn the language.
+</Callout>
+
+---
+
+## Optional: run in English
+
+ClotLang's interface and diagnostics are internationalized. Switch the language for a single run with `--lang`, or set `CLOT_LANG` for your whole session:
+
+<Tabs items={['Per run', 'Whole session']}>
+  <Tab value="Per run">
+    ```bash
+    clot hello.clot --lang en
+    ```
+  </Tab>
+  <Tab value="Whole session">
+    ```bash
+    CLOT_LANG=en clot hello.clot
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+## Where to go next
+
+<Cards>
+  <Card
+    title="Getting Started"
+    href="/docs/v0.2.0/getting-started"
+    description="Build real understanding through minimal, hands-on examples."
+  />
+  <Card
+    title="Language Basics"
+    href="/docs/v0.2.0/basics"
+    description="Learn the fundamental syntax, semantics, and core constructs."
+  />
+</Cards>

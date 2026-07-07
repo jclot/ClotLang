@@ -8,13 +8,15 @@ import {
 } from 'fumadocs-ui/layouts/home/navbar';
 import Link from 'fumadocs-core/link';
 import {
+  ArrowRightIcon,
   BookOpenIcon,
-  CodeIcon,
-  FileTextIcon,
-  PlusIcon,
+  CompassIcon,
+  DownloadIcon,
+  PlayIcon,
   RssIcon,
+  ScaleIcon,
+  SparklesIcon,
   TagIcon,
-  ZapIcon,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { getLatestDocsVersion } from '@/lib/docs-versions';
@@ -35,9 +37,39 @@ function NavIcon({
   };
   const s = styles[color];
   return (
-    <div className={`mb-2.5 flex size-8 items-center justify-center rounded-lg ring-1 ${s.bg} ${s.ring}`}>
-      <Icon className={`size-4 ${s.text}`} />
+    <div className={`mb-3 flex size-9 items-center justify-center rounded-lg ring-1 transition-transform group-hover:scale-105 ${s.bg} ${s.ring}`}>
+      <Icon className={`size-4.5 ${s.text}`} />
     </div>
+  );
+}
+
+/** A compact link row used inside the dropdown, styled like fumadocs' menus. */
+function MenuRow({
+  href,
+  icon: Icon,
+  color,
+  title,
+  description,
+  className,
+}: {
+  href: string;
+  icon: React.ElementType;
+  color: 'violet' | 'sky' | 'emerald' | 'rose' | 'amber';
+  title: string;
+  description: string;
+  className?: string;
+}) {
+  return (
+    <NavbarMenuLink href={href} className={`group ${className ?? ''}`}>
+      <NavIcon icon={Icon} color={color} />
+      <p className="flex items-center gap-1 text-sm font-medium text-fd-foreground">
+        {title}
+        <ArrowRightIcon className="size-3 -translate-x-1 opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100" />
+      </p>
+      <p className="mt-0.5 text-xs leading-relaxed text-fd-muted-foreground">
+        {description}
+      </p>
+    </NavbarMenuLink>
   );
 }
 
@@ -54,11 +86,11 @@ export default function Layout({ children }: { children: ReactNode }) {
           on: 'menu',
           text: 'Documentation',
           items: [
-            { text: 'Getting Started', url: `/docs/${v}`,            icon: <BookOpenIcon /> },
-            { text: 'Language Guide',  url: `/docs/${v}/guide`,      icon: <FileTextIcon /> },
-            { text: 'API Reference',   url: `/docs/${v}/api`,        icon: <CodeIcon />     },
-            { text: 'Quick Start',     url: `/docs/${v}/quickstart`, icon: <ZapIcon />      },
-            { text: 'Installation',    url: `/docs/${v}/install`,    icon: <PlusIcon />     },
+            { text: 'Overview',           url: `/docs/${v}`,                      icon: <BookOpenIcon /> },
+            { text: 'Setup Guide',        url: `/docs/${v}/installation`,         icon: <DownloadIcon /> },
+            { text: 'First Run',          url: `/docs/${v}/first_run`,            icon: <PlayIcon />     },
+            { text: 'Why ClotLang',       url: `/docs/${v}/why_clotlang_exists`,  icon: <SparklesIcon /> },
+            { text: 'Design Trade-offs',  url: `/docs/${v}/design_trade_offs`,    icon: <ScaleIcon />    },
           ],
         },
         {
@@ -66,8 +98,8 @@ export default function Layout({ children }: { children: ReactNode }) {
           on: 'menu',
           text: 'Blog',
           items: [
-            { text: 'All Posts', url: '/blog',          icon: <RssIcon /> },
-            { text: 'Releases',  url: '/blog/releases', icon: <TagIcon /> },
+            { text: 'All Posts', url: '/blog',                                icon: <RssIcon /> },
+            { text: 'Releases',  url: '/blog/introducing-clotlang-0-3-0',     icon: <TagIcon /> },
           ],
         },
 
@@ -81,69 +113,73 @@ export default function Layout({ children }: { children: ReactNode }) {
                 <Link href={`/docs/${v}`}>Documentation</Link>
               </NavbarMenuTrigger>
 
-              <NavbarMenuContent>
+              <NavbarMenuContent className="grid-cols-2 lg:grid-cols-3">
 
-                {/* Hero card — col 1, row-span-2 */}
-                <NavbarMenuLink href={`/docs/${v}`} className="md:row-span-2 group">
-                  <div className="-mx-3 -mt-3 mb-3 overflow-hidden rounded-t-lg h-36 relative bg-fd-primary/5 dark:bg-fd-primary/10">
+                {/* Hero card — spans the first column across both rows */}
+                <NavbarMenuLink href={`/docs/${v}`} className="group md:row-span-2 md:flex md:flex-col">
+                  <div className="-mx-3 -mt-3 mb-3 h-40 overflow-hidden rounded-t-lg relative bg-gradient-to-br from-fd-primary/15 via-fd-primary/5 to-transparent">
                     <svg
-                      className="absolute inset-0 w-full h-full opacity-30 dark:opacity-20"
+                      className="absolute inset-0 h-full w-full opacity-40 dark:opacity-25"
                       xmlns="http://www.w3.org/2000/svg"
                     >
                       <defs>
-                        <pattern id="dots-doc" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
-                          <circle cx="2" cy="2" r="1.5" className="fill-fd-primary" />
+                        <pattern id="grid-doc" x="0" y="0" width="22" height="22" patternUnits="userSpaceOnUse">
+                          <path d="M22 0H0V22" fill="none" className="stroke-fd-primary" strokeWidth="0.5" />
                         </pattern>
                       </defs>
-                      <rect width="100%" height="100%" fill="url(#dots-doc)" />
+                      <rect width="100%" height="100%" fill="url(#grid-doc)" />
                     </svg>
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="flex size-14 items-center justify-center rounded-2xl bg-fd-primary/10 ring-1 ring-fd-primary/20 backdrop-blur-sm group-hover:bg-fd-primary/15 transition-colors">
-                        <BookOpenIcon className="size-7 text-fd-primary" />
+                      <div className="flex size-16 items-center justify-center rounded-2xl bg-fd-primary/10 ring-1 ring-fd-primary/20 backdrop-blur-sm transition-all group-hover:scale-105 group-hover:bg-fd-primary/15">
+                        <CompassIcon className="size-8 text-fd-primary" />
                       </div>
                     </div>
                   </div>
-                  <p className="font-semibold text-sm text-fd-foreground">Getting Started</p>
-                  <p className="text-fd-muted-foreground text-xs leading-relaxed mt-1">
-                    Build your first ClotLang project from scratch.
+                  <p className="flex items-center gap-1 text-sm font-semibold text-fd-foreground">
+                    Overview
+                    <ArrowRightIcon className="size-3 -translate-x-1 opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100" />
+                  </p>
+                  <p className="mt-1 text-xs leading-relaxed text-fd-muted-foreground">
+                    Start here — what ClotLang is, how to read the docs, and where
+                    to go next.
                   </p>
                 </NavbarMenuLink>
 
-                {/* col 2, row 1 */}
-                <NavbarMenuLink href={`/docs/${v}/guide`} className="lg:col-start-2 group">
-                  <NavIcon icon={FileTextIcon} color="violet" />
-                  <p className="font-medium text-sm text-fd-foreground">Language Guide</p>
-                  <p className="text-fd-muted-foreground text-xs leading-relaxed mt-0.5">
-                    Syntax, types and core concepts.
-                  </p>
-                </NavbarMenuLink>
+                {/* col 2 */}
+                <MenuRow
+                  href={`/docs/${v}/installation`}
+                  icon={DownloadIcon}
+                  color="emerald"
+                  title="Setup Guide"
+                  description="Install on Linux, macOS, or Windows, or build from source."
+                  className="lg:col-start-2"
+                />
+                <MenuRow
+                  href={`/docs/${v}/first_run`}
+                  icon={PlayIcon}
+                  color="amber"
+                  title="First Run"
+                  description="Run your first .clot file and confirm the toolchain works."
+                  className="lg:col-start-2"
+                />
 
-                {/* col 2, row 2 */}
-                <NavbarMenuLink href={`/docs/${v}/quickstart`} className="lg:col-start-2 group">
-                  <NavIcon icon={ZapIcon} color="amber" />
-                  <p className="font-medium text-sm text-fd-foreground">Quick Start</p>
-                  <p className="text-fd-muted-foreground text-xs leading-relaxed mt-0.5">
-                    Up and running in under 5 minutes.
-                  </p>
-                </NavbarMenuLink>
-
-                {/* col 3, row 1 */}
-                <NavbarMenuLink href={`/docs/${v}/api`} className="lg:col-start-3 lg:row-start-1 group">
-                  <NavIcon icon={CodeIcon} color="sky" />
-                  <p className="font-medium text-sm text-fd-foreground">API Reference</p>
-                  <p className="text-fd-muted-foreground text-xs leading-relaxed mt-0.5">
-                    Built-in functions and types.
-                  </p>
-                </NavbarMenuLink>
-
-                {/* col 3, row 2 */}
-                <NavbarMenuLink href={`/docs/${v}/install`} className="lg:col-start-3 lg:row-start-2 group">
-                  <NavIcon icon={PlusIcon} color="emerald" />
-                  <p className="font-medium text-sm text-fd-foreground">Installation</p>
-                  <p className="text-fd-muted-foreground text-xs leading-relaxed mt-0.5">
-                    Add ClotLang to any project.
-                  </p>
-                </NavbarMenuLink>
+                {/* col 3 */}
+                <MenuRow
+                  href={`/docs/${v}/why_clotlang_exists`}
+                  icon={SparklesIcon}
+                  color="violet"
+                  title="Why ClotLang"
+                  description="The philosophy and goals behind the language."
+                  className="lg:col-start-3 lg:row-start-1"
+                />
+                <MenuRow
+                  href={`/docs/${v}/design_trade_offs`}
+                  icon={ScaleIcon}
+                  color="sky"
+                  title="Design Trade-offs"
+                  description="The deliberate choices that shape how ClotLang feels."
+                  className="lg:col-start-3 lg:row-start-2"
+                />
 
               </NavbarMenuContent>
             </NavbarMenu>
@@ -160,47 +196,54 @@ export default function Layout({ children }: { children: ReactNode }) {
                 <Link href="/blog">Blog</Link>
               </NavbarMenuTrigger>
 
-              <NavbarMenuContent>
+              <NavbarMenuContent className="grid-cols-2">
 
-                {/* Hero card — col 1, row-span-2 */}
-                <NavbarMenuLink href="/blog" className="md:row-span-2 group">
-                  <div className="-mx-3 -mt-3 mb-3 overflow-hidden rounded-t-lg h-28 relative bg-rose-500/5 dark:bg-rose-400/10">
+                {/* Hero card */}
+                <NavbarMenuLink href="/blog" className="group md:row-span-2 md:flex md:flex-col">
+                  <div className="-mx-3 -mt-3 mb-3 h-32 overflow-hidden rounded-t-lg relative bg-gradient-to-br from-rose-500/15 via-rose-500/5 to-transparent">
                     <svg
-                      className="absolute inset-0 w-full h-full opacity-30 dark:opacity-20"
+                      className="absolute inset-0 h-full w-full opacity-40 dark:opacity-25"
                       xmlns="http://www.w3.org/2000/svg"
                     >
                       <defs>
-                        <pattern id="dots-blog" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
-                          <circle cx="2" cy="2" r="1.5" className="fill-rose-500" />
+                        <pattern id="grid-blog" x="0" y="0" width="22" height="22" patternUnits="userSpaceOnUse">
+                          <path d="M22 0H0V22" fill="none" className="stroke-rose-500" strokeWidth="0.5" />
                         </pattern>
                       </defs>
-                      <rect width="100%" height="100%" fill="url(#dots-blog)" />
+                      <rect width="100%" height="100%" fill="url(#grid-blog)" />
                     </svg>
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="flex size-12 items-center justify-center rounded-2xl bg-rose-500/10 ring-1 ring-rose-500/20 backdrop-blur-sm group-hover:bg-rose-500/15 transition-colors">
-                        <RssIcon className="size-6 text-rose-500 dark:text-rose-400" />
+                      <div className="flex size-14 items-center justify-center rounded-2xl bg-rose-500/10 ring-1 ring-rose-500/20 backdrop-blur-sm transition-all group-hover:scale-105 group-hover:bg-rose-500/15">
+                        <RssIcon className="size-7 text-rose-500 dark:text-rose-400" />
                       </div>
                     </div>
                   </div>
-                  <p className="font-semibold text-sm text-fd-foreground">All Posts</p>
-                  <p className="text-fd-muted-foreground text-xs leading-relaxed mt-1">
-                    News, tutorials and updates about ClotLang.
+                  <p className="flex items-center gap-1 text-sm font-semibold text-fd-foreground">
+                    All Posts
+                    <ArrowRightIcon className="size-3 -translate-x-1 opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100" />
+                  </p>
+                  <p className="mt-1 text-xs leading-relaxed text-fd-muted-foreground">
+                    News, tutorials, and updates about ClotLang.
                   </p>
                 </NavbarMenuLink>
 
-                {/* col 2, row 1 */}
-                {/* <NavbarMenuLink href="/blog/releases" className="lg:col-start-2 group">
-                  <div className="flex items-center gap-2 mb-2.5">
-                    <NavIcon icon={TagIcon} color="rose" />
-                    <span className="rounded-full bg-fd-primary/10 px-2 py-0.5 text-[10px] font-medium text-fd-primary -mt-1">
-                      New
-                    </span>
-                  </div>
-                  <p className="font-medium text-sm text-fd-foreground">Releases</p>
-                  <p className="text-fd-muted-foreground text-xs leading-relaxed mt-0.5">
-                    Version announcements and changelogs.
-                  </p>
-                </NavbarMenuLink> */}
+                {/* col 2 */}
+                <MenuRow
+                  href="/blog/introducing-clotlang-0-3-0"
+                  icon={TagIcon}
+                  color="rose"
+                  title="Releases"
+                  description="Version announcements and changelogs."
+                  className="lg:col-start-2"
+                />
+                <MenuRow
+                  href={`/docs/${v}`}
+                  icon={BookOpenIcon}
+                  color="violet"
+                  title="Documentation"
+                  description="Jump straight into the reference guides."
+                  className="lg:col-start-2"
+                />
 
               </NavbarMenuContent>
             </NavbarMenu>

@@ -1,0 +1,40 @@
+---
+title: One language, two execution modes
+description: Why ClotLang ships both an interpreter for instant feedback and an LLVM backend for native performance — and when to reach for each.
+author: Julian Clot
+date: 2026-05-20
+tag: Design
+---
+
+Most languages make you choose up front: the fast-to-iterate scripting world,
+or the compile-to-native performance world. ClotLang refuses that trade-off and
+gives you both from a single toolchain.
+
+## The interpreter is the default
+
+When you run `clot file.clot`, the interpreter executes your program directly.
+There is no build step, no project scaffolding, and no waiting. This is the
+right mode for learning the language, writing small scripts, and iterating on
+ideas.
+
+```bash
+clot hello.clot
+```
+
+## The LLVM backend is one flag away
+
+When you need real performance or a standalone binary, switch to compile mode:
+
+```bash
+clot program.clot --mode compile --emit exe -o program
+```
+
+The same source, the same semantics — now lowered through LLVM to a native
+executable.
+
+## Why this matters
+
+Keeping both paths in one language means the mental model never changes as your
+program grows. You start in the interpreter, and the day you need native speed,
+nothing about your code has to change. That continuity is a core part of what
+[ClotLang is trying to be](/docs/v0.2.0/why_clotlang_exists).

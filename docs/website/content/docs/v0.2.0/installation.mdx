@@ -1,0 +1,300 @@
+---
+title: Setup Guide
+description: Install ClotLang on Linux, macOS, or Windows, build from source with CMake, and verify your toolchain in minutes.
+icon: Download
+---
+
+import { TerminalIcon, DownloadIcon, HammerIcon, CheckIcon, XIcon, CpuIcon, BoxIcon, PackageIcon, ShieldCheckIcon, AppleIcon, MonitorIcon } from 'lucide-react';
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Card, Cards } from 'fumadocs-ui/components/card';
+import { Tabs, Tab } from 'fumadocs-ui/components/tabs';
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+import { Accordion, Accordions } from 'fumadocs-ui/components/accordion';
+
+Getting ClotLang onto your machine takes a single command. This guide walks you through the fastest path (a prebuilt binary), then the full-featured path (building from source with the LLVM backend), and finishes with a command to confirm everything works.
+
+<Callout type="info" title="Two ways to install">
+  Most people should start with the **prebuilt binary** it is a one-liner and gives you the interpreter immediately. Only [build from source](#build-from-source-cmake) if you need the `--mode compile` LLVM backend, which is not bundled with release binaries.
+</Callout>
+
+---
+
+## System requirements
+
+<Cards>
+  <Card icon={<MonitorIcon />} title="Linux">
+    Ubuntu 24.04+ recommended (native or WSL2). Any modern x86_64 or arm64 distribution works for the prebuilt binary.
+  </Card>
+  <Card icon={<AppleIcon />} title="macOS">
+    macOS on Apple Silicon (arm64) or Intel (x86_64).
+  </Card>
+  <Card icon={<MonitorIcon />} title="Windows">
+    Windows 10/11 (x86_64 or arm64) via PowerShell. For the compiler backend, use Ubuntu on WSL2.
+  </Card>
+</Cards>
+
+### Dependency checklist
+
+The **prebuilt binary needs nothing but a shell** the interpreter is self-contained. You only need the tools below if you plan to build from source.
+
+<div className="my-8 overflow-hidden rounded-2xl border border-border">
+  <table className="m-0 w-full text-sm">
+    <thead>
+      <tr className="bg-muted/50">
+        <th className="text-left p-3 font-medium">Dependency</th>
+        <th className="text-left p-3 font-medium">Version</th>
+        <th className="text-left p-3 font-medium">Needed for</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr className="border-t border-border">
+        <td className="p-3"><code>curl</code> or <code>wget</code></td>
+        <td className="p-3">any</td>
+        <td className="p-3">Downloading the installer (Linux/macOS)</td>
+      </tr>
+      <tr className="border-t border-border">
+        <td className="p-3"><code>cmake</code></td>
+        <td className="p-3">3.20+</td>
+        <td className="p-3">Building from source</td>
+      </tr>
+      <tr className="border-t border-border">
+        <td className="p-3"><code>ninja</code> / <code>make</code></td>
+        <td className="p-3">any</td>
+        <td className="p-3">Build generator (Ninja recommended)</td>
+      </tr>
+      <tr className="border-t border-border">
+        <td className="p-3">A C++20 compiler</td>
+        <td className="p-3">GCC 11+ / Clang 14+ / MSVC 2022+</td>
+        <td className="p-3">Building from source</td>
+      </tr>
+      <tr className="border-t border-border">
+        <td className="p-3">LLVM / Clang + <code>lld</code></td>
+        <td className="p-3">any recent</td>
+        <td className="p-3">The <code>--mode compile</code> AOT backend (optional)</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<Callout type="warn" title="LLVM is optional">
+  If LLVM is not found, ClotLang still builds and runs everything works in interpreter mode, and `--mode compile` is simply disabled. You do not need LLVM to learn the language.
+</Callout>
+
+---
+
+## Quick install (prebuilt binary)
+
+Pick your operating system. The installer downloads the latest release, drops the `clot` binary into a per-user directory, and adds it to your `PATH`.
+
+<Tabs items={['Linux / macOS', 'Windows (PowerShell)']}>
+  <Tab value="Linux / macOS">
+    <Steps>
+      <Step>
+        ### Run the installer
+
+        Installs to `~/.local/bin`:
+
+        ```bash
+        curl -fsSL https://raw.githubusercontent.com/jclot/ClotLang/master/scripts/install.sh | bash
+        ```
+      </Step>
+      <Step>
+        ### Make sure it is on your PATH
+
+        The installer warns you if `~/.local/bin` is not on your `PATH`. If so, add it to your shell profile:
+
+        ```bash
+        export PATH="$HOME/.local/bin:$PATH"
+        ```
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab value="Windows (PowerShell)">
+    <Steps>
+      <Step>
+        ### Run the installer
+
+        Installs to `%LOCALAPPDATA%\Clot\bin` and updates your user `PATH` automatically:
+
+        ```powershell
+        iwr -useb https://raw.githubusercontent.com/jclot/ClotLang/master/scripts/install.ps1 | iex
+        ```
+      </Step>
+      <Step>
+        ### Restart your terminal
+
+        Close and reopen PowerShell so the updated `PATH` takes effect before running `clot`.
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>
+
+### Installer options
+
+Both installers accept environment variables to pin a version or change the install location.
+
+<Tabs items={['Linux / macOS', 'Windows (PowerShell)']}>
+  <Tab value="Linux / macOS">
+    ```bash
+    # Pin a specific release
+    CLOT_VERSION=v0.3.1 curl -fsSL https://raw.githubusercontent.com/jclot/ClotLang/master/scripts/install.sh | bash
+
+    # Install to a custom prefix
+    CLOT_PREFIX=/opt/clot curl -fsSL https://raw.githubusercontent.com/jclot/ClotLang/master/scripts/install.sh | bash
+    ```
+  </Tab>
+  <Tab value="Windows (PowerShell)">
+    ```powershell
+    # Pin a specific release
+    $env:CLOT_VERSION="v0.3.1"; iwr -useb https://raw.githubusercontent.com/jclot/ClotLang/master/scripts/install.ps1 | iex
+
+    # Install to a custom directory
+    $env:CLOT_INSTALL_DIR="C:\Tools\Clot"; iwr -useb https://raw.githubusercontent.com/jclot/ClotLang/master/scripts/install.ps1 | iex
+    ```
+  </Tab>
+</Tabs>
+
+<Callout type="info" title="What the release binary includes">
+  Release assets (`clot-linux-x86_64.tar.gz`, `clot-macos-arm64.tar.gz`, `clot-windows-x86_64.zip`) ship the **interpreter only**. For the LLVM `--mode compile` backend, [build from source](#build-from-source-cmake).
+</Callout>
+
+<Accordions type="single">
+  <Accordion title="Verify the download checksum (optional)">
+    If you downloaded a release archive manually, you can verify its integrity:
+
+    ```bash
+    # Linux / macOS
+    shasum -a 256 clot-linux-x86_64.tar.gz
+    ```
+
+    ```powershell
+    # Windows
+    Get-FileHash clot-windows-x86_64.zip -Algorithm SHA256
+    ```
+  </Accordion>
+  <Accordion title="Uninstall">
+    ```bash
+    # Linux / macOS
+    bash scripts/uninstall.sh
+    ```
+
+    ```powershell
+    # Windows
+    iwr -useb https://raw.githubusercontent.com/jclot/ClotLang/master/scripts/uninstall.ps1 | iex
+    ```
+  </Accordion>
+</Accordions>
+
+---
+
+## Build from source (CMake)
+
+Building from source gives you the full toolchain, including the LLVM AOT compiler. The recommended flow uses the bundled **`wsl-release` CMake preset**.
+
+<Steps>
+  <Step>
+    ### Clone the repository
+
+    ```bash
+    git clone https://github.com/jclot/ClotLang.git
+    cd ClotLang
+    ```
+  </Step>
+  <Step>
+    ### (Optional) Install LLVM on WSL
+
+    Only needed for `--mode compile`. The script uses `sudo` and will ask for your Ubuntu password:
+
+    ```bash
+    ./scripts/install_llvm_wsl.sh
+    ```
+
+    It installs `clang`, `lld`, `llvm`, `llvm-dev`, and `libclang-dev`.
+  </Step>
+  <Step>
+    ### Configure and build
+
+    <Tabs items={['With presets (recommended)', 'Direct (no presets)']}>
+      <Tab value="With presets (recommended)">
+        ```bash
+        cmake --preset wsl-release
+        cmake --build --preset build-release -j4
+        ```
+
+        Resulting binary: `./build/wsl-release/clot`
+      </Tab>
+      <Tab value="Direct (no presets)">
+        ```bash
+        cmake -S . -B build -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DCLOT_ENABLE_LLVM=ON
+        cmake --build build -j4
+        ```
+
+        Resulting binary: `./build/clot`
+      </Tab>
+    </Tabs>
+  </Step>
+</Steps>
+
+<Callout type="info" title="About the -j flag">
+  `-j4` runs 4 compile jobs in parallel. Use `--parallel` to let CMake pick automatically, or `-j8` for more cores. Plain `cmake --build ...` builds without forcing parallelism.
+</Callout>
+
+<Accordions type="single">
+  <Accordion title="Visual Studio 2026 + WSL">
+    1. Open the repository folder in Visual Studio.
+    2. Select the WSL (Ubuntu) toolchain.
+    3. Use the integrated CMake with the preset or `-DCLOT_ENABLE_LLVM=ON`.
+    4. Build the `clot` target.
+    5. Set debug arguments such as `program.clot --mode compile --emit exe -o program`.
+  </Accordion>
+</Accordions>
+
+---
+
+## Verify your install
+
+Confirm that `clot` is on your `PATH` and responds:
+
+```bash
+clot --version
+```
+
+You should see the version printed, e.g. `clot 0.3.1`. For the full list of modes (`interpret`, `compile`, `analyze`) and flags, run `clot --help`. If you built from source without adding the binary to your `PATH`, call it directly instead:
+
+```bash
+./build/wsl-release/clot --version
+```
+
+<Callout type="info" title="Language">
+  ClotLang's CLI and diagnostics are in **English by default**. Pass `--lang es` on any command (or set `CLOT_LANG=es`) if you prefer Spanish.
+</Callout>
+
+### The bundled standard library
+
+Every release (and the installers) ship the standard library — the `clot.*`
+packages such as `clot.core.exceptions`, `clot.core.helpers`, and the
+`clot.science.*` modules — next to the binary, at `<prefix>/lib/clot`. The
+default prefix is `~/.local` on Linux/macOS and `%LOCALAPPDATA%\Clot` on
+Windows. `clot` locates it relative to its own executable, so imports work from
+**any** directory once installed, regardless of the CLI language:
+
+```clot
+import clot.core.exceptions;
+
+try:
+    throw(ValueError("bad input"));
+catch(RuntimeError err):
+    println(err.message);
+endtry
+```
+
+<Callout type="info" title="Custom stdlib location">
+  Set the `CLOT_HOME` environment variable to point `clot` at a different
+  standard-library prefix (it looks for `clot/`, `lib/clot/`, and `share/clot/`
+  under it). A local `clot/` folder in your project — or any parent directory —
+  still takes precedence, so you can vendor or override modules per project.
+</Callout>
+
+<Callout type="success" title="Installed correctly?">
+  If the version prints, your toolchain is ready. Head to <a href="/docs/v0.2.0/first_run">First Run</a> to execute your first `.clot` program.
+</Callout>
