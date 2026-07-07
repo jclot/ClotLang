@@ -843,6 +843,28 @@ if [[ "$ACTUAL_PRINTF" != "$EXPECTED_PRINTF" ]]; then
     exit 1
 fi
 
+# Configurable precision, width and flags (%.2f, %8.2f, %-8.2f, %08.2f, ...),
+# plus the string-returning format() builtin.
+cat > "$TMP_DIR/printf_precision.clot" <<'PROG'
+printf("%.2f|%.0f|%8.2f|%-8.2f|%08.2f|%+.2f|%.2f\n", 3.14159, 3.7, 3.14159, 3.14159, 3.14159, 3.14159, -3.14159);
+printf("%5d|%-5d|%05d|%.4d\n", 42, 42, 42, 42);
+printf("%.3s|%6s|%-6s|\n", "hello", "hi", "hi");
+println(format("%.2f", 19.5));
+total = format("%.2f", 7.5);
+println(f"Total: {total}");
+PROG
+
+EXPECTED_PRINTF_PRECISION=$'3.14|4|    3.14|3.14    |00003.14|+3.14|-3.14\n   42|42   |00042|0042\nhel|    hi|hi    |\n19.50\nTotal: 7.50'
+ACTUAL_PRINTF_PRECISION="$($BIN_PATH "$TMP_DIR/printf_precision.clot")"
+if [[ "$ACTUAL_PRINTF_PRECISION" != "$EXPECTED_PRINTF_PRECISION" ]]; then
+    echo "Fallo test printf_precision" >&2
+    echo "Esperado:" >&2
+    printf '%s\n' "$EXPECTED_PRINTF_PRECISION" >&2
+    echo "Actual:" >&2
+    printf '%s\n' "$ACTUAL_PRINTF_PRECISION" >&2
+    exit 1
+fi
+
 cat > "$TMP_DIR/bigint_math_core.clot" <<'PROG'
 import math;
 a = 9223372036854775808;

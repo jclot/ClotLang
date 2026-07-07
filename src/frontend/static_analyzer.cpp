@@ -847,6 +847,13 @@ private:
             return ExpressionFacts{TypeHint::Number, false, 0.0};
         }
 
+        if (call.callee == "format") {
+            if (call.arguments.empty()) {
+                AddError(statement_id, "format(format, ...args) requiere al menos 1 argumento.");
+            }
+            return ExpressionFacts{TypeHint::String, false, 0.0};
+        }
+
         if (call.callee == "read_file") {
             if (call.arguments.size() != 1) {
                 AddError(statement_id, "read_file(path) requiere 1 argumento.");

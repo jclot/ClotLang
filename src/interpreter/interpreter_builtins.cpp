@@ -488,6 +488,43 @@ bool WriteStringToFile(const std::string& path, const std::string& text, bool ap
     return true;
 }
 
+// Upper bounds for a conversion's width/precision, to reject pathological
+// specs like "%999999999f" before they allocate huge fields.
+constexpr int kMaxFieldWidth = 8192;
+constexpr int kMaxFieldPrecision = 4096;
+
+std::string SignPrefix(bool negative, bool plus_flag, bool space_flag) {
+    if (negative) {
+        return "-";
+    }
+    if (plus_flag) {
+        return "+";
+    }
+    if (space_flag) {
+        return " ";
+    }
+    return "";
+}
+
+// Pads a value already split into an optional sign and its digits/body to the
+// requested width, honoring left alignment and zero padding (zeros go between
+// the sign and the digits, as in C's printf).
+std::string BuildPaddedField(const std::string& sign, const std::string& body,
+                             int width, bool left_align, bool zero_pad) {
+    const int content = static_cast<int>(sign.size() + body.size());
+    if (content >= width) {
+        return sign + body;
+    }
+    const std::size_t pad_count = static_cast<std::size_t>(width - content);
+    if (left_align) {
+        return sign + body + std::string(pad_count, ' ');
+    }
+    if (zero_pad) {
+        return sign + std::string(pad_count, '0') + body;
+    }
+    return std::string(pad_count, ' ') + sign + body;
+}
+
 bool RenderPrintfFormat(const std::string& format,
                         const std::vector<runtime::Value>& arguments,
                         std::string* out_text,
@@ -516,11 +553,73 @@ bool RenderPrintfFormat(const std::string& format,
             return false;
         }
 
-        const char specifier = format[++i];
-        if (specifier == '%') {
+        // Literal '%%' (no flags/width/precision allowed between the two).
+        if (format[i + 1] == '%') {
             out_text->push_back('%');
+            ++i;
             continue;
         }
+
+        // Parse a C-style conversion spec: %[flags][width][.precision]<spec>.
+        std::size_t cursor = i + 1;
+        bool left_align = false;
+        bool zero_pad = false;
+        bool plus_flag = false;
+        bool space_flag = false;
+        while (cursor < format.size()) {
+            const char flag = format[cursor];
+            if (flag == '-') {
+                left_align = true;
+            } else if (flag == '0') {
+                zero_pad = true;
+            } else if (flag == '+') {
+                plus_flag = true;
+            } else if (flag == ' ') {
+                space_flag = true;
+            } else {
+                break;
+            }
+            ++cursor;
+        }
+
+        int width = 0;
+        while (cursor < format.size() && std::isdigit(static_cast<unsigned char>(format[cursor]))) {
+            width = width * 10 + (format[cursor] - '0');
+            if (width > kMaxFieldWidth) {
+                if (out_error != nullptr) {
+                    *out_error = "printf: ancho de campo excesivo.";
+                }
+                return false;
+            }
+            ++cursor;
+        }
+
+        bool has_precision = false;
+        int precision = 0;
+        if (cursor < format.size() && format[cursor] == '.') {
+            has_precision = true;
+            ++cursor;
+            while (cursor < format.size() && std::isdigit(static_cast<unsigned char>(format[cursor]))) {
+                precision = precision * 10 + (format[cursor] - '0');
+                if (precision > kMaxFieldPrecision) {
+                    if (out_error != nullptr) {
+                        *out_error = "printf: precision excesiva.";
+                    }
+                    return false;
+                }
+                ++cursor;
+            }
+        }
+
+        if (cursor >= format.size()) {
+            if (out_error != nullptr) {
+                *out_error = "printf: formato invalido, '%' sin especificador.";
+            }
+            return false;
+        }
+
+        const char specifier = format[cursor];
+        i = cursor;  // the outer loop's ++i steps past the specifier.
 
         if (argument_index >= arguments.size()) {
             if (out_error != nullptr) {
@@ -533,84 +632,123 @@ bool RenderPrintfFormat(const std::string& format,
         switch (specifier) {
         case 'd':
         case 'i': {
-            bool ok = false;
-            const long long integer = argument.AsInteger(&ok);
-            if (!ok) {
+            BigInt value;
+            if (!argument.AsBigInt(&value)) {
                 if (out_error != nullptr) {
                     *out_error = "printf: %d/%i requiere entero.";
                 }
                 return false;
             }
-            *out_text += std::to_string(integer);
+            const bool negative = value.IsNegative();
+            std::string digits = (negative ? -value : value).ToString();
+            if (has_precision && static_cast<int>(digits.size()) < precision) {
+                digits = std::string(static_cast<std::size_t>(precision) - digits.size(), '0') + digits;
+            }
+            const std::string sign = SignPrefix(negative, plus_flag, space_flag);
+            *out_text += BuildPaddedField(sign, digits, width, left_align, zero_pad && !has_precision);
             break;
         }
         case 'u': {
-            bool ok = false;
-            const long long integer = argument.AsInteger(&ok);
-            if (!ok || integer < 0) {
+            BigInt value;
+            if (!argument.AsBigInt(&value) || value.IsNegative()) {
                 if (out_error != nullptr) {
                     *out_error = "printf: %u requiere entero sin signo (>= 0).";
                 }
                 return false;
             }
-            *out_text += std::to_string(static_cast<unsigned long long>(integer));
+            std::string digits = value.ToString();
+            if (has_precision && static_cast<int>(digits.size()) < precision) {
+                digits = std::string(static_cast<std::size_t>(precision) - digits.size(), '0') + digits;
+            }
+            *out_text += BuildPaddedField("", digits, width, left_align, zero_pad && !has_precision);
             break;
         }
-        case 'f': {
+        case 'f':
+        case 'F':
+        case 'e':
+        case 'E':
+        case 'g':
+        case 'G': {
             bool ok = false;
-            const double number = argument.AsNumber(&ok);
+            double number = argument.AsNumber(&ok);
             if (!ok) {
                 if (out_error != nullptr) {
                     *out_error = "printf: %f requiere valor numerico.";
                 }
                 return false;
             }
+            const bool negative = std::signbit(number);
+            if (negative) {
+                number = -number;
+            }
+            int used_precision = has_precision ? precision : 6;
+
             std::ostringstream stream;
-            stream << std::fixed << std::setprecision(6) << number;
-            *out_text += stream.str();
+            if (specifier == 'e' || specifier == 'E') {
+                stream << std::scientific;
+            } else if (specifier == 'g' || specifier == 'G') {
+                stream << std::defaultfloat;
+                if (used_precision == 0) {
+                    used_precision = 1;  // %g precision 0 means 1 significant digit.
+                }
+            } else {
+                stream << std::fixed;
+            }
+            if (specifier == 'E' || specifier == 'G') {
+                stream << std::uppercase;
+            }
+            stream << std::setprecision(used_precision) << number;
+
+            const std::string sign = SignPrefix(negative, plus_flag, space_flag);
+            *out_text += BuildPaddedField(sign, stream.str(), width, left_align, zero_pad);
             break;
         }
         case 'c': {
-            bool emitted = false;
+            std::string glyph;
             if (argument.IsString()) {
                 const std::string text = argument.ToString();
                 if (text.size() == 1) {
-                    out_text->push_back(text[0]);
-                    emitted = true;
+                    glyph = text;
                 }
             }
-
-            if (!emitted) {
+            if (glyph.empty()) {
                 bool ok = false;
                 const long long integer = argument.AsInteger(&ok);
                 if (ok && integer >= 0 && integer <= 255) {
-                    out_text->push_back(static_cast<char>(static_cast<unsigned char>(integer)));
-                    emitted = true;
+                    glyph = std::string(1, static_cast<char>(static_cast<unsigned char>(integer)));
                 }
             }
-
-            if (!emitted) {
+            if (glyph.empty()) {
                 if (out_error != nullptr) {
                     *out_error = "printf: %c requiere char (string de longitud 1 o entero ASCII 0-255).";
                 }
                 return false;
             }
+            *out_text += BuildPaddedField("", glyph, width, left_align, false);
             break;
         }
-        case 's':
-            *out_text += argument.ToString();
+        case 's': {
+            std::string text = argument.ToString();
+            if (has_precision && static_cast<int>(text.size()) > precision) {
+                text = text.substr(0, static_cast<std::size_t>(precision));
+            }
+            *out_text += BuildPaddedField("", text, width, left_align, false);
             break;
+        }
         case 'x':
         case 'X': {
-            BigInt integer;
-            if (!argument.AsBigInt(&integer) || integer < 0) {
+            BigInt value;
+            if (!argument.AsBigInt(&value) || value.IsNegative()) {
                 if (out_error != nullptr) {
                     *out_error = "printf: %x/%X requiere entero sin signo (>= 0).";
                 }
                 return false;
             }
-
-            *out_text += BigIntToHexString(integer, specifier == 'X');
+            std::string digits = BigIntToHexString(value, specifier == 'X');
+            if (has_precision && static_cast<int>(digits.size()) < precision) {
+                digits = std::string(static_cast<std::size_t>(precision) - digits.size(), '0') + digits;
+            }
+            *out_text += BuildPaddedField("", digits, width, left_align, zero_pad && !has_precision);
             break;
         }
         default:
@@ -1807,6 +1945,42 @@ bool Interpreter::ExecuteBuiltinCall(const frontend::CallExpr& call, bool* out_w
 
         std::cout << rendered << std::flush;
         *out_value = runtime::Value(static_cast<long long>(rendered.size()));
+        return true;
+    }
+
+    if (call.callee == "format") {
+        *out_was_builtin = true;
+
+        if (call.arguments.empty()) {
+            *out_error = "format(format, ...args) requiere al menos 1 argumento.";
+            return false;
+        }
+
+        runtime::Value format_value;
+        if (!evaluate_argument(0, &format_value)) {
+            return false;
+        }
+
+        const std::string format = format_value.ToString();
+        std::vector<runtime::Value> format_arguments;
+        format_arguments.reserve(call.arguments.size() - 1);
+
+        for (std::size_t i = 1; i < call.arguments.size(); ++i) {
+            runtime::Value evaluated;
+            if (!evaluate_argument(i, &evaluated)) {
+                return false;
+            }
+            format_arguments.push_back(std::move(evaluated));
+        }
+
+        // Same conversion grammar as printf, but returns the string instead of
+        // printing it — so it composes inside f-strings, assignments, etc.
+        std::string rendered;
+        if (!RenderPrintfFormat(format, format_arguments, &rendered, out_error)) {
+            return false;
+        }
+
+        *out_value = runtime::Value(std::move(rendered));
         return true;
     }
 

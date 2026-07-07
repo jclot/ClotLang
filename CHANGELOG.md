@@ -5,6 +5,21 @@ All notable changes to the Clot Programming Language are documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.4] - 2026-07-07
+
+### Added
+
+- **Configurable numeric formatting in `printf`.** Conversions now accept the
+  full C-style form `%[flags][width][.precision]specifier`, so precision like
+  `%.2f` works (previously `%f` was fixed at 6 decimals). Supports flags `-`
+  (left-align), `0` (zero-pad), `+` (force sign) and space; a minimum field
+  `width`; `.precision` for floats (`%.2f`), scientific/general floats (`%e`,
+  `%g`), minimum integer digits (`%.4d`) and maximum string length (`%.3s`).
+  Integer conversions now format from the full BigInt value.
+- **`format(fmt, ...args)` builtin.** Same grammar as `printf`, but returns the
+  formatted string instead of printing it — so it composes inside f-strings and
+  assignments, e.g. `total = format("%.2f", price);`.
+
 ## [0.3.3] - 2026-07-07
 
 ### Fixed
@@ -120,6 +135,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`try`/`catch`/`finally`), `defer`, string interpolation, and multi-file
   module imports.
 
+[0.3.4]: https://github.com/jclot/ClotLang/releases/tag/v0.3.4
 [0.3.3]: https://github.com/jclot/ClotLang/releases/tag/v0.3.3
 [0.3.2]: https://github.com/jclot/ClotLang/releases/tag/v0.3.2
 [0.3.1]: https://github.com/jclot/ClotLang/releases/tag/v0.3.1

@@ -2804,8 +2804,15 @@ println(enum_value(Estado, "ACTIVO"));      // 0
                                         <td><code>printf</code></td>
                                         <td><code>printf(format, ...args);</code></td>
                                         <td><code>int</code> chars emitidos</td>
-                                        <td>Formato estilo C para salida controlada</td>
+                                        <td>Formato estilo C (flags/ancho/precision) para salida controlada</td>
                                         <td>Chequea aridad y tipo por especificador</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>format</code></td>
+                                        <td><code>format(format, ...args);</code></td>
+                                        <td><code>string</code></td>
+                                        <td>Igual que <code>printf</code> pero devuelve el string en vez de imprimirlo</td>
+                                        <td>Ideal dentro de f-strings y asignaciones</td>
                                     </tr>
                                     <tr>
                                         <td><code>input</code></td>
@@ -2857,10 +2864,23 @@ println(enum_value(Estado, "ACTIVO"));      // 0
                                         <td><code>printf("%u", 12);</code></td>
                                     </tr>
                                     <tr>
-                                        <td><code>%f</code></td>
+                                        <td><code>%f</code>, <code>%F</code></td>
                                         <td>Numeric</td>
-                                        <td>Flotante en formato fijo (6 decimales)</td>
-                                        <td><code>printf("%f", 1.5);</code></td>
+                                        <td>Flotante en formato fijo; precision configurable con <code>.N</code>
+                                            (por defecto 6 decimales)</td>
+                                        <td><code>printf("%.2f", 3.14159);</code> &rarr; <code>3.14</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>%e</code>, <code>%E</code></td>
+                                        <td>Numeric</td>
+                                        <td>Notacion cientifica (precision con <code>.N</code>)</td>
+                                        <td><code>printf("%.2e", 12345.0);</code> &rarr; <code>1.23e+04</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>%g</code>, <code>%G</code></td>
+                                        <td>Numeric</td>
+                                        <td>Formato general (digitos significativos con <code>.N</code>)</td>
+                                        <td><code>printf("%g", 12345.678);</code></td>
                                     </tr>
                                     <tr>
                                         <td><code>%c</code></td>
@@ -2889,8 +2909,41 @@ println(enum_value(Estado, "ACTIVO"));      // 0
                                 </tbody>
                             </table>
                         </div>
+                        <h3 class="section-heading">Flags, ancho y precision</h3>
+                        <p>
+                            Cada conversion acepta la forma completa estilo C
+                            <code>%[flags][ancho][.precision]especificador</code>:
+                        </p>
+                        <ul>
+                            <li><strong>Precision</strong> <code>.N</code>: decimales en <code>%f</code>/<code>%e</code>
+                                (digitos significativos en <code>%g</code>), digitos minimos en enteros
+                                (<code>%.4d</code> &rarr; <code>0042</code>), y maximo de caracteres en
+                                <code>%s</code> (<code>%.3s</code> de <code>"hello"</code> &rarr; <code>hel</code>).</li>
+                            <li><strong>Ancho</strong> <code>N</code>: ancho minimo del campo, rellenado con espacios
+                                (<code>%8.2f</code> &rarr; <code>"    3.14"</code>).</li>
+                            <li><strong>Flags:</strong> <code>-</code> alinea a la izquierda, <code>0</code> rellena con
+                                ceros, <code>+</code> fuerza el signo, y un espacio reserva hueco para el signo.</li>
+                        </ul>
+                        <pre class="shadow-lg rounded"><code class="language-clike">printf("%.2f\n", 3.14159);    // 3.14
+printf("%8.2f\n", 3.14159);   //     3.14
+printf("%-8.2f|\n", 3.14159); // 3.14    |
+printf("%08.2f\n", 3.14159);  // 00003.14
+printf("%+.2f\n", 3.14159);   // +3.14
+printf("%05d\n", 42);         // 00042
+
+// format(...) usa la misma gramatica pero DEVUELVE el string
+precio = format("%.2f", 19.5);       // "19.50"
+etiqueta = format("%.2f", 19.5);
+println(f"Total: {etiqueta} USD");   // Total: 19.50 USD
+</code></pre>
+                        <div class="docs-callout">
+                            <code>printf(...)</code> imprime y devuelve la cantidad de bytes escritos;
+                            <code>format(...)</code> devuelve el string formateado sin imprimir, ideal para
+                            componer dentro de f-strings o asignaciones.
+                        </div>
                         <div class="docs-callout warn">
-                            Si faltan o sobran argumentos, <code>printf</code> falla con error runtime.
+                            Si faltan o sobran argumentos, <code>printf</code>/<code>format</code> fallan con error
+                            runtime.
                         </div>
                     </section>
 
