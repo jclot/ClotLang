@@ -395,7 +395,13 @@ private:
         }
 
         if (token.kind == TokenKind::String) {
-            return ParseStringLiteral(token);
+            // Plain strings are fully literal: braces and '$' carry no special
+            // meaning. Interpolation lives exclusively in f-strings.
+            return std::make_unique<StringExpr>(token.lexeme);
+        }
+
+        if (token.kind == TokenKind::FString) {
+            return ParseFString(token);
         }
 
         if (token.kind == TokenKind::Char) {
@@ -563,7 +569,9 @@ private:
             std::move(piece));
     }
 
-    std::unique_ptr<Expr> ParseStringLiteral(const Token& token) {
+    // Parses an f-string literal, desugaring `{expr}` placeholders into string
+    // concatenation. Literal braces are written `{{` and `}}`.
+    std::unique_ptr<Expr> ParseFString(const Token& token) {
         const std::string& raw_text = token.lexeme;
         if (raw_text.find('{') == std::string::npos && raw_text.find('}') == std::string::npos) {
             return std::make_unique<StringExpr>(raw_text);

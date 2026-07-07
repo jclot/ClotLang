@@ -5,6 +5,28 @@ All notable changes to the Clot Programming Language are documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.2] - 2026-07-07
+
+### Changed
+
+- **String interpolation now uses f-strings.** Interpolation happens only inside
+  strings prefixed with `f` (`f"Hello {name}"`), matching Python 3 / C#. Plain
+  `"..."` strings are fully literal, so braces and `$` carry no special meaning
+  and need no escaping. Inside an f-string, `{{` and `}}` still emit literal
+  braces.
+- **`range()` is now lazy.** It returns a `range` object (as in Python 3, Rust,
+  and C#) that yields each value on demand instead of building a list up front.
+  A `for` loop over a range uses O(1) memory, and the previous 1,000,000-element
+  cap is gone, so arbitrarily large ranges are allowed. Ranges also support
+  `len`, indexing, and the `in` operator in O(1), and print as `range(start,
+  stop[, step])`.
+
+### Removed
+
+- The old brace interpolation for plain strings (`"Hello {name}"` with `{{` /
+  `}}` for literal braces). Use `f"Hello {name}"` instead.
+- The 1,000,000-element limit on `range()`.
+
 ## [0.3.1] - 2026-07-05
 
 ### Fixed
@@ -84,6 +106,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`try`/`catch`/`finally`), `defer`, string interpolation, and multi-file
   module imports.
 
+[0.3.2]: https://github.com/jclot/ClotLang/releases/tag/v0.3.2
 [0.3.1]: https://github.com/jclot/ClotLang/releases/tag/v0.3.1
 [0.3.0]: https://github.com/jclot/ClotLang/releases/tag/v0.3.0
 [0.2.0]: https://github.com/jclot/ClotLang/releases/tag/v0.2.0

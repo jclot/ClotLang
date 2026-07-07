@@ -846,7 +846,7 @@ println(any([0, "", false]));
 println(any([0, "", 7]));
 PROG
 
-EXPECTED_NEW_BUILTINS_SEQUENCES=$'3\n4\n[0, 1, 2, 3, 4]\n[1, 3, 5]\n[(5, "a"), (6, "b")]\n[(1, \'a\'), (2, \'b\')]\ntrue\nfalse\nfalse\ntrue'
+EXPECTED_NEW_BUILTINS_SEQUENCES=$'3\n4\nrange(0, 5)\nrange(1, 6, 2)\n[(5, "a"), (6, "b")]\n[(1, \'a\'), (2, \'b\')]\ntrue\nfalse\nfalse\ntrue'
 ACTUAL_NEW_BUILTINS_SEQUENCES="$($BIN_PATH "$TMP_DIR/new_builtins_sequences.clot")"
 if [[ "$ACTUAL_NEW_BUILTINS_SEQUENCES" != "$EXPECTED_NEW_BUILTINS_SEQUENCES" ]]; then
     echo "Fallo test new_builtins_sequences" >&2
@@ -901,6 +901,91 @@ fi
 if ! grep -q "range() requiere step != 0." "$TMP_DIR/new_builtins_range_error.err"; then
     echo "Fallo test new_builtins_range_error: mensaje esperado no encontrado." >&2
     cat "$TMP_DIR/new_builtins_range_error.err" >&2
+    exit 1
+fi
+
+# --- range perezoso: memoria O(1), sin limite de tamano (como en Python 3) ---
+cat > "$TMP_DIR/lazy_range.clot" <<'PROG'
+# len de un rango enorme sin materializar (imposible como lista en memoria)
+println(len(range(1000000000000)));
+# suma de un millon de elementos: iteracion perezosa, memoria constante
+total = 0;
+for i in range(1000000):
+    total += i;
+endfor
+println(total);
+# break temprano sobre un rango gigantesco: no reserva memoria
+first = -1;
+for i in range(1000000000000):
+    if i == 7:
+        first = i;
+        break;
+    endif
+endfor
+println(first);
+# step negativo
+for i in range(3, 0, -1):
+    print(i);
+endfor
+println("");
+# pertenencia e indexado O(1)
+println(5 in range(10));
+println(11 in range(0, 20, 2));
+println(range(0, 100, 5)[4]);
+# representacion estilo Python 3
+println(range(10));
+PROG
+
+EXPECTED_LAZY_RANGE=$'1000000000000\n499999500000\n7\n321\ntrue\nfalse\n20\nrange(0, 10)'
+ACTUAL_LAZY_RANGE="$($BIN_PATH "$TMP_DIR/lazy_range.clot")"
+if [[ "$ACTUAL_LAZY_RANGE" != "$EXPECTED_LAZY_RANGE" ]]; then
+    echo "Fallo test lazy_range" >&2
+    echo "Esperado:" >&2
+    printf '%s\n' "$EXPECTED_LAZY_RANGE" >&2
+    echo "Actual:" >&2
+    printf '%s\n' "$ACTUAL_LAZY_RANGE" >&2
+    exit 1
+fi
+
+# --- f-strings: interpolacion moderna, unica sintaxis ---
+cat > "$TMP_DIR/fstrings.clot" <<'PROG'
+name = "Ada";
+total = 3;
+# la interpolacion solo ocurre en f-strings
+println(f"Hola {name}, tienes {total} items");
+# expresiones arbitrarias dentro de la interpolacion
+println(f"Suma: {total + 2}");
+# llaves literales dentro de una f-string
+println(f"Plantilla {{name}}");
+# los strings normales son 100% literales (sin interpolacion)
+println("Literal {name} y $sin cambios");
+# colecciones y llamadas dentro de la interpolacion
+println(f"lista={[1, 2, 3]} rango={range(3)}");
+PROG
+
+EXPECTED_FSTRINGS=$'Hola Ada, tienes 3 items\nSuma: 5\nPlantilla {name}\nLiteral {name} y $sin cambios\nlista=[1, 2, 3] rango=range(0, 3)'
+ACTUAL_FSTRINGS="$($BIN_PATH "$TMP_DIR/fstrings.clot")"
+if [[ "$ACTUAL_FSTRINGS" != "$EXPECTED_FSTRINGS" ]]; then
+    echo "Fallo test fstrings" >&2
+    echo "Esperado:" >&2
+    printf '%s\n' "$EXPECTED_FSTRINGS" >&2
+    echo "Actual:" >&2
+    printf '%s\n' "$ACTUAL_FSTRINGS" >&2
+    exit 1
+fi
+
+# Una f-string con interpolacion vacia debe ser error de parseo
+cat > "$TMP_DIR/fstring_empty.clot" <<'PROG'
+println(f"valor={}");
+PROG
+
+set +e
+"$BIN_PATH" "$TMP_DIR/fstring_empty.clot" >"$TMP_DIR/fstring_empty.out" 2>"$TMP_DIR/fstring_empty.err"
+STATUS_FSTRING_EMPTY=$?
+set -e
+
+if [[ "$STATUS_FSTRING_EMPTY" -eq 0 ]]; then
+    echo "Fallo test fstring_empty: se esperaba error por interpolacion vacia." >&2
     exit 1
 fi
 
@@ -1709,7 +1794,7 @@ if [[ "$STATUS_IN_MEMBERSHIP_TYPE_ERROR" -eq 0 ]]; then
     exit 1
 fi
 
-if ! grep -q "Runtime error: Operator 'in' requires list, tuple, set, map, object, or string on the right-hand side." "$TMP_DIR/in_membership_type_error.err"; then
+if ! grep -q "Runtime error: Operator 'in' requires list, tuple, set, map, object, string, or range on the right-hand side." "$TMP_DIR/in_membership_type_error.err"; then
     echo "Fallo test in_membership_type_error: mensaje esperado en ingles no encontrado." >&2
     cat "$TMP_DIR/in_membership_type_error.err" >&2
     exit 1

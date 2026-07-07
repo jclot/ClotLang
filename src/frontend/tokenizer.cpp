@@ -46,6 +46,50 @@ bool DecodeEscapeSequence(char escaped, char* out_decoded) {
     }
 }
 
+// Scans a double-quoted string body. `open_quote` is the index of the opening
+// '"'. On success fills *out_literal with the escape-decoded contents and
+// *out_next with the index just past the closing '"', then returns true. On
+// failure fills *out_error_token with the token to emit and returns false.
+// Shared by plain string literals and f-string literals; interpolation of the
+// `{...}` placeholders is handled later, by the parser.
+bool ScanStringBody(const std::string& line, std::size_t open_quote, std::string* out_literal,
+                    std::size_t* out_next, Token* out_error_token) {
+    std::size_t cursor = open_quote + 1;
+    std::string literal;
+
+    while (cursor < line.size()) {
+        const char candidate = line[cursor];
+        if (candidate == '"') {
+            *out_literal = std::move(literal);
+            *out_next = cursor + 1;
+            return true;
+        }
+
+        if (candidate == '\\') {
+            ++cursor;
+            if (cursor >= line.size()) {
+                *out_error_token = {TokenKind::Unknown, line.substr(open_quote), open_quote + 1};
+                return false;
+            }
+
+            char decoded = '\0';
+            if (!DecodeEscapeSequence(line[cursor], &decoded)) {
+                *out_error_token = {TokenKind::Unknown, line.substr(open_quote, cursor - open_quote + 1), open_quote + 1};
+                return false;
+            }
+            literal.push_back(decoded);
+            ++cursor;
+            continue;
+        }
+
+        literal.push_back(candidate);
+        ++cursor;
+    }
+
+    *out_error_token = {TokenKind::Unknown, line.substr(open_quote), open_quote + 1};
+    return false;
+}
+
 TokenKind KeywordToTokenKind(const std::string& text) {
     if (text == "print") {
         return TokenKind::KeywordPrint;
@@ -240,6 +284,8 @@ const char* ToString(TokenKind kind) {
         return "Number";
     case TokenKind::String:
         return "String";
+    case TokenKind::FString:
+        return "FString";
     case TokenKind::Char:
         return "Char";
     case TokenKind::Boolean:
@@ -446,51 +492,34 @@ std::vector<Token> Tokenizer::TokenizeLine(const std::string& line) {
             break;
         }
 
-        if (current == '"') {
-            std::size_t cursor = index + 1;
+        // f-string: an `f` immediately before an opening quote marks an
+        // interpolated string. Must be checked before the identifier scan,
+        // which would otherwise consume the `f`.
+        if (current == 'f' && index + 1 < line.size() && line[index + 1] == '"') {
             std::string literal;
-            bool invalid_literal = false;
-
-            while (cursor < line.size()) {
-                const char candidate = line[cursor];
-                if (candidate == '"') {
-                    break;
-                }
-
-                if (candidate == '\\') {
-                    ++cursor;
-                    if (cursor >= line.size()) {
-                        tokens.push_back({TokenKind::Unknown, line.substr(index), index + 1});
-                        invalid_literal = true;
-                        break;
-                    }
-
-                    char decoded = '\0';
-                    if (!DecodeEscapeSequence(line[cursor], &decoded)) {
-                        tokens.push_back({TokenKind::Unknown, line.substr(index, cursor - index + 1), index + 1});
-                        invalid_literal = true;
-                        break;
-                    }
-                    literal.push_back(decoded);
-                    ++cursor;
-                    continue;
-                }
-
-                literal.push_back(candidate);
-                ++cursor;
-            }
-
-            if (invalid_literal) {
+            std::size_t next_index = 0;
+            Token error_token;
+            if (!ScanStringBody(line, index + 1, &literal, &next_index, &error_token)) {
+                tokens.push_back(error_token);
                 break;
             }
 
-            if (cursor >= line.size()) {
-                tokens.push_back({TokenKind::Unknown, line.substr(index), index + 1});
+            tokens.push_back({TokenKind::FString, literal, index + 1});
+            index = next_index;
+            continue;
+        }
+
+        if (current == '"') {
+            std::string literal;
+            std::size_t next_index = 0;
+            Token error_token;
+            if (!ScanStringBody(line, index, &literal, &next_index, &error_token)) {
+                tokens.push_back(error_token);
                 break;
             }
 
             tokens.push_back({TokenKind::String, literal, index + 1});
-            index = cursor + 1;
+            index = next_index;
             continue;
         }
 

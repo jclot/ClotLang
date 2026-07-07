@@ -72,7 +72,7 @@ export default function HomePage() {
                 <span
                   className={`size-1.5 rounded-full bg-gradient-to-r ${GRADIENT}`}
                 />
-                Interpreted &amp; compiled · v0.3.1
+                Interpreted &amp; compiled · v0.3.2
               </span>
 
               <h1 className="mt-5 text-balance text-4xl font-bold tracking-tight sm:text-6xl">

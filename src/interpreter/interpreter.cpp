@@ -1427,9 +1427,21 @@ bool Interpreter::CollectForEachElements(const runtime::Value& collection,
         }
         return true;
     }
+    if (const auto* range = collection.AsRange()) {
+        // Materialize the range for builtins that need every element up front
+        // (enumerate, zip, all/any, ...). Plain for-each iterates lazily instead
+        // (see ExecuteForEach), so this never runs for the common loop case.
+        runtime::Value::BigInt current = range->start;
+        while ((range->step > 0 && current < range->stop) ||
+               (range->step < 0 && current > range->stop)) {
+            out_elements->push_back(runtime::Value(current));
+            current += range->step;
+        }
+        return true;
+    }
 
     if (out_error != nullptr) {
-        *out_error = "for-each requiere list, tuple, set, map, object o string.";
+        *out_error = "for-each requiere list, tuple, set, map, object, string o range.";
     }
     return false;
 }
@@ -1499,9 +1511,14 @@ bool Interpreter::ExecuteForEach(const frontend::ForEachStmt& statement, std::st
         return false;
     }
 
+    // Iterate ranges lazily so arbitrarily large sequences use O(1) memory;
+    // every other iterable is materialized once up front.
+    const bool iterate_lazily = collection.IsRange();
     std::vector<runtime::Value> elements;
-    if (!CollectForEachElements(collection, &elements, out_error)) {
-        return false;
+    if (!iterate_lazily) {
+        if (!CollectForEachElements(collection, &elements, out_error)) {
+            return false;
+        }
     }
 
     std::optional<runtime::VariableSlot> previous_slot;
@@ -1565,27 +1582,25 @@ bool Interpreter::ExecuteForEach(const frontend::ForEachStmt& statement, std::st
         EffectiveTypeAnnotation(statement.variable_annotation, DeclarationTypeToTypeHint(statement.variable_type));
     const bool has_annotation = HasConcreteTypeAnnotation(variable_annotation);
 
-    ++loop_depth_;
-    for (const auto& element : elements) {
+    const auto restore_slot = [&]() {
+        if (previous_slot.has_value()) {
+            environment_[statement.variable_name] = *previous_slot;
+        } else {
+            environment_.erase(statement.variable_name);
+        }
+    };
+
+    // Runs the loop body for one element. Returns false on error (out_error is
+    // set); sets *stop when a break/return means iteration must end.
+    const auto process_element = [&](const runtime::Value& element, bool* stop) -> bool {
+        *stop = false;
         runtime::Value normalized = element;
         if (has_annotation) {
             if (!NormalizeValueForTypeAnnotation(variable_annotation, element, &normalized, out_error)) {
-                --loop_depth_;
-                if (previous_slot.has_value()) {
-                    environment_[statement.variable_name] = *previous_slot;
-                } else {
-                    environment_.erase(statement.variable_name);
-                }
                 return false;
             }
         } else if (kind != runtime::VariableKind::Dynamic) {
             if (!NormalizeValueForKind(kind, element, &normalized, out_error)) {
-                --loop_depth_;
-                if (previous_slot.has_value()) {
-                    environment_[statement.variable_name] = *previous_slot;
-                } else {
-                    environment_.erase(statement.variable_name);
-                }
                 return false;
             }
         }
@@ -1593,37 +1608,56 @@ bool Interpreter::ExecuteForEach(const frontend::ForEachStmt& statement, std::st
         environment_[statement.variable_name] = runtime::VariableSlot{normalized, kind, statement.variable_is_const};
 
         if (!ExecuteBlock(statement.body, out_error)) {
-            --loop_depth_;
-            if (previous_slot.has_value()) {
-                environment_[statement.variable_name] = *previous_slot;
-            } else {
-                environment_.erase(statement.variable_name);
-            }
             return false;
         }
 
         if (break_signal_) {
             break_signal_ = false;
-            break;
+            *stop = true;
+            return true;
         }
-
         if (continue_signal_) {
             continue_signal_ = false;
-            continue;
+            return true;
         }
-
         if (!return_stack_.empty() && return_stack_.back().has_value()) {
-            break;
+            *stop = true;
+        }
+        return true;
+    };
+
+    ++loop_depth_;
+    bool ok = true;
+    bool stop = false;
+    if (iterate_lazily) {
+        const auto* range = collection.AsRange();
+        runtime::Value::BigInt current = range->start;
+        while ((range->step > 0 && current < range->stop) ||
+               (range->step < 0 && current > range->stop)) {
+            if (!process_element(runtime::Value(current), &stop)) {
+                ok = false;
+                break;
+            }
+            if (stop) {
+                break;
+            }
+            current += range->step;
+        }
+    } else {
+        for (const auto& element : elements) {
+            if (!process_element(element, &stop)) {
+                ok = false;
+                break;
+            }
+            if (stop) {
+                break;
+            }
         }
     }
     --loop_depth_;
 
-    if (previous_slot.has_value()) {
-        environment_[statement.variable_name] = *previous_slot;
-    } else {
-        environment_.erase(statement.variable_name);
-    }
-    return true;
+    restore_slot();
+    return ok;
 }
 
 bool Interpreter::ExecuteDoWhile(const frontend::DoWhileStmt& statement, std::string* out_error) {
@@ -2140,6 +2174,22 @@ bool Interpreter::EvaluateExpression(const frontend::Expr& expression, runtime::
             return true;
         }
 
+        if (collection.IsRange()) {
+            std::size_t integer_index = 0;
+            if (!ReadListIndex(index_value, &integer_index, out_error)) {
+                return false;
+            }
+
+            const runtime::Value::BigInt index_big(static_cast<long long>(integer_index));
+            if (index_big >= collection.RangeLength()) {
+                *out_error = "Indice fuera de rango en range.";
+                return false;
+            }
+
+            *out_value = runtime::Value(collection.RangeElementAt(index_big));
+            return true;
+        }
+
         if (const auto* map = collection.AsMap()) {
             for (const auto& entry : *map) {
                 if (entry.first.Equals(index_value)) {
@@ -2194,7 +2244,7 @@ bool Interpreter::EvaluateExpression(const frontend::Expr& expression, runtime::
             return false;
         }
 
-        *out_error = "Solo se puede indexar list, tuple, map u object con [].";
+        *out_error = "Solo se puede indexar list, tuple, range, map u object con [].";
         return false;
     }
 
@@ -2406,7 +2456,12 @@ bool Interpreter::EvaluateBinary(frontend::BinaryOp op, const runtime::Value& lh
             return true;
         }
 
-        *out_error = "Operador 'in' requiere list, tuple, set, map, object o string a la derecha.";
+        if (rhs.IsRange()) {
+            *out_value = runtime::Value(rhs.RangeContains(lhs));
+            return true;
+        }
+
+        *out_error = "Operador 'in' requiere list, tuple, set, map, object, string o range a la derecha.";
         return false;
     }
 

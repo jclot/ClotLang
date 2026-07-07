@@ -57,6 +57,15 @@ public:
         std::string name;
     };
 
+    // Lazy integer sequence, as in Python 3 / Rust / C#: it stores only the
+    // bounds and the step, so a for-each over it uses O(1) memory and has no
+    // artificial length limit. `step` is guaranteed non-zero by construction.
+    struct Range {
+        BigInt start;
+        BigInt stop;
+        BigInt step = BigInt(1);
+    };
+
     Value() : data_(BigInt(0)) {}
     Value(std::nullptr_t) : data_(std::monostate{}) {}
     explicit Value(BigInt value) : data_(std::move(value)) {}
@@ -74,6 +83,7 @@ public:
     explicit Value(Set value) : data_(std::move(value)) {}
     explicit Value(Map value) : data_(std::move(value)) {}
     explicit Value(FunctionRef value) : data_(std::move(value)) {}
+    explicit Value(Range value) : data_(std::move(value)) {}
 
     bool IsNull() const { return std::holds_alternative<std::monostate>(data_); }
     bool IsNumber() const {
@@ -95,6 +105,7 @@ public:
     bool IsMap() const { return std::holds_alternative<Map>(data_); }
     bool IsObject() const { return std::holds_alternative<Object>(data_); }
     bool IsFunctionRef() const { return std::holds_alternative<FunctionRef>(data_); }
+    bool IsRange() const { return std::holds_alternative<Range>(data_); }
 
     const BigInt* AsBigIntValue() const {
         if (!IsInteger()) {
@@ -122,6 +133,52 @@ public:
             return nullptr;
         }
         return &std::get<FunctionRef>(data_);
+    }
+
+    const Range* AsRange() const {
+        if (!IsRange()) {
+            return nullptr;
+        }
+        return &std::get<Range>(data_);
+    }
+
+    // Number of values the range yields (always >= 0). Only valid when IsRange().
+    BigInt RangeLength() const {
+        const Range& range = std::get<Range>(data_);
+        if (range.step > 0) {
+            if (range.stop <= range.start) {
+                return BigInt(0);
+            }
+            return (range.stop - range.start + range.step - BigInt(1)) / range.step;
+        }
+        if (range.start <= range.stop) {
+            return BigInt(0);
+        }
+        const BigInt magnitude = -range.step;
+        return (range.start - range.stop + magnitude - BigInt(1)) / magnitude;
+    }
+
+    // Value at position index (0-based). Caller must ensure 0 <= index < length.
+    BigInt RangeElementAt(const BigInt& index) const {
+        const Range& range = std::get<Range>(data_);
+        return range.start + index * range.step;
+    }
+
+    // True when probe is one of the integers produced by the range (O(1)).
+    bool RangeContains(const Value& probe) const {
+        const Range& range = std::get<Range>(data_);
+        BigInt value;
+        if (!probe.AsBigInt(&value)) {
+            return false;
+        }
+        if (range.step > 0) {
+            if (value < range.start || value >= range.stop) {
+                return false;
+            }
+        } else if (value > range.start || value <= range.stop) {
+            return false;
+        }
+        return (value - range.start) % range.step == BigInt(0);
     }
 
     bool AsBigInt(BigInt* out_integer) const {
@@ -526,6 +583,10 @@ public:
             return !std::get<Object>(data_).empty();
         }
 
+        if (std::holds_alternative<Range>(data_)) {
+            return RangeLength() != BigInt(0);
+        }
+
         return true;
     }
 
@@ -639,6 +700,28 @@ public:
 
         if (IsFunctionRef() && other.IsFunctionRef()) {
             return std::get<FunctionRef>(data_).name == std::get<FunctionRef>(other.data_).name;
+        }
+
+        if (IsRange() && other.IsRange()) {
+            // Two ranges are equal when they yield the same sequence (Python
+            // semantics): same length, and same first element and step whenever
+            // that sequence has more than one element.
+            const BigInt length = RangeLength();
+            if (!(length == other.RangeLength())) {
+                return false;
+            }
+            if (length == BigInt(0)) {
+                return true;
+            }
+            const Range& lhs_range = std::get<Range>(data_);
+            const Range& rhs_range = std::get<Range>(other.data_);
+            if (!(lhs_range.start == rhs_range.start)) {
+                return false;
+            }
+            if (length == BigInt(1)) {
+                return true;
+            }
+            return lhs_range.step == rhs_range.step;
         }
 
         return false;
@@ -871,6 +954,16 @@ private:
             return text;
         }
 
+        if (std::holds_alternative<Range>(data_)) {
+            const Range& range = std::get<Range>(data_);
+            std::string text = "range(" + range.start.ToString() + ", " + range.stop.ToString();
+            if (!(range.step == BigInt(1))) {
+                text += ", " + range.step.ToString();
+            }
+            text += ")";
+            return text;
+        }
+
         const FunctionRef& function = std::get<FunctionRef>(data_);
         return "<function:" + function.name + ">";
     }
@@ -889,7 +982,8 @@ private:
         Set,
         Map,
         Object,
-        FunctionRef>
+        FunctionRef,
+        Range>
         data_;
 };
 

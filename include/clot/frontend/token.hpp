@@ -10,6 +10,7 @@ enum class TokenKind {
     Identifier,
     Number,
     String,
+    FString,
     Char,
     Boolean,
 

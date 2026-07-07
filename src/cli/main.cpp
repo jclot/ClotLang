@@ -17,7 +17,7 @@
 #include "clot/runtime/paths.hpp"
 
 #ifndef CLOT_VERSION
-#define CLOT_VERSION "0.3.1"
+#define CLOT_VERSION "0.3.2"
 #endif
 
 namespace {

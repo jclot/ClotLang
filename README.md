@@ -24,7 +24,7 @@ Clot is a multiparadigm programming language (imperative/procedural, with lightw
 * **Dual Execution:** Interpreter mode for rapid iteration (`--mode interpret`) and native AOT compilation with LLVM for maximum performance (`--mode compile`).
 * **Gradual Typing:** Support for pure dynamic typing or explicit type hinting with runtime validation (`list<int>`, `map<string, int>`).
 * **Object-Oriented Programming (MVP):** Support for `class`, `interface`, single inheritance (`extends`), contracts (`implements`), access modifiers (`public`, `private`, `protected`), and polymorphism (`override`).
-* **Modern and Ergonomic Syntax:** String interpolation (`"Hello {name}"`), method chaining (`obj.a().b()`), membership operators (`in`), and robust exception handling (`try/catch/finally/defer`).
+* **Modern and Ergonomic Syntax:** String interpolation with f-strings (`f"Hello {name}"`), method chaining (`obj.a().b()`), membership operators (`in`), and robust exception handling (`try/catch/finally/defer`).
 * **Growing Standard Library:** Built-in utilities such as `len`, `range`, `enumerate`, `zip`, base conversions (`hex`, `bin`), and support for multi-file module imports.
 
 ---
@@ -72,7 +72,7 @@ Clot combines a clean syntax with powerful control structures and optional typin
 import math;
 
 // Functions with optional typing
-func list<int> filter_evens(xs: list<int>):
+func list<int> filter_evens(xs):
     list<int> result = [];
     for (item in xs):
         if (item % 2 == 0):
@@ -85,11 +85,11 @@ endfunc
 // Exception handling and deferred execution
 try:
     defer println("Cleanup finished.");
-    numbers = range(10);
+    numbers = range(10); // lazy: values are produced on demand
     evens = filter_evens(numbers);
-    println("Evens: {evens}");
+    println(f"Evens: {evens}");
 catch(Error err):
-    println("An error occurred: {err}");
+    println(f"An error occurred: {err}");
 endtry
 ```
 

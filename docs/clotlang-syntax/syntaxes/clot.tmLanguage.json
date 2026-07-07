@@ -4,6 +4,7 @@
   "scopeName": "source.clot",
   "patterns": [
     { "include": "#comments" },
+    { "include": "#fstrings" },
     { "include": "#strings" },
     { "include": "#chars" },
     { "include": "#keywords" },
@@ -31,14 +32,28 @@
         {
           "name": "constant.character.escape.clot",
           "match": "\\\\([nrt\\\\\"'0]|x[0-9a-fA-F]{2})"
-        },
+        }
+      ]
+    },
+    "fstrings": {
+      "name": "string.quoted.double.interpolated.clot",
+      "begin": "f\"",
+      "end": "\"",
+      "beginCaptures": {
+        "0": { "name": "keyword.other.fstring.clot" }
+      },
+      "patterns": [
         {
-          "name": "variable.interpolation.clot",
-          "match": "\\{[^\\}]+\\}"
+          "name": "constant.character.escape.clot",
+          "match": "\\\\([nrt\\\\\"'0]|x[0-9a-fA-F]{2})"
         },
         {
           "name": "constant.character.escape.clot",
           "match": "\\{\\{|\\}\\}"
+        },
+        {
+          "name": "variable.interpolation.clot",
+          "match": "\\{[^\\}]+\\}"
         }
       ]
     },

@@ -757,7 +757,7 @@
                                     <tr>
                                         <td>String ergonomics</td>
                                         <td>Escapes en strings (<code>\n</code>, <code>\t</code>, etc.) +
-                                            interpolacion <code>"Hola {nombre}"</code></td>
+                                            interpolacion con f-strings <code>f"Hola {nombre}"</code></td>
                                         <td>Menos concatenacion manual y mejor legibilidad</td>
                                     </tr>
                                     <tr>
@@ -954,7 +954,7 @@ cmake --build build -j4
                         </p>
                         <pre class="shadow-lg rounded"><code class="language-clike">// hello.clot
 name = "Clot";
-print("Hola, {name}\\n");
+print(f"Hola, {name}\\n");
 printf("%s %d\\n", "Version", 1);
 </code></pre>
                     </section>
@@ -1022,25 +1022,26 @@ println("name" in {name: "Ada"});
                         <h3 class="section-heading">Ejemplo rapido de <code>for</code></h3>
                         <pre class="shadow-lg rounded"><code class="language-clike">// for clasico
 for (int i = 0; i &lt; 3; i++):
-    println("classic {i}");
+    println(f"classic {i}");
 endfor
 
 // for sobre rango numerico
 for i in range(3):
-    println("range {i}");
+    println(f"range {i}");
 endfor
 </code></pre>
                     </section>
 
                     <section class="docs-section" id="item-tutorial-strings-collections-ergonomics">
                         <h2 class="section-heading">Strings, Listas y Encadenamiento</h2>
-                        <pre class="shadow-lg rounded"><code class="language-clike">// Escapes + interpolacion
+                        <pre class="shadow-lg rounded"><code class="language-clike">// Escapes + interpolacion con f-strings
 user = "Ada";
 total = 3;
-print("Hola {user}\\n");
-println("Tienes {total} notificaciones");
+print(f"Hola {user}\\n");
+println(f"Tienes {total} notificaciones");
 println("precio=" + 300.0);   // conversion implicita a string
-println("Plantilla {{user}}"); // imprime: Plantilla {user}
+println("Sin prefijo f: {user}"); // literal, imprime: Sin prefijo f: {user}
+println(f"Plantilla {{user}}"); // imprime: Plantilla {user}
 
 // append en listas
 tasks = [];
@@ -1086,10 +1087,12 @@ endfunc
 println(pair_sum(4, 5)); // 9
 </code></pre>
                         <div class="docs-callout warn">
-                            En strings con interpolacion, usa <code>{{</code> y <code>}}</code> para imprimir llaves
-                            literales. Ejemplo: <code>"{{}}"</code> imprime <code>{}</code>.
-                            <code>"{}"</code> es interpolacion vacia (error) y <code>\{</code>/<code>\}</code> no son
-                            escapes validos.
+                            La interpolacion ocurre solo en <strong>f-strings</strong> (prefijo <code>f</code> antes de
+                            la comilla): <code>f"Hola {name}"</code>. Los strings normales son 100% literales, asi que
+                            <code>"{name}"</code> imprime <code>{name}</code> sin evaluar. Dentro de una f-string usa
+                            <code>{{</code> y <code>}}</code> para imprimir llaves literales
+                            (<code>f"{{}}"</code> imprime <code>{}</code>); <code>f"{}"</code> es interpolacion vacia
+                            (error).
                         </div>
                         <h3 class="section-heading">Error comun: <code>append</code> (incorrecto vs correcto)</h3>
                         <pre class="shadow-lg rounded"><code class="language-clike">// Incorrecto: tuple no soporta append
@@ -1460,10 +1463,15 @@ benchmarks/baseline.sh ./build/wsl-release/clot
                                     </tr>
                                     <tr>
                                         <td>String</td>
-                                        <td>Delimitado con <code>"</code>, soporta escapes e interpolacion
-                                            <code>{expr}</code>; llaves literales con <code>{{</code> y
-                                            <code>}}</code></td>
-                                        <td><code>"hola\\n{name} {{ok}}"</code></td>
+                                        <td>Delimitado con <code>"</code>, soporta escapes. Literal: las llaves no
+                                            tienen significado especial</td>
+                                        <td><code>"hola\\n{literal}"</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td>f-string</td>
+                                        <td>Prefijo <code>f</code> antes de la comilla; interpola <code>{expr}</code>;
+                                            llaves literales con <code>{{</code> y <code>}}</code></td>
+                                        <td><code>f"hola {name} {{ok}}"</code></td>
                                     </tr>
                                     <tr>
                                         <td>Char</td>
@@ -2977,8 +2985,10 @@ endtry
                                     <tr>
                                         <td><code>range</code></td>
                                         <td><code>range(stop)</code>, <code>range(start, stop, step)</code></td>
-                                        <td><code>list</code></td>
-                                        <td>Secuencia de enteros; <code>step</code> no puede ser 0; max 1,000,000 elementos</td>
+                                        <td><code>range</code></td>
+                                        <td>Secuencia perezosa de enteros (como Python 3): produce cada valor bajo
+                                            demanda, con memoria O(1) y sin limite de tamano; <code>step</code> no puede
+                                            ser 0. Soporta <code>for</code>, <code>len</code>, indexado e <code>in</code></td>
                                     </tr>
                                     <tr>
                                         <td><code>enumerate</code></td>
@@ -3043,7 +3053,7 @@ endtry
                                 </tbody>
                             </table>
                         </div>
-                        <pre class="shadow-lg rounded"><code class="language-clike">println(range(1, 6, 2));                 // [1, 3, 5]
+                        <pre class="shadow-lg rounded"><code class="language-clike">println(range(1, 6, 2));                 // range(1, 6, 2)
 println(enumerate(["a", "b"], 5));      // [(5, "a"), (6, "b")]
 println(zip([1, 2, 3], "ab"));          // [(1, 'a'), (2, 'b')]
 println(all([1, true, "x"]));            // true

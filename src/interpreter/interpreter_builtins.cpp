@@ -1093,6 +1093,13 @@ bool Interpreter::ExecuteBuiltinCall(const frontend::CallExpr& call, bool* out_w
             return false;
         }
 
+        // A range can be longer than size_t can hold, so report its length as a
+        // BigInt computed directly from the bounds (no materialization).
+        if (value.IsRange()) {
+            *out_value = runtime::Value(value.RangeLength());
+            return true;
+        }
+
         std::size_t size = 0;
         if (const auto* text = value.AsCharValue()) {
             (void)text;
@@ -1158,19 +1165,14 @@ bool Interpreter::ExecuteBuiltinCall(const frontend::CallExpr& call, bool* out_w
             return false;
         }
 
-        static constexpr std::size_t kMaxRangeElements = 1000000;
-        runtime::Value::List values;
-        BigInt current = start;
-        while ((step > 0 && current < stop) || (step < 0 && current > stop)) {
-            if (values.size() >= kMaxRangeElements) {
-                *out_error = "range() excede el maximo de 1000000 elementos.";
-                return false;
-            }
-            values.emplace_back(current);
-            current += step;
-        }
-
-        *out_value = runtime::Value(std::move(values));
+        // Return a lazy range object (as in Python 3): iteration produces each
+        // value on demand, so a for-each over it uses O(1) memory and has no
+        // upper bound on length.
+        runtime::Value::Range range;
+        range.start = start;
+        range.stop = stop;
+        range.step = step;
+        *out_value = runtime::Value(std::move(range));
         return true;
     }
 

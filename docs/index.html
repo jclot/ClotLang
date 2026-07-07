@@ -564,7 +564,7 @@
                             <h5><i class="fas fa-quote-right me-2"></i>Strings + Interpolacion</h5>
                             <pre class="mt-2 mb-0" style="white-space: pre-wrap; word-break: break-word;"><code>user = "Ada";
 price = 300.0;
-println("Hola {user}\\nprecio=" + price);</code></pre>
+println(f"Hola {user}\\nprecio={price}");</code></pre>
                         </div>
                     </div>
                     <div class="col-12 col-lg-4">
@@ -576,7 +576,7 @@ println(rows[1].meta.name);
 
 holes = [null] * 3;
 for i in range(3):
-    println("slot {i}={holes[i]}");
+    println(f"slot {i}={holes[i]}");
 endfor</code></pre>
                         </div>
                     </div>
@@ -610,11 +610,11 @@ println(SalesReport("Q1").render());</code></pre>
                         <div class="portal-mini-list">
                             <h5><i class="fas fa-redo me-2"></i>for (clasico y rango)</h5>
                             <pre class="mt-2 mb-0" style="white-space: pre-wrap; word-break: break-word;"><code>for (int i = 0; i &lt; 3; i++):
-    println("classic {i}");
+    println(f"classic {i}");
 endfor
 
 for i in range(3):
-    println("range {i}");
+    println(f"range {i}");
 endfor</code></pre>
                         </div>
                     </div>
