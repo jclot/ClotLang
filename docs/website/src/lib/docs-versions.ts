@@ -15,5 +15,5 @@ export function getLatestDocsVersion(): string {
     return bMaj - aMaj || bMin - aMin || bPatch - aPatch;
   });
 
-  return versions[0] ?? 'v0.2.0';
+  return versions[0] ?? 'v0.3.4';
 }
